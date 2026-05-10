@@ -87,7 +87,7 @@ func (s *Service) Generate(ctx context.Context, model string, packet *prompts.Co
 	}
 
 	normalizePlan(&plan)
-	rendered := RenderPlan(packetMode(packet), plan)
+	rendered := RenderPlan(packet, plan)
 	finalResponse.OutputText = rendered
 
 	return Result{Plan: plan, OutputText: rendered, LLMResponse: finalResponse}, nil
@@ -146,11 +146,17 @@ func normalizePlan(plan *Plan) {
 	}
 }
 
-func RenderPlan(mode prompts.ResponseMode, plan Plan) string {
+func RenderPlan(packet *prompts.ContextPacket, plan Plan) string {
+	mode := packetMode(packet)
 	recommended := findStrategy(plan.Strategies, plan.RecommendedStrategyID)
+	showLikelihoods := shouldShowLikelihoods(packet)
 	if mode == prompts.ResponseModeCommunicationAdvice {
+		if isRiskSummaryPacket(packet) {
+			return renderRiskSummaryAdvice(plan)
+		}
+
 		lines := []string{
-			"Recommended approach: " + recommended.Label + fmt.Sprintf(" (likelihood %.0f%%)", recommended.LikelihoodOfSuccess*100),
+			withLikelihood("Recommended approach: "+recommended.Label, recommended.LikelihoodOfSuccess, showLikelihoods),
 			"Why: " + strings.TrimSpace(plan.RecommendationRationale),
 			"Draft message:",
 			strings.TrimSpace(recommended.MessageDraft),
@@ -175,7 +181,7 @@ func RenderPlan(mode prompts.ResponseMode, plan Plan) string {
 				if strategy.ID == recommended.ID {
 					continue
 				}
-				lines = append(lines, fmt.Sprintf("- %s (%.0f%%): %s", strategy.Label, strategy.LikelihoodOfSuccess*100, summarizeSentence(strategy.MessageDraft)))
+				lines = append(lines, "- "+withLikelihood(strategy.Label, strategy.LikelihoodOfSuccess, showLikelihoods)+": "+summarizeSentence(strategy.MessageDraft))
 			}
 		}
 
@@ -183,23 +189,112 @@ func RenderPlan(mode prompts.ResponseMode, plan Plan) string {
 	}
 
 	sections := []string{
-		"Recommended strategy: " + recommended.Label + fmt.Sprintf(" (likelihood %.0f%%)", recommended.LikelihoodOfSuccess*100),
+		withLikelihood("Recommended strategy: "+recommended.Label, recommended.LikelihoodOfSuccess, showLikelihoods),
 		"Recommendation rationale: " + strings.TrimSpace(plan.RecommendationRationale),
 	}
 	for index, strategy := range plan.Strategies {
-		sections = append(sections,
+		strategySection := []string{
 			fmt.Sprintf("Strategy %d - %s", index+1, strategy.Label),
-			fmt.Sprintf("Likelihood of success: %.0f%%", strategy.LikelihoodOfSuccess*100),
 			"Message draft:",
 			strings.TrimSpace(strategy.MessageDraft),
-			"Predicted response: "+strings.TrimSpace(strategy.PredictedResponse),
-			"Benefits: "+joinOrFallback(strategy.Benefits),
-			"Risks: "+joinOrFallback(strategy.Risks),
-			"Fallback: "+strings.TrimSpace(strategy.FallbackOption),
-		)
+			"Predicted response: " + strings.TrimSpace(strategy.PredictedResponse),
+			"Benefits: " + joinOrFallback(strategy.Benefits),
+			"Risks: " + joinOrFallback(strategy.Risks),
+			"Fallback: " + strings.TrimSpace(strategy.FallbackOption),
+		}
+		if showLikelihoods {
+			strategySection = append(strategySection[:1], append([]string{fmt.Sprintf("Likelihood of success: %.0f%%", strategy.LikelihoodOfSuccess*100)}, strategySection[1:]...)...)
+		}
+		sections = append(sections, strategySection...)
 	}
 
 	return strings.Join(sections, "\n\n")
+}
+
+func renderRiskSummaryAdvice(plan Plan) string {
+	recommended := findStrategy(plan.Strategies, plan.RecommendedStrategyID)
+	lines := []string{
+		"Executive summary:",
+		strings.TrimSpace(recommended.MessageDraft),
+		"",
+		"Why this framing:",
+		strings.TrimSpace(plan.RecommendationRationale),
+	}
+	if len(recommended.Benefits) > 0 {
+		lines = append(lines, "", "What to emphasize:")
+		for _, item := range recommended.Benefits {
+			lines = append(lines, "- "+item)
+		}
+	}
+	if len(recommended.Risks) > 0 {
+		lines = append(lines, "", "Watchouts:")
+		for _, item := range recommended.Risks {
+			lines = append(lines, "- "+item)
+		}
+	}
+	if fallback := strings.TrimSpace(recommended.FallbackOption); fallback != "" {
+		lines = append(lines, "", "Next step: "+fallback)
+	}
+	if len(plan.Strategies) > 1 {
+		lines = append(lines, "", "Alternative framings:")
+		for _, strategy := range plan.Strategies {
+			if strategy.ID == recommended.ID {
+				continue
+			}
+			lines = append(lines, "- "+strategy.Label+": "+summarizeSentence(strategy.MessageDraft))
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func withLikelihood(label string, likelihood float64, show bool) string {
+	if !show {
+		return label
+	}
+
+	return label + fmt.Sprintf(" (likelihood %.0f%%)", likelihood*100)
+}
+
+func shouldShowLikelihoods(packet *prompts.ContextPacket) bool {
+	return !isDecisionSummaryPacket(packet)
+}
+
+func isDecisionSummaryPacket(packet *prompts.ContextPacket) bool {
+	if packet == nil {
+		return false
+	}
+	goal := strings.ToLower(strings.TrimSpace(packet.Goal))
+	switch goal {
+	case "assess_risk", "summarize_topic", "prepare_meeting":
+		return true
+	}
+
+	text := strings.ToLower(strings.Join([]string{packet.Query, strings.Join(packet.Topics, " ")}, " "))
+	for _, cue := range []string{"steering committee", "executive summary", "summary", "summarize", "briefing"} {
+		if strings.Contains(text, cue) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isRiskSummaryPacket(packet *prompts.ContextPacket) bool {
+	if packet == nil {
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(packet.Goal), "assess_risk") {
+		return true
+	}
+	text := strings.ToLower(strings.Join([]string{packet.Query, strings.Join(packet.Topics, " ")}, " "))
+	for _, cue := range []string{"risk", "migration", "tradeoff", "steering committee"} {
+		if strings.Contains(text, cue) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func chooseRecommendedStrategyID(strategies []Strategy) string {

@@ -82,6 +82,8 @@ Rules:
 - Benefits and risks should be practical, not generic filler.
 - Fallback options should explain what to do if the strategy fails.
 - Likelihood values are pragmatic estimates between 0 and 1.
+- Likelihood values are model-side estimates only; do not introduce unsupported operational metrics, percentages, dates, or schedule figures inside message drafts or predicted responses.
+- If the case calls for quantified risk but the retrieved context lacks exact measurements, keep the message qualitative and explicitly say what should be quantified next.
 - Recommended strategy should be the one that best balances goal fit, social context, and risk.
 - Use cautious language for person-model context and belief context; do not overstate certainty.`) +
 		"\n\nSupported interaction goals:\n- " + strings.Join(SupportedInteractionGoals(), "\n- ") +

@@ -61,15 +61,7 @@ func BuildResponseSystemPrompt(packet *ContextPacket, userInstructions string) s
 		sections = append(sections, buildBeliefSection(packet))
 	}
 
-	sections = append(sections, strings.TrimSpace(`Grounding rules:
-- Use retrieved context when it is relevant and helpful.
-- Do not invent remembered facts that are not present in the context packet.
-- Treat memory as evidence with confidence, not absolute truth.
-- Treat person-model context as a working estimate, not a fact or diagnosis.
-- Use cautious language for people models: likely, may, seems, suggests.
-- Avoid moral judgments or definitive claims about a person's character.
-- If the context packet is sparse, answer normally and say less about memory.
-- Prefer concise, practical answers over long summaries.`))
+	sections = append(sections, buildGroundingRules(packet))
 
 	return strings.Join(filterEmptyStrings(sections), "\n\n")
 }
@@ -144,6 +136,51 @@ func buildBeliefSection(packet *ContextPacket) string {
 	}
 
 	return "Belief context:\n- " + strings.Join(packet.BeliefContext, "\n- ")
+}
+
+func buildGroundingRules(packet *ContextPacket) string {
+	rules := []string{
+		"Grounding rules:",
+		"- Use retrieved context when it is relevant and helpful.",
+		"- Do not invent remembered facts that are not present in the context packet.",
+		"- Treat memory as evidence with confidence, not absolute truth.",
+		"- Treat person-model context as a working estimate, not a fact or diagnosis.",
+		"- Use cautious language for people models: likely, may, seems, suggests.",
+		"- Avoid moral judgments or definitive claims about a person's character.",
+		"- If the context packet is sparse, answer normally and say less about memory.",
+		"- Prefer concise, practical answers over long summaries.",
+		"- Do not invent percentages, dates, durations, counts, latency figures, or schedule impacts unless they are explicitly present in the user input or context packet.",
+		"- If the task asks for quantified risk, tradeoffs, or a decision summary and exact metrics are missing, explain what is known, state the uncertainty clearly, and say what should be quantified next.",
+	}
+	if isRiskSensitivePacket(packet) {
+		rules = append(rules,
+			"- For risk-oriented answers, prefer qualitative ranges and concrete risk drivers over fabricated precision.",
+			"- You may repeat a concrete number only when the context packet already contains it, such as a slipped timeline or other retrieved fact.",
+		)
+	}
+
+	return strings.Join(rules, "\n")
+}
+
+func isRiskSensitivePacket(packet *ContextPacket) bool {
+	if packet == nil {
+		return false
+	}
+	text := strings.ToLower(strings.Join([]string{
+		strings.TrimSpace(packet.Goal),
+		strings.TrimSpace(packet.Query),
+		strings.Join(packet.Topics, " "),
+	}, " "))
+	if text == "" {
+		return false
+	}
+	for _, cue := range []string{"risk", "tradeoff", "approval", "steering committee", "migration", "quantified"} {
+		if strings.Contains(text, cue) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func packetMode(packet *ContextPacket) ResponseMode {
