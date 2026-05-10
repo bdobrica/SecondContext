@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/bdobrica/SecondContext/internal/config"
@@ -97,7 +98,13 @@ func TestHandleCreateResponse(t *testing.T) {
 		t.Fatalf("unexpected status %d body=%s", recorder.Code, recorder.Body.String())
 	}
 
-	if len(fakeClient.request.Messages) != 1 || fakeClient.request.Messages[0].Content != "Help me ask Alex to review the proposal." {
+	if len(fakeClient.request.Messages) != 2 {
+		t.Fatalf("unexpected llm request %#v", fakeClient.request)
+	}
+	if fakeClient.request.Messages[0].Role != "system" || !strings.Contains(fakeClient.request.Messages[0].Content, "Memory context:") {
+		t.Fatalf("unexpected llm request %#v", fakeClient.request)
+	}
+	if fakeClient.request.Messages[1].Content != "Help me ask Alex to review the proposal." {
 		t.Fatalf("unexpected llm request %#v", fakeClient.request)
 	}
 

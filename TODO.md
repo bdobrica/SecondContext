@@ -325,24 +325,24 @@ final_score =
 
 ### Tasks
 
-- [ ] Define context packet format.
-- [ ] Build memory context section.
-- [ ] Build people context section.
-- [ ] Build topic context section.
-- [ ] Build belief context section.
-- [ ] Build interaction goal section.
-- [ ] Add prompt template for normal answers.
-- [ ] Add prompt template for communication advice.
-- [ ] Add prompt template for scenario generation.
-- [ ] Add token budget handling.
-- [ ] Add memory deduplication before prompt injection.
-- [ ] Persist context packet for debugging.
+- [x] Define context packet format.
+- [x] Build memory context section.
+- [x] Build people context section.
+- [x] Build topic context section.
+- [x] Build belief context section.
+- [x] Build interaction goal section.
+- [x] Add prompt template for normal answers.
+- [x] Add prompt template for communication advice.
+- [x] Add prompt template for scenario generation.
+- [x] Add token budget handling.
+- [x] Add memory deduplication before prompt injection.
+- [x] Persist context packet for debugging.
 
 ### Deliverables
 
-- [ ] `/v1/responses` uses retrieved memory.
-- [ ] The assistant can cite or summarize remembered context.
-- [ ] The system avoids overloading the prompt with too much memory.
+- [x] `/v1/responses` uses retrieved memory.
+- [x] The assistant can cite or summarize remembered context.
+- [x] The system avoids overloading the prompt with too much memory.
 
 ---
 

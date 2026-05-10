@@ -14,6 +14,7 @@ import (
 	"github.com/bdobrica/SecondContext/internal/db"
 	"github.com/bdobrica/SecondContext/internal/llm"
 	"github.com/bdobrica/SecondContext/internal/models"
+	"github.com/bdobrica/SecondContext/internal/prompts"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
 )
@@ -51,10 +52,19 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messages, err := buildPromptMessages(request.Instructions, request.Input)
+	messages, err := buildPromptMessages("", request.Input)
 	if err != nil {
 		s.writeAPIError(w, r, http.StatusBadRequest, err.Error(), "invalid_request_error", "invalid_input", "input")
 		return
+	}
+
+	contextPacket, err := s.buildResponseContext(r.Context(), request, messages)
+	if err != nil {
+		s.logger.Warn("build response context", "error", err, "request_id", middleware.GetReqID(r.Context()))
+	}
+	systemPrompt := prompts.BuildResponseSystemPrompt(contextPacket, request.Instructions)
+	if strings.TrimSpace(systemPrompt) != "" {
+		messages = prependSystemMessage(messages, systemPrompt)
 	}
 
 	responseModel := request.Model
@@ -83,7 +93,7 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.dbPool != nil {
-		if err := s.persistAssistantMessage(r, session, upstreamResponse); err != nil {
+		if err := s.persistAssistantMessage(r, session, upstreamResponse, contextPacket); err != nil {
 			s.logger.Error("persist assistant response", "error", err, "request_id", middleware.GetReqID(r.Context()))
 			s.writeAPIError(w, r, http.StatusInternalServerError, "failed to persist assistant response", "server_error", "persistence_failed", "")
 			return
@@ -121,6 +131,9 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 
 	if session.ExternalID != "" {
 		response.Metadata["session_id"] = session.ExternalID
+	}
+	if contextPacket != nil {
+		response.Metadata["context_packet"] = contextPacket
 	}
 
 	writeJSON(w, http.StatusOK, response)
@@ -214,22 +227,43 @@ func (s *Server) ensureSession(ctx context.Context, repo *db.SessionRepository, 
 	})
 }
 
-func (s *Server) persistAssistantMessage(r *http.Request, session models.Session, response llm.GenerateResponse) error {
+func (s *Server) persistAssistantMessage(r *http.Request, session models.Session, response llm.GenerateResponse, contextPacket *prompts.ContextPacket) error {
 	if session.ID == "" {
 		return nil
 	}
 
 	messageRepo := db.NewMessageRepository(s.dbPool)
-	_, err := messageRepo.Create(r.Context(), db.CreateMessageParams{
+	metadata := map[string]any{}
+	if contextPacket != nil {
+		metadata["context_packet"] = contextPacket
+	}
+	metadataBytes, err := json.Marshal(metadata)
+	if err != nil {
+		return err
+	}
+	_, err = messageRepo.Create(r.Context(), db.CreateMessageParams{
 		SessionID: session.ID,
 		UserID:    session.UserID,
 		Role:      "assistant",
 		Content:   response.OutputText,
 		Model:     response.Model,
 		RequestID: middleware.GetReqID(r.Context()),
+		Metadata:  metadataBytes,
 	})
 
 	return err
+}
+
+func prependSystemMessage(messages []llm.Message, content string) []llm.Message {
+	if strings.TrimSpace(content) == "" {
+		return messages
+	}
+
+	result := make([]llm.Message, 0, len(messages)+1)
+	result = append(result, llm.Message{Role: "system", Content: content})
+	result = append(result, messages...)
+
+	return result
 }
 
 func buildPromptMessages(instructions string, rawInput json.RawMessage) ([]llm.Message, error) {
