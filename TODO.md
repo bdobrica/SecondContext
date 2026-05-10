@@ -286,14 +286,14 @@ interaction_outcomes
 
 ### Tasks
 
-- [ ] Implement recency decay function.
-- [ ] Implement configurable scoring weights.
-- [ ] Implement goal relevance scoring.
-- [ ] Implement confidence filtering.
-- [ ] Implement redundancy removal.
-- [ ] Add score breakdown to debug output.
-- [ ] Add tests for ranking behavior.
-- [ ] Add config for scoring weights.
+- [x] Implement recency decay function.
+- [x] Implement configurable scoring weights.
+- [x] Implement goal relevance scoring.
+- [x] Implement confidence filtering.
+- [x] Implement redundancy removal.
+- [x] Add score breakdown to debug output.
+- [x] Add tests for ranking behavior.
+- [x] Add config for scoring weights.
 
 ### Example Formula
 
@@ -310,9 +310,9 @@ final_score =
 
 ### Deliverables
 
-- [ ] Retrieved memories are reranked.
-- [ ] Debug output explains why each memory was selected.
-- [ ] Top memories are suitable for prompt injection.
+- [x] Retrieved memories are reranked.
+- [x] Debug output explains why each memory was selected.
+- [x] Top memories are suitable for prompt injection.
 
 ---
 

@@ -304,7 +304,7 @@ GET  /debug/person/:id
 
 ## Development status
 
-This project now has a working Stage 6 baseline:
+This project now has a working Stage 7 baseline:
 
 - Postgres-backed schema and repositories;
 - `GET /v1/models`;
@@ -316,7 +316,8 @@ This project now has a working Stage 6 baseline:
 - LLM-based memory extraction with JSON validation and repair;
 - extracted entity persistence in Postgres;
 - sparse token indexing alongside dense embeddings in Qdrant;
-- hybrid memory retrieval with filters and score breakdowns.
+- hybrid memory retrieval with filters and score breakdowns;
+- Go-side salience reranking with configurable weights, recency decay, goal relevance, and redundancy removal.
 
 Not implemented yet:
 
@@ -381,7 +382,7 @@ Core validation commands:
 - `curl http://localhost:8080/v1/responses -H 'Content-Type: application/json' -d '{"model":"context-agent-1","input":"Help me ask Alex to review the infrastructure proposal."}'`
 - `curl http://localhost:8080/memory/ingest -H 'Content-Type: application/json' -d '{"raw_text":"Alex prefers narrow review scopes.","summary":"Alex prefers narrow review scopes.","type":"person_preference","people":["Alex"],"topics":["infrastructure"],"importance":0.7,"utility":0.8,"belief_impact":0.2,"confidence":0.9}'`
 - `curl http://localhost:8080/memory/extract -H 'Content-Type: application/json' -d '{"raw_text":"Alex prefers tightly scoped infrastructure review requests and usually wants the API section only."}'`
-- `curl http://localhost:8080/memory/search -H 'Content-Type: application/json' -d '{"query":"api scoped review request","user_external_id":"dev-user","people":["Alex"],"confidence_threshold":0.5,"limit":5}'`
+- `curl http://localhost:8080/memory/search -H 'Content-Type: application/json' -d '{"query":"api scoped review request","goal":"pick the best review strategy for Alex","user_external_id":"dev-user","people":["Alex"],"confidence_threshold":0.5,"limit":5}'`
 - `curl 'http://localhost:8080/memory?user_external_id=dev-user'`
 
 ## Configuration

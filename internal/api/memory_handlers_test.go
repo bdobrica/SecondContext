@@ -258,7 +258,7 @@ func TestMemorySearchEndpoint(t *testing.T) {
 	}
 
 	searchRecorder := httptest.NewRecorder()
-	searchRequest := httptest.NewRequest(http.MethodPost, "/memory/search", bytes.NewReader([]byte(`{"query":"api scoped review request","user_external_id":"search-test-user","people":["Alex"],"confidence_threshold":0.5,"limit":5}`)))
+	searchRequest := httptest.NewRequest(http.MethodPost, "/memory/search", bytes.NewReader([]byte(`{"query":"api scoped review request","goal":"choose the best review strategy for Alex","user_external_id":"search-test-user","people":["Alex"],"confidence_threshold":0.5,"limit":5}`)))
 	searchRequest.Header.Set("Content-Type", "application/json")
 	server.Handler().ServeHTTP(searchRecorder, searchRequest)
 
@@ -278,6 +278,12 @@ func TestMemorySearchEndpoint(t *testing.T) {
 	}
 	if payload.Data[0].Scores.Dense == 0 || payload.Data[0].Scores.Sparse == 0 || payload.Data[0].Scores.Hybrid == 0 {
 		t.Fatalf("expected score breakdown %#v", payload.Data[0].Scores)
+	}
+	if payload.Data[0].Rank != 1 {
+		t.Fatalf("expected first result rank 1, got %#v", payload.Data[0])
+	}
+	if payload.Data[0].Scores.Final == 0 || payload.Data[0].Scores.Recency == 0 || payload.Data[0].Scores.GoalRelevance == 0 {
+		t.Fatalf("expected rerank scores %#v", payload.Data[0].Scores)
 	}
 
 	for _, memoryID := range createdIDs {

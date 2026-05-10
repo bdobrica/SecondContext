@@ -12,6 +12,7 @@ import (
 	"github.com/bdobrica/SecondContext/internal/llm"
 	"github.com/bdobrica/SecondContext/internal/models"
 	"github.com/bdobrica/SecondContext/internal/qdrant"
+	"github.com/bdobrica/SecondContext/internal/scoring"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -40,6 +41,7 @@ func (e *Error) Error() string {
 
 type SearchParams struct {
 	Query               string
+	Goal                string
 	UserExternalID      string
 	MemoryType          string
 	People              []string
@@ -50,12 +52,22 @@ type SearchParams struct {
 }
 
 type ScoreBreakdown struct {
-	Hybrid float64
-	Dense  float64
-	Sparse float64
+	Final                       float64
+	Hybrid                      float64
+	Dense                       float64
+	Sparse                      float64
+	Retrieval                   float64
+	Recency                     float64
+	Importance                  float64
+	Utility                     float64
+	GoalRelevance               float64
+	BeliefImpact                float64
+	Confidence                  float64
+	MaxSimilarityToHigherRanked float64
 }
 
 type Result struct {
+	Rank   int
 	Memory models.MemoryItem
 	Scores ScoreBreakdown
 }
@@ -86,33 +98,48 @@ func (s *Service) Search(ctx context.Context, params SearchParams) ([]Result, er
 	if limit <= 0 {
 		limit = 10
 	}
+	candidateLimit := expandedLimit(limit)
+	now := time.Now().UTC()
 
 	filter := buildFilter(user.ID, params)
-	denseResults, err := s.qdrant.SearchDense(ctx, s.cfg.Qdrant.Collection, dense.Vector, limit*3, filter)
+	denseResults, err := s.qdrant.SearchDense(ctx, s.cfg.Qdrant.Collection, dense.Vector, candidateLimit, filter)
 	if err != nil {
 		return nil, &Error{StatusCode: http.StatusBadGateway, Message: "dense search failed", Type: "server_error", Code: "dense_search_failed"}
 	}
-	sparseResults, err := s.qdrant.SearchSparse(ctx, s.cfg.Qdrant.Collection, sparse, limit*3, filter)
+	sparseResults, err := s.qdrant.SearchSparse(ctx, s.cfg.Qdrant.Collection, sparse, candidateLimit, filter)
 	if err != nil {
 		return nil, &Error{StatusCode: http.StatusBadGateway, Message: "sparse search failed", Type: "server_error", Code: "sparse_search_failed"}
 	}
-	hybridResults, err := s.qdrant.SearchHybrid(ctx, s.cfg.Qdrant.Collection, dense.Vector, sparse, limit, limit*3, filter)
+	hybridResults, err := s.qdrant.SearchHybrid(ctx, s.cfg.Qdrant.Collection, dense.Vector, sparse, candidateLimit, candidateLimit*3, filter)
 	if err != nil {
 		return nil, &Error{StatusCode: http.StatusBadGateway, Message: "hybrid search failed", Type: "server_error", Code: "hybrid_search_failed"}
+	}
+	if len(hybridResults) == 0 {
+		return []Result{}, nil
 	}
 
 	idScores := make(map[string]ScoreBreakdown, len(hybridResults))
 	ids := make([]string, 0, len(hybridResults))
+	maxHybrid := 0.0
 	for _, result := range hybridResults {
 		idScores[result.ID] = ScoreBreakdown{Hybrid: result.Score}
 		ids = append(ids, result.ID)
+		if result.Score > maxHybrid {
+			maxHybrid = result.Score
+		}
 	}
 	for _, result := range denseResults {
+		if _, ok := idScores[result.ID]; !ok {
+			continue
+		}
 		breakdown := idScores[result.ID]
 		breakdown.Dense = result.Score
 		idScores[result.ID] = breakdown
 	}
 	for _, result := range sparseResults {
+		if _, ok := idScores[result.ID]; !ok {
+			continue
+		}
 		breakdown := idScores[result.ID]
 		breakdown.Sparse = result.Score
 		idScores[result.ID] = breakdown
@@ -127,8 +154,8 @@ func (s *Service) Search(ctx context.Context, params SearchParams) ([]Result, er
 		byID[memory.ID] = memory
 	}
 
-	results := make([]Result, 0, len(ids))
-	now := time.Now().UTC()
+	goal := firstNonEmpty(params.Goal, params.Query)
+	candidates := make([]scoring.Candidate, 0, len(ids))
 	for _, id := range ids {
 		memory, ok := byID[id]
 		if !ok {
@@ -137,7 +164,41 @@ func (s *Service) Search(ctx context.Context, params SearchParams) ([]Result, er
 		if !params.IncludeExpired && memory.ExpiresAt != nil && memory.ExpiresAt.Before(now) {
 			continue
 		}
-		results = append(results, Result{Memory: memory, Scores: idScores[id]})
+		if params.ConfidenceThreshold != nil && memory.Confidence < clampScore(params.ConfidenceThreshold) {
+			continue
+		}
+		scores := idScores[id]
+		candidates = append(candidates, scoring.Candidate{
+			Memory:         memory,
+			RetrievalScore: normalizeByMax(scores.Hybrid, maxHybrid),
+			DenseScore:     scores.Dense,
+			SparseScore:    scores.Sparse,
+			HybridScore:    scores.Hybrid,
+			Goal:           goal,
+		})
+	}
+
+	ranked := scoring.RankMemories(candidates, now, s.cfg.Scoring, limit)
+	results := make([]Result, 0, len(ranked))
+	for _, rankedItem := range ranked {
+		results = append(results, Result{
+			Rank:   rankedItem.Rank,
+			Memory: rankedItem.Memory,
+			Scores: ScoreBreakdown{
+				Final:                       rankedItem.Breakdown.Final,
+				Hybrid:                      rankedItem.HybridScore,
+				Dense:                       rankedItem.DenseScore,
+				Sparse:                      rankedItem.SparseScore,
+				Retrieval:                   rankedItem.Breakdown.Retrieval,
+				Recency:                     rankedItem.Breakdown.Recency,
+				Importance:                  rankedItem.Breakdown.Importance,
+				Utility:                     rankedItem.Breakdown.Utility,
+				GoalRelevance:               rankedItem.Breakdown.GoalRelevance,
+				BeliefImpact:                rankedItem.Breakdown.BeliefImpact,
+				Confidence:                  rankedItem.Breakdown.Confidence,
+				MaxSimilarityToHigherRanked: rankedItem.Breakdown.MaxSimilarityToHigherRanked,
+			},
+		})
 	}
 
 	return results, nil
@@ -242,4 +303,26 @@ func MetadataMap(raw json.RawMessage) map[string]any {
 	}
 
 	return values
+}
+
+func expandedLimit(limit int) int {
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit*4 > 20 {
+		return limit * 4
+	}
+
+	return 20
+}
+
+func normalizeByMax(value, maxValue float64) float64 {
+	if value <= 0 || maxValue <= 0 {
+		return 0
+	}
+	if value >= maxValue {
+		return 1
+	}
+
+	return value / maxValue
 }

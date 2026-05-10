@@ -20,6 +20,7 @@ func (s *Server) handleMemorySearch(w http.ResponseWriter, r *http.Request) {
 	service := retrievalsvc.NewService(s.cfg, s.dbPool, s.llm)
 	results, err := service.Search(r.Context(), retrievalsvc.SearchParams{
 		Query:               request.Query,
+		Goal:                request.Goal,
 		UserExternalID:      request.UserExternalID,
 		MemoryType:          request.MemoryType,
 		People:              request.People,
@@ -36,11 +37,21 @@ func (s *Server) handleMemorySearch(w http.ResponseWriter, r *http.Request) {
 	response := memorySearchResponse{Data: make([]memorySearchResultResponse, 0, len(results))}
 	for _, result := range results {
 		response.Data = append(response.Data, memorySearchResultResponse{
+			Rank:   result.Rank,
 			Memory: toMemoryResponse(result.Memory),
 			Scores: memorySearchScoresResponse{
-				Hybrid: result.Scores.Hybrid,
-				Dense:  result.Scores.Dense,
-				Sparse: result.Scores.Sparse,
+				Final:                       result.Scores.Final,
+				Hybrid:                      result.Scores.Hybrid,
+				Dense:                       result.Scores.Dense,
+				Sparse:                      result.Scores.Sparse,
+				Retrieval:                   result.Scores.Retrieval,
+				Recency:                     result.Scores.Recency,
+				Importance:                  result.Scores.Importance,
+				Utility:                     result.Scores.Utility,
+				GoalRelevance:               result.Scores.GoalRelevance,
+				BeliefImpact:                result.Scores.BeliefImpact,
+				Confidence:                  result.Scores.Confidence,
+				MaxSimilarityToHigherRanked: result.Scores.MaxSimilarityToHigherRanked,
 			},
 		})
 	}

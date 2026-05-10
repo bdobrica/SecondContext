@@ -17,6 +17,7 @@ type Config struct {
 	Postgres PostgresConfig
 	Qdrant   QdrantConfig
 	OpenAI   OpenAIConfig
+	Scoring  ScoringConfig
 }
 
 type AppConfig struct {
@@ -69,6 +70,18 @@ type OpenAIConfig struct {
 	RequestTimeout time.Duration
 }
 
+type ScoringConfig struct {
+	RetrievalWeight     float64
+	RecencyWeight       float64
+	ImportanceWeight    float64
+	UtilityWeight       float64
+	GoalRelevanceWeight float64
+	BeliefImpactWeight  float64
+	ConfidenceWeight    float64
+	RecencyHalfLifeDays float64
+	RedundancyThreshold float64
+}
+
 func Load() (Config, error) {
 	logLevel, err := parseLogLevel(getEnv("LOG_LEVEL", "info"))
 	if err != nil {
@@ -101,6 +114,43 @@ func Load() (Config, error) {
 	}
 
 	qdrantVectorSize, err := parseInt("QDRANT_VECTOR_SIZE", 1536)
+	if err != nil {
+		return Config{}, err
+	}
+
+	retrievalWeight, err := parseFloat64("SCORING_RETRIEVAL_WEIGHT", 0.35)
+	if err != nil {
+		return Config{}, err
+	}
+	recencyWeight, err := parseFloat64("SCORING_RECENCY_WEIGHT", 0.15)
+	if err != nil {
+		return Config{}, err
+	}
+	importanceWeight, err := parseFloat64("SCORING_IMPORTANCE_WEIGHT", 0.15)
+	if err != nil {
+		return Config{}, err
+	}
+	utilityWeight, err := parseFloat64("SCORING_UTILITY_WEIGHT", 0.15)
+	if err != nil {
+		return Config{}, err
+	}
+	goalRelevanceWeight, err := parseFloat64("SCORING_GOAL_RELEVANCE_WEIGHT", 0.10)
+	if err != nil {
+		return Config{}, err
+	}
+	beliefImpactWeight, err := parseFloat64("SCORING_BELIEF_IMPACT_WEIGHT", 0.05)
+	if err != nil {
+		return Config{}, err
+	}
+	confidenceWeight, err := parseFloat64("SCORING_CONFIDENCE_WEIGHT", 0.05)
+	if err != nil {
+		return Config{}, err
+	}
+	recencyHalfLifeDays, err := parseFloat64("SCORING_RECENCY_HALF_LIFE_DAYS", 30)
+	if err != nil {
+		return Config{}, err
+	}
+	redundancyThreshold, err := parseFloat64("SCORING_REDUNDANCY_THRESHOLD", 0.82)
 	if err != nil {
 		return Config{}, err
 	}
@@ -146,6 +196,17 @@ func Load() (Config, error) {
 			ChatModel:      getEnv("OPENAI_CHAT_MODEL", "gpt-4.1-mini"),
 			EmbeddingModel: getEnv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"),
 			RequestTimeout: requestTimeout,
+		},
+		Scoring: ScoringConfig{
+			RetrievalWeight:     retrievalWeight,
+			RecencyWeight:       recencyWeight,
+			ImportanceWeight:    importanceWeight,
+			UtilityWeight:       utilityWeight,
+			GoalRelevanceWeight: goalRelevanceWeight,
+			BeliefImpactWeight:  beliefImpactWeight,
+			ConfidenceWeight:    confidenceWeight,
+			RecencyHalfLifeDays: recencyHalfLifeDays,
+			RedundancyThreshold: redundancyThreshold,
 		},
 	}, nil
 }
@@ -215,6 +276,20 @@ func parseInt32(key string, fallback int32) (int32, error) {
 	}
 
 	return int32(parsed), nil
+}
+
+func parseFloat64(key string, fallback float64) (float64, error) {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback, nil
+	}
+
+	parsed, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parse %s: %w", key, err)
+	}
+
+	return parsed, nil
 }
 
 func parseDuration(key, fallback string) (time.Duration, error) {

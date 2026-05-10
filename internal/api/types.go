@@ -153,6 +153,7 @@ type memoryDeleteResponse struct {
 
 type memorySearchRequest struct {
 	Query               string   `json:"query"`
+	Goal                string   `json:"goal,omitempty"`
 	UserExternalID      string   `json:"user_external_id,omitempty"`
 	MemoryType          string   `json:"memory_type,omitempty"`
 	People              []string `json:"people,omitempty"`
@@ -163,12 +164,22 @@ type memorySearchRequest struct {
 }
 
 type memorySearchScoresResponse struct {
-	Hybrid float64 `json:"hybrid"`
-	Dense  float64 `json:"dense"`
-	Sparse float64 `json:"sparse"`
+	Final                       float64 `json:"final"`
+	Hybrid                      float64 `json:"hybrid"`
+	Dense                       float64 `json:"dense"`
+	Sparse                      float64 `json:"sparse"`
+	Retrieval                   float64 `json:"retrieval"`
+	Recency                     float64 `json:"recency"`
+	Importance                  float64 `json:"importance"`
+	Utility                     float64 `json:"utility"`
+	GoalRelevance               float64 `json:"goal_relevance"`
+	BeliefImpact                float64 `json:"belief_impact"`
+	Confidence                  float64 `json:"confidence"`
+	MaxSimilarityToHigherRanked float64 `json:"max_similarity_to_higher_ranked"`
 }
 
 type memorySearchResultResponse struct {
+	Rank   int                        `json:"rank"`
 	Memory memoryResponse             `json:"memory"`
 	Scores memorySearchScoresResponse `json:"scores"`
 }
