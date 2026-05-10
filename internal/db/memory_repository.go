@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"time"
 
 	"github.com/bdobrica/SecondContext/internal/models"
@@ -211,6 +212,68 @@ func (r *MemoryRepository) ListByUser(ctx context.Context, userID string, limit 
 	}
 
 	return memories, rows.Err()
+}
+
+func (r *MemoryRepository) ListByIDs(ctx context.Context, ids []string) ([]models.MemoryItem, error) {
+	if len(ids) == 0 {
+		return []models.MemoryItem{}, nil
+	}
+
+	query := `
+		SELECT id::text, user_id::text, COALESCE(session_id::text, ''), COALESCE(source_message_id::text, ''), COALESCE(qdrant_point_id, ''), memory_type, source, raw_text, summary, people, topics, importance, utility, belief_impact, confidence, expires_at, metadata, created_at, updated_at
+		FROM memory_items
+		WHERE id = ANY($1::uuid[])
+	`
+
+	rows, err := r.pool.Query(ctx, query, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	memories := make([]models.MemoryItem, 0, len(ids))
+	for rows.Next() {
+		var memory models.MemoryItem
+		var metadata []byte
+		if err := rows.Scan(
+			&memory.ID,
+			&memory.UserID,
+			&memory.SessionID,
+			&memory.SourceMessageID,
+			&memory.QdrantPointID,
+			&memory.MemoryType,
+			&memory.Source,
+			&memory.RawText,
+			&memory.Summary,
+			&memory.People,
+			&memory.Topics,
+			&memory.Importance,
+			&memory.Utility,
+			&memory.BeliefImpact,
+			&memory.Confidence,
+			&memory.ExpiresAt,
+			&metadata,
+			&memory.CreatedAt,
+			&memory.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		memory.Metadata = scanJSON(metadata)
+		memories = append(memories, memory)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	order := make(map[string]int, len(ids))
+	for index, id := range ids {
+		order[id] = index
+	}
+	sort.Slice(memories, func(i, j int) bool {
+		return order[memories[i].ID] < order[memories[j].ID]
+	})
+
+	return memories, nil
 }
 
 func (r *MemoryRepository) Delete(ctx context.Context, memoryID string) error {

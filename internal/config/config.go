@@ -53,10 +53,12 @@ type PostgresConfig struct {
 }
 
 type QdrantConfig struct {
-	URL        string
-	APIKey     string
-	Collection string
-	VectorSize int
+	URL          string
+	APIKey       string
+	Collection   string
+	VectorSize   int
+	DenseVector  string
+	SparseVector string
 }
 
 type OpenAIConfig struct {
@@ -131,10 +133,12 @@ func Load() (Config, error) {
 			MinConns: postgresMinConns,
 		},
 		Qdrant: QdrantConfig{
-			URL:        getEnv("QDRANT_URL", "http://localhost:6333"),
-			APIKey:     os.Getenv("QDRANT_API_KEY"),
-			Collection: getEnv("QDRANT_COLLECTION", "memory_items"),
-			VectorSize: qdrantVectorSize,
+			URL:          getEnv("QDRANT_URL", "http://localhost:6333"),
+			APIKey:       os.Getenv("QDRANT_API_KEY"),
+			Collection:   getEnv("QDRANT_COLLECTION", "memory_items"),
+			VectorSize:   qdrantVectorSize,
+			DenseVector:  getEnv("QDRANT_DENSE_VECTOR_NAME", "dense"),
+			SparseVector: getEnv("QDRANT_SPARSE_VECTOR_NAME", "sparse"),
 		},
 		OpenAI: OpenAIConfig{
 			BaseURL:        getEnv("OPENAI_BASE_URL", "https://api.openai.com/v1"),

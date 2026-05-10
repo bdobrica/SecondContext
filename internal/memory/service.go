@@ -12,6 +12,7 @@ import (
 	"github.com/bdobrica/SecondContext/internal/llm"
 	"github.com/bdobrica/SecondContext/internal/models"
 	"github.com/bdobrica/SecondContext/internal/qdrant"
+	"github.com/bdobrica/SecondContext/internal/retrieval"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -150,10 +151,12 @@ func (s *Service) Ingest(ctx context.Context, params IngestParams) (Record, erro
 	}
 
 	pointID := record.ID
+	sparseVector := retrieval.BuildSparseVector(record.Summary)
 
 	if err := s.qdrant.UpsertPoint(ctx, s.cfg.Qdrant.Collection, qdrant.Point{
-		ID:     pointID,
-		Vector: embedding.Vector,
+		ID:           pointID,
+		DenseVector:  embedding.Vector,
+		SparseVector: sparseVector,
 		Payload: map[string]any{
 			"memory_id":     record.ID,
 			"user_id":       record.UserID,
@@ -165,6 +168,7 @@ func (s *Service) Ingest(ctx context.Context, params IngestParams) (Record, erro
 			"utility":       record.Utility,
 			"belief_impact": record.BeliefImpact,
 			"confidence":    record.Confidence,
+			"expires_at":    expiresAtPayload(expiresAt),
 		},
 	}); err != nil {
 		_ = memories.Delete(ctx, record.ID)
@@ -332,4 +336,12 @@ func fallbackSource(value string) string {
 	}
 
 	return strings.TrimSpace(value)
+}
+
+func expiresAtPayload(value *time.Time) any {
+	if value == nil {
+		return nil
+	}
+
+	return value.UTC().Format(time.RFC3339)
 }

@@ -150,3 +150,29 @@ type memoryDeleteResponse struct {
 	ID      string `json:"id"`
 	Deleted bool   `json:"deleted"`
 }
+
+type memorySearchRequest struct {
+	Query               string   `json:"query"`
+	UserExternalID      string   `json:"user_external_id,omitempty"`
+	MemoryType          string   `json:"memory_type,omitempty"`
+	People              []string `json:"people,omitempty"`
+	Topics              []string `json:"topics,omitempty"`
+	ConfidenceThreshold *float64 `json:"confidence_threshold,omitempty"`
+	IncludeExpired      bool     `json:"include_expired,omitempty"`
+	Limit               int      `json:"limit,omitempty"`
+}
+
+type memorySearchScoresResponse struct {
+	Hybrid float64 `json:"hybrid"`
+	Dense  float64 `json:"dense"`
+	Sparse float64 `json:"sparse"`
+}
+
+type memorySearchResultResponse struct {
+	Memory memoryResponse             `json:"memory"`
+	Scores memorySearchScoresResponse `json:"scores"`
+}
+
+type memorySearchResponse struct {
+	Data []memorySearchResultResponse `json:"data"`
+}

@@ -50,6 +50,7 @@ func (s *Server) Handler() http.Handler {
 	router.Post("/v1/responses", s.handleCreateResponse)
 	router.Post("/memory/ingest", s.handleMemoryIngest)
 	router.Post("/memory/extract", s.handleMemoryExtract)
+	router.Post("/memory/search", s.handleMemorySearch)
 	router.Get("/memory", s.handleListMemories)
 	router.Delete("/memory/{memoryID}", s.handleDeleteMemory)
 

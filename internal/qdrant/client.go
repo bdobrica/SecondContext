@@ -14,21 +14,39 @@ import (
 )
 
 type Client struct {
-	baseURL    string
-	apiKey     string
-	httpClient *http.Client
+	baseURL      string
+	apiKey       string
+	httpClient   *http.Client
+	denseVector  string
+	sparseVector string
 }
 
 type Point struct {
-	ID      string
-	Vector  []float64
-	Payload map[string]any
+	ID           string
+	DenseVector  []float64
+	SparseVector SparseVector
+	Payload      map[string]any
 }
 
 type SearchResult struct {
 	ID      string
 	Score   float64
 	Payload map[string]any
+}
+
+type searchResultWire struct {
+	ID      any            `json:"id"`
+	Score   float64        `json:"score"`
+	Payload map[string]any `json:"payload"`
+}
+
+type SparseVector struct {
+	Indices []uint32  `json:"indices"`
+	Values  []float64 `json:"values"`
+}
+
+type Filter struct {
+	Must []map[string]any `json:"must,omitempty"`
 }
 
 type qdrantErrorResponse struct {
@@ -40,8 +58,10 @@ type qdrantErrorResponse struct {
 
 func NewClient(cfg config.QdrantConfig) *Client {
 	return &Client{
-		baseURL: strings.TrimRight(cfg.URL, "/"),
-		apiKey:  strings.TrimSpace(cfg.APIKey),
+		baseURL:      strings.TrimRight(cfg.URL, "/"),
+		apiKey:       strings.TrimSpace(cfg.APIKey),
+		denseVector:  firstNonEmpty(cfg.DenseVector, "dense"),
+		sparseVector: firstNonEmpty(cfg.SparseVector, "sparse"),
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -51,8 +71,13 @@ func NewClient(cfg config.QdrantConfig) *Client {
 func (c *Client) EnsureCollection(ctx context.Context, collection string, vectorSize int) error {
 	body, err := json.Marshal(map[string]any{
 		"vectors": map[string]any{
-			"size":     vectorSize,
-			"distance": "Cosine",
+			c.denseVector: map[string]any{
+				"size":     vectorSize,
+				"distance": "Cosine",
+			},
+		},
+		"sparse_vectors": map[string]any{
+			c.sparseVector: map[string]any{},
 		},
 	})
 	if err != nil {
@@ -68,10 +93,17 @@ func (c *Client) EnsureCollection(ctx context.Context, collection string, vector
 }
 
 func (c *Client) UpsertPoint(ctx context.Context, collection string, point Point) error {
+	vector := map[string]any{
+		c.denseVector: point.DenseVector,
+	}
+	if len(point.SparseVector.Indices) > 0 {
+		vector[c.sparseVector] = point.SparseVector
+	}
+
 	body, err := json.Marshal(map[string]any{
 		"points": []map[string]any{{
 			"id":      point.ID,
-			"vector":  point.Vector,
+			"vector":  vector,
 			"payload": point.Payload,
 		}},
 	})
@@ -92,11 +124,93 @@ func (c *Client) DeletePoint(ctx context.Context, collection, pointID string) er
 }
 
 func (c *Client) Search(ctx context.Context, collection string, vector []float64, limit int) ([]SearchResult, error) {
+	return c.SearchDense(ctx, collection, vector, limit, nil)
+}
+
+func (c *Client) SearchDense(ctx context.Context, collection string, vector []float64, limit int, filter *Filter) ([]SearchResult, error) {
 	if limit <= 0 {
 		limit = 5
 	}
+	bodyMap := map[string]any{
+		"query":        vector,
+		"using":        c.denseVector,
+		"limit":        limit,
+		"with_payload": true,
+	}
+	if filter != nil && len(filter.Must) > 0 {
+		bodyMap["filter"] = filter
+	}
+	body, err := json.Marshal(bodyMap)
+	if err != nil {
+		return nil, err
+	}
+
+	var response struct {
+		Result json.RawMessage `json:"result"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/collections/"+collection+"/points/query", body, &response); err != nil {
+		return nil, err
+	}
+
+	return parseSearchResults(response.Result)
+}
+
+func (c *Client) SearchSparse(ctx context.Context, collection string, vector SparseVector, limit int, filter *Filter) ([]SearchResult, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	bodyMap := map[string]any{
+		"query":        vector,
+		"using":        c.sparseVector,
+		"limit":        limit,
+		"with_payload": true,
+	}
+	if filter != nil && len(filter.Must) > 0 {
+		bodyMap["filter"] = filter
+	}
+	body, err := json.Marshal(bodyMap)
+	if err != nil {
+		return nil, err
+	}
+
+	var response struct {
+		Result json.RawMessage `json:"result"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/collections/"+collection+"/points/query", body, &response); err != nil {
+		return nil, err
+	}
+
+	return parseSearchResults(response.Result)
+}
+
+func (c *Client) SearchHybrid(ctx context.Context, collection string, dense []float64, sparse SparseVector, limit, prefetchLimit int, filter *Filter) ([]SearchResult, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	if prefetchLimit <= 0 {
+		prefetchLimit = limit * 3
+	}
+
+	densePrefetch := map[string]any{
+		"query": dense,
+		"using": c.denseVector,
+		"limit": prefetchLimit,
+	}
+	sparsePrefetch := map[string]any{
+		"query": sparse,
+		"using": c.sparseVector,
+		"limit": prefetchLimit,
+	}
+	if filter != nil && len(filter.Must) > 0 {
+		densePrefetch["filter"] = filter
+		sparsePrefetch["filter"] = filter
+	}
+
 	body, err := json.Marshal(map[string]any{
-		"vector":       vector,
+		"prefetch": []map[string]any{densePrefetch, sparsePrefetch},
+		"query": map[string]any{
+			"fusion": "rrf",
+		},
 		"limit":        limit,
 		"with_payload": true,
 	})
@@ -105,22 +219,13 @@ func (c *Client) Search(ctx context.Context, collection string, vector []float64
 	}
 
 	var response struct {
-		Result []struct {
-			ID      string         `json:"id"`
-			Score   float64        `json:"score"`
-			Payload map[string]any `json:"payload"`
-		} `json:"result"`
+		Result json.RawMessage `json:"result"`
 	}
-	if err := c.do(ctx, http.MethodPost, "/collections/"+collection+"/points/search", body, &response); err != nil {
+	if err := c.do(ctx, http.MethodPost, "/collections/"+collection+"/points/query", body, &response); err != nil {
 		return nil, err
 	}
 
-	results := make([]SearchResult, 0, len(response.Result))
-	for _, item := range response.Result {
-		results = append(results, SearchResult{ID: item.ID, Score: item.Score, Payload: item.Payload})
-	}
-
-	return results, nil
+	return parseSearchResults(response.Result)
 }
 
 func (c *Client) do(ctx context.Context, method, path string, body []byte, out any) error {
@@ -166,4 +271,50 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, out a
 	}
 
 	return nil
+}
+
+func stringifyID(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	case float64:
+		return fmt.Sprintf("%.0f", typed)
+	default:
+		return fmt.Sprintf("%v", typed)
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+
+	return ""
+}
+
+func parseSearchResults(raw json.RawMessage) ([]SearchResult, error) {
+	var direct []searchResultWire
+	if err := json.Unmarshal(raw, &direct); err == nil {
+		return mapSearchResults(direct), nil
+	}
+
+	var nested struct {
+		Points []searchResultWire `json:"points"`
+	}
+	if err := json.Unmarshal(raw, &nested); err != nil {
+		return nil, err
+	}
+
+	return mapSearchResults(nested.Points), nil
+}
+
+func mapSearchResults(items []searchResultWire) []SearchResult {
+	results := make([]SearchResult, 0, len(items))
+	for _, item := range items {
+		results = append(results, SearchResult{ID: stringifyID(item.ID), Score: item.Score, Payload: item.Payload})
+	}
+
+	return results
 }

@@ -254,26 +254,26 @@ interaction_outcomes
 
 ### Tasks
 
-- [ ] Add sparse/BM25 indexing strategy.
-- [ ] Configure Qdrant collection for dense and sparse vectors.
-- [ ] Store sparse representation for memory items.
-- [ ] Implement hybrid search in Qdrant.
-- [ ] Add metadata filters:
-  - [ ] user ID;
-  - [ ] memory type;
-  - [ ] people;
-  - [ ] topics;
-  - [ ] expiry;
-  - [ ] confidence threshold.
-- [ ] Implement `POST /memory/search`.
-- [ ] Return score breakdown where possible.
-- [ ] Add retrieval unit tests.
+- [x] Add sparse/BM25 indexing strategy.
+- [x] Configure Qdrant collection for dense and sparse vectors.
+- [x] Store sparse representation for memory items.
+- [x] Implement hybrid search in Qdrant.
+- [x] Add metadata filters:
+  - [x] user ID;
+  - [x] memory type;
+  - [x] people;
+  - [x] topics;
+  - [x] expiry;
+  - [x] confidence threshold.
+- [x] Implement `POST /memory/search`.
+- [x] Return score breakdown where possible.
+- [x] Add retrieval unit tests.
 
 ### Deliverables
 
-- [ ] User query retrieves relevant memories.
-- [ ] Hybrid retrieval works better than dense-only for keyword-heavy queries.
-- [ ] Search results include memory metadata.
+- [x] User query retrieves relevant memories.
+- [x] Hybrid retrieval works better than dense-only for keyword-heavy queries.
+- [x] Search results include memory metadata.
 
 ---
 
