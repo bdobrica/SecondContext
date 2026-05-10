@@ -1,0 +1,132 @@
+{
+  "scenario_name": "Alex infrastructure proposal demo",
+  "user_external_id_prefix": "stage14-demo",
+  "user_display_name": "Stage 14 Demo User",
+  "query": "Help me ask Alex to review the infrastructure proposal this week. He is busy, and Dana will care about quantified risk before approval.",
+  "goal": "get_review",
+  "people": ["Alex", "Dana"],
+  "topics": ["api_review", "infrastructure_proposal", "risk_quantification"],
+  "strategy_instructions": "Generate concise stakeholder-facing options and recommend the lowest-friction path that still sets Dana up for quantified risk review later.",
+  "outcome_text": "Alex replied quickly and agreed to review, but only if I narrow the request to the API section and include a short quantified risk summary for Dana.",
+  "follow_up_query": "Draft the revised follow-up to Alex and include a short note I can send Dana after Alex reviews it.",
+  "memories": [
+    {
+      "key": "alex_prefers_narrow_scope",
+      "raw_text": "Alex prefers review requests that are tightly scoped and easy to answer quickly.",
+      "summary": "Alex prefers tightly scoped review requests that are quick to answer.",
+      "type": "person_preference",
+      "source": "demo.stage14",
+      "people": ["Alex"],
+      "topics": ["api_review", "infrastructure_proposal"],
+      "importance": 0.92,
+      "utility": 0.95,
+      "belief_impact": 0.34,
+      "confidence": 0.94
+    },
+    {
+      "key": "alex_low_capacity",
+      "raw_text": "Alex has low capacity this week and responds best to small asks with explicit boundaries.",
+      "summary": "Alex has low capacity this week and responds best to small, bounded asks.",
+      "type": "interaction_observation",
+      "source": "demo.stage14",
+      "people": ["Alex"],
+      "topics": ["api_review", "infrastructure_proposal"],
+      "importance": 0.89,
+      "utility": 0.91,
+      "belief_impact": 0.27,
+      "confidence": 0.9
+    },
+    {
+      "key": "alex_api_strength",
+      "raw_text": "Alex is especially effective reviewing API boundaries, rollout risks, and implementation edge cases.",
+      "summary": "Alex is especially effective reviewing API boundaries, rollout risks, and edge cases.",
+      "type": "topic_fact",
+      "source": "demo.stage14",
+      "people": ["Alex"],
+      "topics": ["api_review", "infrastructure_proposal"],
+      "importance": 0.81,
+      "utility": 0.88,
+      "belief_impact": 0.22,
+      "confidence": 0.9
+    },
+    {
+      "key": "dana_wants_quantified_risk",
+      "raw_text": "Dana is the approver and usually wants a short quantified risk summary before she signs off.",
+      "summary": "Dana usually wants a short quantified risk summary before approval.",
+      "type": "person_preference",
+      "source": "demo.stage14",
+      "people": ["Dana"],
+      "topics": ["risk_quantification", "infrastructure_proposal"],
+      "importance": 0.86,
+      "utility": 0.9,
+      "belief_impact": 0.31,
+      "confidence": 0.92
+    },
+    {
+      "key": "prior_short_requests_worked",
+      "raw_text": "Previous asks to Alex landed better when they were short, specific, and framed around one subsystem at a time.",
+      "summary": "Previous asks to Alex worked better when they were short, specific, and limited to one subsystem.",
+      "type": "interaction_observation",
+      "source": "demo.stage14",
+      "people": ["Alex"],
+      "topics": ["api_review", "infrastructure_proposal"],
+      "importance": 0.88,
+      "utility": 0.93,
+      "belief_impact": 0.29,
+      "confidence": 0.91
+    }
+  ],
+  "people_models": [
+    {
+      "person_name": "Alex",
+      "topic_name": "api_review",
+      "topic_aliases": ["api"],
+      "niceness": 0.79,
+      "readiness": 0.58,
+      "competence": 0.93,
+      "capacity": 0.31,
+      "confidence": 0.87,
+      "evidence_memory_keys": [
+        "alex_prefers_narrow_scope",
+        "alex_low_capacity",
+        "alex_api_strength",
+        "prior_short_requests_worked"
+      ]
+    },
+    {
+      "person_name": "Dana",
+      "topic_name": "risk_quantification",
+      "topic_aliases": ["approval", "risk"],
+      "niceness": 0.74,
+      "readiness": 0.66,
+      "competence": 0.77,
+      "capacity": 0.62,
+      "confidence": 0.8,
+      "evidence_memory_keys": [
+        "dana_wants_quantified_risk"
+      ]
+    }
+  ],
+  "beliefs": [
+    {
+      "topic_name": "infrastructure_proposal",
+      "claim": "A narrow API-only review request is the highest-probability way to get Alex's response this week.",
+      "stance": "supports",
+      "confidence": 0.85,
+      "evidence_memory_keys": [
+        "alex_prefers_narrow_scope",
+        "alex_low_capacity",
+        "prior_short_requests_worked"
+      ]
+    },
+    {
+      "topic_name": "risk_quantification",
+      "claim": "Dana will want quantified risk framing before approving the infrastructure proposal.",
+      "stance": "supports",
+      "confidence": 0.82,
+      "evidence_memory_keys": [
+        "dana_wants_quantified_risk"
+      ]
+    }
+  ]
+}

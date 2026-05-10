@@ -434,6 +434,26 @@ Core validation commands:
 - `curl http://localhost:8080/debug/person/<person-id>`
 - `curl -X PUT http://localhost:8080/debug/person/<person-id> -H 'Content-Type: application/json' -d '{"topic_name":"api_review","topic_aliases":["api"],"capacity":0.25,"confidence":0.9}'`
 
+## Stage 14 demo
+
+Stage 14 now ships with a repeatable end-to-end demo runner.
+
+It seeds a compact Alex-and-Dana scenario, compares stateless and memory-augmented responses, generates communication strategies, records an outcome, and then asks a follow-up question to show how the new outcome changes later retrieval.
+
+Run it against an embedded temporary dev server:
+
+```bash
+make demo-stage14
+```
+
+Or point it at an already running dev API:
+
+```bash
+SECOND_CONTEXT_BASE_URL=http://localhost:8080 make demo-stage14
+```
+
+The runner prints the demo user and session IDs so you can inspect the run through the debug endpoints. More detail is in `docs/stage14-demo.md`.
+
 ## Configuration
 
 Current environment variables:

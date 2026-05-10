@@ -536,19 +536,19 @@ Alex replied quickly and agreed to review, but asked me to narrow the request to
 
 ### Tasks
 
-- [ ] Define demo characters.
-- [ ] Define demo topics.
-- [ ] Seed initial memories.
-- [ ] Seed person/topic models.
-- [ ] Seed belief records.
-- [ ] Ask a communication task.
-- [ ] Show retrieved memories.
-- [ ] Generate strategies.
-- [ ] Pick recommended strategy.
-- [ ] Submit fake or real outcome.
-- [ ] Show model update.
-- [ ] Ask a follow-up task.
-- [ ] Show changed behavior.
+- [x] Define demo characters.
+- [x] Define demo topics.
+- [x] Seed initial memories.
+- [x] Seed person/topic models.
+- [x] Seed belief records.
+- [x] Ask a communication task.
+- [x] Show retrieved memories.
+- [x] Generate strategies.
+- [x] Pick recommended strategy.
+- [x] Submit fake or real outcome.
+- [x] Show model update.
+- [x] Ask a follow-up task.
+- [x] Show changed behavior.
 
 ### Suggested Demo
 
@@ -567,9 +567,9 @@ The assistant should recommend a narrow, low-friction request to Alex.
 
 ### Deliverables
 
-- [ ] Repeatable demo script.
-- [ ] Seed data.
-- [ ] Before/after comparison.
+- [x] Repeatable demo script.
+- [x] Seed data.
+- [x] Before/after comparison.
 - [ ] Screenshots or recording.
 
 ---
