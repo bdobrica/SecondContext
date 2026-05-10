@@ -14,9 +14,10 @@ import (
 )
 
 type fakeLLMClient struct {
-	response llm.GenerateResponse
-	err      error
-	request  llm.GenerateRequest
+	response      llm.GenerateResponse
+	embedResponse llm.EmbedResponse
+	err           error
+	request       llm.GenerateRequest
 }
 
 func (f *fakeLLMClient) Generate(_ context.Context, request llm.GenerateRequest) (llm.GenerateResponse, error) {
@@ -26,6 +27,17 @@ func (f *fakeLLMClient) Generate(_ context.Context, request llm.GenerateRequest)
 	}
 
 	return f.response, nil
+}
+
+func (f *fakeLLMClient) Embed(_ context.Context, _ llm.EmbedRequest) (llm.EmbedResponse, error) {
+	if f.err != nil {
+		return llm.EmbedResponse{}, f.err
+	}
+	if len(f.embedResponse.Vector) == 0 {
+		return llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}}, nil
+	}
+
+	return f.embedResponse, nil
 }
 
 func TestHandleListModels(t *testing.T) {

@@ -47,6 +47,21 @@ type openAIErrorResponse struct {
 	} `json:"error"`
 }
 
+type openAIEmbeddingsRequest struct {
+	Model string `json:"model"`
+	Input string `json:"input"`
+}
+
+type openAIEmbeddingsResponse struct {
+	Data []struct {
+		Embedding []float64 `json:"embedding"`
+	} `json:"data"`
+	Usage struct {
+		PromptTokens int `json:"prompt_tokens"`
+		TotalTokens  int `json:"total_tokens"`
+	} `json:"usage"`
+}
+
 func NewOpenAIClient(cfg config.OpenAIConfig) *OpenAIClient {
 	return &OpenAIClient{
 		baseURL: strings.TrimRight(cfg.BaseURL, "/"),
@@ -134,6 +149,83 @@ func (c *OpenAIClient) Generate(ctx context.Context, request GenerateRequest) (G
 			InputTokens:  response.Usage.PromptTokens,
 			OutputTokens: response.Usage.CompletionTokens,
 			TotalTokens:  response.Usage.TotalTokens,
+		},
+	}, nil
+}
+
+func (c *OpenAIClient) Embed(ctx context.Context, request EmbedRequest) (EmbedResponse, error) {
+	if c.apiKey == "" {
+		return EmbedResponse{}, &Error{
+			StatusCode: http.StatusBadGateway,
+			Message:    "OPENAI_API_KEY is not configured",
+			Type:       "upstream_auth_error",
+			Code:       "missing_api_key",
+		}
+	}
+
+	body, err := json.Marshal(openAIEmbeddingsRequest{
+		Model: request.Model,
+		Input: request.Input,
+	})
+	if err != nil {
+		return EmbedResponse{}, err
+	}
+
+	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/embeddings", bytes.NewReader(body))
+	if err != nil {
+		return EmbedResponse{}, err
+	}
+	httpRequest.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpRequest.Header.Set("Content-Type", "application/json")
+
+	httpResponse, err := c.httpClient.Do(httpRequest)
+	if err != nil {
+		return EmbedResponse{}, err
+	}
+	defer httpResponse.Body.Close()
+
+	payload, err := io.ReadAll(httpResponse.Body)
+	if err != nil {
+		return EmbedResponse{}, err
+	}
+
+	if httpResponse.StatusCode >= http.StatusBadRequest {
+		var upstreamError openAIErrorResponse
+		if err := json.Unmarshal(payload, &upstreamError); err == nil && upstreamError.Error.Message != "" {
+			return EmbedResponse{}, &Error{
+				StatusCode: http.StatusBadGateway,
+				Message:    upstreamError.Error.Message,
+				Type:       upstreamError.Error.Type,
+				Code:       upstreamError.Error.Code,
+			}
+		}
+
+		return EmbedResponse{}, &Error{
+			StatusCode: http.StatusBadGateway,
+			Message:    fmt.Sprintf("upstream returned status %d", httpResponse.StatusCode),
+			Type:       "upstream_error",
+			Code:       "http_error",
+		}
+	}
+
+	var response openAIEmbeddingsResponse
+	if err := json.Unmarshal(payload, &response); err != nil {
+		return EmbedResponse{}, err
+	}
+	if len(response.Data) == 0 || len(response.Data[0].Embedding) == 0 {
+		return EmbedResponse{}, &Error{
+			StatusCode: http.StatusBadGateway,
+			Message:    "upstream returned no embeddings",
+			Type:       "upstream_error",
+			Code:       "empty_embedding",
+		}
+	}
+
+	return EmbedResponse{
+		Vector: response.Data[0].Embedding,
+		Usage: Usage{
+			InputTokens: response.Usage.PromptTokens,
+			TotalTokens: response.Usage.TotalTokens,
 		},
 	}, nil
 }

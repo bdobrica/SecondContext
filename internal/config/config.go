@@ -56,6 +56,7 @@ type QdrantConfig struct {
 	URL        string
 	APIKey     string
 	Collection string
+	VectorSize int
 }
 
 type OpenAIConfig struct {
@@ -97,6 +98,11 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	qdrantVectorSize, err := parseInt("QDRANT_VECTOR_SIZE", 1536)
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
 		App: AppConfig{
 			Name: getEnv("APP_NAME", "second-context"),
@@ -128,6 +134,7 @@ func Load() (Config, error) {
 			URL:        getEnv("QDRANT_URL", "http://localhost:6333"),
 			APIKey:     os.Getenv("QDRANT_API_KEY"),
 			Collection: getEnv("QDRANT_COLLECTION", "memory_items"),
+			VectorSize: qdrantVectorSize,
 		},
 		OpenAI: OpenAIConfig{
 			BaseURL:        getEnv("OPENAI_BASE_URL", "https://api.openai.com/v1"),

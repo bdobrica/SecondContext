@@ -42,7 +42,7 @@ func (r *TopicRepository) Upsert(ctx context.Context, params UpsertTopicParams) 
 		params.UserID,
 		strings.TrimSpace(params.Name),
 		normalizeName(params.Name),
-		params.Aliases,
+		emptyStringSlice(params.Aliases),
 		normalizeJSON(params.Metadata),
 	).Scan(
 		&topic.ID,

@@ -170,27 +170,27 @@ interaction_outcomes
 
 ### Tasks
 
-- [ ] Implement `POST /memory/ingest`.
-- [ ] Define memory ingestion request schema.
-- [ ] Store raw text and summary in Postgres.
-- [ ] Add people and topic fields.
+- [x] Implement `POST /memory/ingest`.
+- [x] Define memory ingestion request schema.
+- [x] Store raw text and summary in Postgres.
+- [x] Add people and topic fields.
 - [ ] Add initial scores:
-  - [ ] importance;
-  - [ ] utility;
-  - [ ] belief impact;
-  - [ ] confidence.
-- [ ] Generate dense embedding for the memory summary.
-- [ ] Create Qdrant collection.
-- [ ] Upsert dense vector into Qdrant.
-- [ ] Store Qdrant point ID in Postgres.
-- [ ] Add basic memory listing endpoint.
-- [ ] Add basic memory deletion endpoint.
+  - [x] importance;
+  - [x] utility;
+  - [x] belief impact;
+  - [x] confidence.
+- [x] Generate dense embedding for the memory summary.
+- [x] Create Qdrant collection.
+- [x] Upsert dense vector into Qdrant.
+- [x] Store Qdrant point ID in Postgres.
+- [x] Add basic memory listing endpoint.
+- [x] Add basic memory deletion endpoint.
 
 ### Deliverables
 
-- [ ] User can manually ingest a memory.
-- [ ] Memory is stored in Postgres.
-- [ ] Memory is searchable in Qdrant by dense vector.
+- [x] User can manually ingest a memory.
+- [x] Memory is stored in Postgres.
+- [x] Memory is searchable in Qdrant by dense vector.
 
 ---
 

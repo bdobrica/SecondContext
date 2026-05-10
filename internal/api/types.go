@@ -1,17 +1,16 @@
 package api
-package api
 
 import "encoding/json"
 
 const defaultPublicModel = "context-agent-1"
 
 type createResponseRequest struct {
-	Model        string         `json:"model"`
+	Model        string          `json:"model"`
 	Input        json.RawMessage `json:"input"`
-	Instructions string         `json:"instructions,omitempty"`
-	Stream       bool           `json:"stream,omitempty"`
-	Metadata     map[string]any `json:"metadata,omitempty"`
-	User         string         `json:"user,omitempty"`
+	Instructions string          `json:"instructions,omitempty"`
+	Stream       bool            `json:"stream,omitempty"`
+	Metadata     map[string]any  `json:"metadata,omitempty"`
+	User         string          `json:"user,omitempty"`
 }
 
 type listModelsResponse struct {
@@ -27,22 +26,22 @@ type modelInfo struct {
 }
 
 type createResponseResult struct {
-	ID         string                `json:"id"`
-	Object     string                `json:"object"`
-	CreatedAt  int64                 `json:"created_at"`
-	Status     string                `json:"status"`
-	Model      string                `json:"model"`
-	Output     []responseOutputItem  `json:"output"`
-	OutputText string                `json:"output_text"`
-	Usage      *responseUsage        `json:"usage,omitempty"`
-	Metadata   map[string]any        `json:"metadata,omitempty"`
+	ID         string               `json:"id"`
+	Object     string               `json:"object"`
+	CreatedAt  int64                `json:"created_at"`
+	Status     string               `json:"status"`
+	Model      string               `json:"model"`
+	Output     []responseOutputItem `json:"output"`
+	OutputText string               `json:"output_text"`
+	Usage      *responseUsage       `json:"usage,omitempty"`
+	Metadata   map[string]any       `json:"metadata,omitempty"`
 }
 
 type responseOutputItem struct {
-	ID      string                  `json:"id"`
-	Type    string                  `json:"type"`
-	Role    string                  `json:"role"`
-	Content []responseContentBlock  `json:"content"`
+	ID      string                 `json:"id"`
+	Type    string                 `json:"type"`
+	Role    string                 `json:"role"`
+	Content []responseContentBlock `json:"content"`
 }
 
 type responseContentBlock struct {
@@ -61,10 +60,10 @@ type apiErrorEnvelope struct {
 }
 
 type apiError struct {
-	Message string `json:"message"`
-	Type    string `json:"type"`
-	Code    string `json:"code,omitempty"`
-	Param   string `json:"param,omitempty"`
+	Message   string `json:"message"`
+	Type      string `json:"type"`
+	Code      string `json:"code,omitempty"`
+	Param     string `json:"param,omitempty"`
 	RequestID string `json:"request_id,omitempty"`
 }
 
@@ -74,4 +73,49 @@ type requestMetadata struct {
 	UserName       string
 	UserEmail      string
 	SessionTitle   string
+}
+
+type ingestMemoryRequest struct {
+	RawText       string         `json:"raw_text"`
+	Summary       string         `json:"summary"`
+	Type          string         `json:"type"`
+	Source        string         `json:"source,omitempty"`
+	People        []string       `json:"people,omitempty"`
+	Topics        []string       `json:"topics,omitempty"`
+	Importance    *float64       `json:"importance,omitempty"`
+	Utility       *float64       `json:"utility,omitempty"`
+	BeliefImpact  *float64       `json:"belief_impact,omitempty"`
+	Confidence    *float64       `json:"confidence,omitempty"`
+	ExpiresInDays *int           `json:"expires_in_days,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
+	User          string         `json:"user,omitempty"`
+}
+
+type memoryResponse struct {
+	ID            string         `json:"id"`
+	UserID        string         `json:"user_id"`
+	MemoryType    string         `json:"type"`
+	Source        string         `json:"source"`
+	RawText       string         `json:"raw_text"`
+	Summary       string         `json:"summary"`
+	People        []string       `json:"people"`
+	Topics        []string       `json:"topics"`
+	Importance    float64        `json:"importance"`
+	Utility       float64        `json:"utility"`
+	BeliefImpact  float64        `json:"belief_impact"`
+	Confidence    float64        `json:"confidence"`
+	QdrantPointID string         `json:"qdrant_point_id"`
+	ExpiresAt     *string        `json:"expires_at,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
+	CreatedAt     string         `json:"created_at"`
+	UpdatedAt     string         `json:"updated_at"`
+}
+
+type memoryListResponse struct {
+	Data []memoryResponse `json:"data"`
+}
+
+type memoryDeleteResponse struct {
+	ID      string `json:"id"`
+	Deleted bool   `json:"deleted"`
 }

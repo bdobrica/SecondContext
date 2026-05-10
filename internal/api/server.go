@@ -48,6 +48,9 @@ func (s *Server) Handler() http.Handler {
 	router.Get("/healthz", s.handleHealthz)
 	router.Get("/v1/models", s.handleListModels)
 	router.Post("/v1/responses", s.handleCreateResponse)
+	router.Post("/memory/ingest", s.handleMemoryIngest)
+	router.Get("/memory", s.handleListMemories)
+	router.Delete("/memory/{memoryID}", s.handleDeleteMemory)
 
 	return router
 }

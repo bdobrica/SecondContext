@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bdobrica/SecondContext/internal/models"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -210,6 +211,30 @@ func (r *MemoryRepository) ListByUser(ctx context.Context, userID string, limit 
 	}
 
 	return memories, rows.Err()
+}
+
+func (r *MemoryRepository) Delete(ctx context.Context, memoryID string) error {
+	commandTag, err := r.pool.Exec(ctx, `DELETE FROM memory_items WHERE id = $1::uuid`, memoryID)
+	if err != nil {
+		return err
+	}
+	if commandTag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
+}
+
+func (r *MemoryRepository) UpdateQdrantPointID(ctx context.Context, memoryID, pointID string) error {
+	commandTag, err := r.pool.Exec(ctx, `UPDATE memory_items SET qdrant_point_id = NULLIF($2, '') WHERE id = $1::uuid`, memoryID, pointID)
+	if err != nil {
+		return err
+	}
+	if commandTag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
 }
 
 func defaultMemorySource(value string) string {

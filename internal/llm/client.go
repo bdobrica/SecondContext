@@ -4,6 +4,7 @@ import "context"
 
 type Client interface {
 	Generate(ctx context.Context, request GenerateRequest) (GenerateResponse, error)
+	Embed(ctx context.Context, request EmbedRequest) (EmbedResponse, error)
 }
 
 type Message struct {
@@ -27,6 +28,16 @@ type Usage struct {
 	InputTokens  int
 	OutputTokens int
 	TotalTokens  int
+}
+
+type EmbedRequest struct {
+	Model string
+	Input string
+}
+
+type EmbedResponse struct {
+	Vector []float64
+	Usage  Usage
 }
 
 type Error struct {

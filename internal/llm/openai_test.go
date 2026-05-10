@@ -66,6 +66,41 @@ func TestOpenAIClientGenerate(t *testing.T) {
 	}
 }
 
+func TestOpenAIClientEmbed(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/embeddings" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+
+		writeTestJSON(w, http.StatusOK, map[string]any{
+			"data": []map[string]any{{"embedding": []float64{0.1, 0.2, 0.3}}},
+			"usage": map[string]any{
+				"prompt_tokens": 7,
+				"total_tokens":  7,
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewOpenAIClient(config.OpenAIConfig{
+		BaseURL:        server.URL,
+		APIKey:         "test-key",
+		RequestTimeout: time.Second,
+	})
+
+	response, err := client.Embed(context.Background(), EmbedRequest{
+		Model: "text-embedding-3-small",
+		Input: "Alex prefers narrow review scopes.",
+	})
+	if err != nil {
+		t.Fatalf("embed: %v", err)
+	}
+
+	if len(response.Vector) != 3 {
+		t.Fatalf("unexpected embedding %#v", response.Vector)
+	}
+}
+
 func writeTestJSON(w http.ResponseWriter, statusCode int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)

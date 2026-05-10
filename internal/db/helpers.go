@@ -33,3 +33,11 @@ func scanJSON(value []byte) json.RawMessage {
 
 	return json.RawMessage(value)
 }
+
+func emptyStringSlice(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+
+	return values
+}

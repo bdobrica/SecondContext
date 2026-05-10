@@ -47,7 +47,7 @@ func TestResponsesEndpointPersistsMessages(t *testing.T) {
 		ID:         "chatcmpl_integration",
 		Model:      "gpt-4.1-mini",
 		OutputText: "Here is a concise review request.",
-	}}
+	}, embedResponse: llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}}}
 
 	server := NewServerWithClient(config.Config{
 		App:    config.AppConfig{Name: "salience-graph", Env: "test"},

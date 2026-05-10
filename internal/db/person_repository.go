@@ -42,7 +42,7 @@ func (r *PersonRepository) Upsert(ctx context.Context, params UpsertPersonParams
 		params.UserID,
 		strings.TrimSpace(params.Name),
 		normalizeName(params.Name),
-		params.Aliases,
+		emptyStringSlice(params.Aliases),
 		normalizeJSON(params.Metadata),
 	).Scan(
 		&person.ID,
