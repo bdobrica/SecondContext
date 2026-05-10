@@ -58,6 +58,23 @@ type Topic struct {
 	UpdatedAt      time.Time
 }
 
+type PersonTopicModel struct {
+	ID             string
+	UserID         string
+	PersonID       string
+	TopicID        string
+	Niceness       float64
+	Readiness      float64
+	Competence     float64
+	Capacity       float64
+	Confidence     float64
+	EvidenceCount  int
+	LastObservedAt *time.Time
+	Metadata       json.RawMessage
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
 type MemoryItem struct {
 	ID              string
 	UserID          string

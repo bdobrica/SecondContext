@@ -65,6 +65,9 @@ func BuildResponseSystemPrompt(packet *ContextPacket, userInstructions string) s
 - Use retrieved context when it is relevant and helpful.
 - Do not invent remembered facts that are not present in the context packet.
 - Treat memory as evidence with confidence, not absolute truth.
+- Treat person-model context as a working estimate, not a fact or diagnosis.
+- Use cautious language for people models: likely, may, seems, suggests.
+- Avoid moral judgments or definitive claims about a person's character.
 - If the context packet is sparse, answer normally and say less about memory.
 - Prefer concise, practical answers over long summaries.`))
 
@@ -76,7 +79,9 @@ func modeInstructions(mode ResponseMode) string {
 	case ResponseModeCommunicationAdvice:
 		return strings.TrimSpace(`You are generating communication advice.
 
-Focus on how to phrase the message, what level of detail to use, what tone to choose, and what to avoid based on the retrieved context.`)
+		Focus on how to phrase the message, what level of detail to use, what tone to choose, and what to avoid based on the retrieved context.
+
+		When person-model context is available, treat it as uncertain, topic-specific guidance rather than a fact claim.`)
 	case ResponseModeScenarioGeneration:
 		return strings.TrimSpace(`You are generating scenario options.
 

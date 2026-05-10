@@ -82,3 +82,27 @@ func (r *TopicRepository) GetByName(ctx context.Context, userID, name string) (m
 
 	return topic, err
 }
+
+func (r *TopicRepository) GetByID(ctx context.Context, topicID string) (models.Topic, error) {
+	query := `
+		SELECT id::text, user_id::text, name, normalized_name, aliases, metadata, created_at, updated_at
+		FROM topics
+		WHERE id = $1::uuid
+	`
+
+	var topic models.Topic
+	var metadata []byte
+	err := r.pool.QueryRow(ctx, query, strings.TrimSpace(topicID)).Scan(
+		&topic.ID,
+		&topic.UserID,
+		&topic.Name,
+		&topic.NormalizedName,
+		&topic.Aliases,
+		&metadata,
+		&topic.CreatedAt,
+		&topic.UpdatedAt,
+	)
+	topic.Metadata = scanJSON(metadata)
+
+	return topic, err
+}

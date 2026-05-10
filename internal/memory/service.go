@@ -10,6 +10,7 @@ import (
 	"github.com/bdobrica/SecondContext/internal/config"
 	"github.com/bdobrica/SecondContext/internal/db"
 	"github.com/bdobrica/SecondContext/internal/llm"
+	"github.com/bdobrica/SecondContext/internal/modeling"
 	"github.com/bdobrica/SecondContext/internal/models"
 	"github.com/bdobrica/SecondContext/internal/qdrant"
 	"github.com/bdobrica/SecondContext/internal/retrieval"
@@ -181,6 +182,8 @@ func (s *Service) Ingest(ctx context.Context, params IngestParams) (Record, erro
 		return Record{}, err
 	}
 	record.QdrantPointID = pointID
+
+	_ = modeling.NewService(s.cfg, s.pool, s.llm).ObserveMemory(ctx, record)
 
 	return record, nil
 }

@@ -1,6 +1,9 @@
 package api
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+)
 
 const defaultPublicModel = "context-agent-1"
 
@@ -186,4 +189,49 @@ type memorySearchResultResponse struct {
 
 type memorySearchResponse struct {
 	Data []memorySearchResultResponse `json:"data"`
+}
+
+type personTopicModelResponse struct {
+	ID                string         `json:"id"`
+	TopicID           string         `json:"topic_id"`
+	TopicName         string         `json:"topic_name"`
+	TopicAliases      []string       `json:"topic_aliases,omitempty"`
+	Niceness          float64        `json:"niceness"`
+	Readiness         float64        `json:"readiness"`
+	Competence        float64        `json:"competence"`
+	Capacity          float64        `json:"capacity"`
+	Confidence        float64        `json:"confidence"`
+	EvidenceCount     int            `json:"evidence_count"`
+	EvidenceMemoryIDs []string       `json:"evidence_memory_ids,omitempty"`
+	LastObservedAt    *string        `json:"last_observed_at,omitempty"`
+	Summary           string         `json:"summary"`
+	Metadata          map[string]any `json:"metadata,omitempty"`
+	CreatedAt         string         `json:"created_at"`
+	UpdatedAt         string         `json:"updated_at"`
+}
+
+type personDebugResponse struct {
+	ID        string                     `json:"id"`
+	UserID    string                     `json:"user_id"`
+	Name      string                     `json:"name"`
+	Aliases   []string                   `json:"aliases,omitempty"`
+	Metadata  map[string]any             `json:"metadata,omitempty"`
+	CreatedAt string                     `json:"created_at"`
+	UpdatedAt string                     `json:"updated_at"`
+	Models    []personTopicModelResponse `json:"models"`
+}
+
+type updatePersonModelRequest struct {
+	TopicID           string     `json:"topic_id,omitempty"`
+	TopicName         string     `json:"topic_name,omitempty"`
+	TopicAliases      []string   `json:"topic_aliases,omitempty"`
+	PersonAliases     []string   `json:"person_aliases,omitempty"`
+	Niceness          *float64   `json:"niceness,omitempty"`
+	Readiness         *float64   `json:"readiness,omitempty"`
+	Competence        *float64   `json:"competence,omitempty"`
+	Capacity          *float64   `json:"capacity,omitempty"`
+	Confidence        *float64   `json:"confidence,omitempty"`
+	EvidenceCount     *int       `json:"evidence_count,omitempty"`
+	EvidenceMemoryIDs []string   `json:"evidence_memory_ids,omitempty"`
+	LastObservedAt    *time.Time `json:"last_observed_at,omitempty"`
 }

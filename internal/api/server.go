@@ -53,6 +53,8 @@ func (s *Server) Handler() http.Handler {
 	router.Post("/memory/search", s.handleMemorySearch)
 	router.Get("/memory", s.handleListMemories)
 	router.Delete("/memory/{memoryID}", s.handleDeleteMemory)
+	router.Get("/debug/person/{personID}", s.handleGetDebugPerson)
+	router.Put("/debug/person/{personID}", s.handleUpdateDebugPerson)
 
 	return router
 }

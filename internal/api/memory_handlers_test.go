@@ -168,8 +168,8 @@ func TestMemoryExtractEndpoint(t *testing.T) {
 	if recorder.Code != http.StatusCreated {
 		t.Fatalf("unexpected extract status %d body=%s", recorder.Code, recorder.Body.String())
 	}
-	if len(fakeClient.requests) != 2 {
-		t.Fatalf("expected repair flow to call llm twice, got %d", len(fakeClient.requests))
+	if len(fakeClient.requests) < 2 {
+		t.Fatalf("expected repair flow to call llm at least twice, got %d", len(fakeClient.requests))
 	}
 
 	var payload extractMemoryResponse

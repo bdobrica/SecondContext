@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/bdobrica/SecondContext/internal/llm"
+	"github.com/bdobrica/SecondContext/internal/modeling"
 	"github.com/bdobrica/SecondContext/internal/prompts"
 	retrievalsvc "github.com/bdobrica/SecondContext/internal/retrieval"
 )
@@ -46,7 +47,12 @@ func (s *Server) buildResponseContext(ctx context.Context, request createRespons
 	}
 
 	packet.MemoryContext, packet.OmittedMemories = buildMemoryContext(results)
-	packet.PeopleContext = buildPeopleContext(packet, results)
+	modelContext, err := modeling.NewService(s.cfg, s.dbPool, s.llm).BuildPromptContext(ctx, packet.UserExternalID, collectContextPeople(packet, results), collectContextTopics(packet, results), responseContextPeopleLimit)
+	if err == nil {
+		packet.PeopleContext = buildPeopleContext(packet, modelContext, results)
+	} else {
+		packet.PeopleContext = buildPeopleContext(packet, nil, results)
+	}
 	packet.TopicContext = buildTopicContext(packet, results)
 
 	return packet, nil
@@ -98,9 +104,24 @@ func buildMemoryContext(results []retrievalsvc.Result) ([]prompts.ContextMemory,
 	return memories, omitted
 }
 
-func buildPeopleContext(packet *prompts.ContextPacket, results []retrievalsvc.Result) []string {
+func buildPeopleContext(packet *prompts.ContextPacket, modelContext []string, results []retrievalsvc.Result) []string {
 	context := make([]string, 0, responseContextPeopleLimit)
 	seen := make(map[string]struct{})
+	for _, line := range modelContext {
+		key := strings.ToLower(strings.TrimSpace(line))
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		context = append(context, line)
+		if len(context) >= responseContextPeopleLimit {
+			return context
+		}
+	}
+
 	for _, person := range append([]string{}, packet.People...) {
 		for _, result := range results {
 			if !containsFold(result.Memory.People, person) {
@@ -133,6 +154,24 @@ func buildPeopleContext(packet *prompts.ContextPacket, results []retrievalsvc.Re
 	}
 
 	return context
+}
+
+func collectContextPeople(packet *prompts.ContextPacket, results []retrievalsvc.Result) []string {
+	people := append([]string{}, packet.People...)
+	for _, result := range results {
+		people = append(people, result.Memory.People...)
+	}
+
+	return uniqueStrings(people)
+}
+
+func collectContextTopics(packet *prompts.ContextPacket, results []retrievalsvc.Result) []string {
+	topics := append([]string{}, packet.Topics...)
+	for _, result := range results {
+		topics = append(topics, result.Memory.Topics...)
+	}
+
+	return uniqueStrings(topics)
 }
 
 func buildTopicContext(packet *prompts.ContextPacket, results []retrievalsvc.Result) []string {

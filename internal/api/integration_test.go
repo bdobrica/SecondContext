@@ -125,11 +125,13 @@ func TestResponsesEndpointUsesRetrievedContext(t *testing.T) {
 	qdrantServer := newFakeQdrantServer()
 	defer qdrantServer.Close()
 
-	fakeClient := &fakeLLMClient{response: llm.GenerateResponse{
+	fakeClient := &fakeLLMClient{responses: []llm.GenerateResponse{{
+		OutputText: `{"pairs":[{"person_name":"Alex","person_aliases":["A."],"topic_name":"api_review","topic_aliases":["api reviews"],"niceness":0.82,"readiness":0.79,"competence":0.91,"capacity":0.44,"confidence":0.86,"evidence_summary":"Prefers tightly scoped API review requests with action items.","last_observed_at":"2025-01-01T00:00:00Z"}]}`,
+	}, {
 		ID:         "chatcmpl_context",
 		Model:      "gpt-4.1-mini",
 		OutputText: "Ask Alex for an API-only review with action items.",
-	}, embedResponse: llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}}}
+	}}, embedResponse: llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}}}
 
 	cfg := config.Config{
 		App:     config.AppConfig{Name: "salience-graph", Env: "test"},
@@ -176,7 +178,7 @@ func TestResponsesEndpointUsesRetrievedContext(t *testing.T) {
 	if fakeClient.request.Messages[0].Role != "system" {
 		t.Fatalf("expected system prompt first, got %#v", fakeClient.request.Messages)
 	}
-	for _, expected := range []string{"communication advice", "Alex prefers tightly scoped API review requests with action items and evidence.", "Interaction goal:"} {
+	for _, expected := range []string{"communication advice", "Alex prefers tightly scoped API review requests with action items and evidence.", "Interaction goal:", "working estimate only", "Alex on api_review"} {
 		if !strings.Contains(strings.ToLower(fakeClient.request.Messages[0].Content), strings.ToLower(expected)) {
 			t.Fatalf("expected system prompt to contain %q, got %s", expected, fakeClient.request.Messages[0].Content)
 		}

@@ -82,3 +82,27 @@ func (r *PersonRepository) GetByName(ctx context.Context, userID, name string) (
 
 	return person, err
 }
+
+func (r *PersonRepository) GetByID(ctx context.Context, personID string) (models.Person, error) {
+	query := `
+		SELECT id::text, user_id::text, name, normalized_name, aliases, metadata, created_at, updated_at
+		FROM people
+		WHERE id = $1::uuid
+	`
+
+	var person models.Person
+	var metadata []byte
+	err := r.pool.QueryRow(ctx, query, strings.TrimSpace(personID)).Scan(
+		&person.ID,
+		&person.UserID,
+		&person.Name,
+		&person.NormalizedName,
+		&person.Aliases,
+		&metadata,
+		&person.CreatedAt,
+		&person.UpdatedAt,
+	)
+	person.Metadata = scanJSON(metadata)
+
+	return person, err
+}
