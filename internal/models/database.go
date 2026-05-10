@@ -90,6 +90,38 @@ type Belief struct {
 	UpdatedAt         time.Time
 }
 
+type GraphEdge struct {
+	ID                string
+	UserID            string
+	SourceKind        string
+	SourceName        string
+	TargetKind        string
+	TargetName        string
+	Relationship      string
+	Confidence        float64
+	EvidenceMemoryIDs []string
+	Metadata          json.RawMessage
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+type InteractionOutcome struct {
+	ID               string
+	UserID           string
+	SessionID        string
+	MessageID        string
+	PersonID         string
+	TopicID          string
+	Goal             string
+	PredictedOutcome string
+	ActualOutcome    string
+	SuccessScore     float64
+	PredictionError  string
+	Metadata         json.RawMessage
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
 type MemoryItem struct {
 	ID              string
 	UserID          string

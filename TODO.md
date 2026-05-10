@@ -454,18 +454,18 @@ final_score =
 
 ### Tasks
 
-- [ ] Implement `POST /interactions/outcome`.
-- [ ] Create outcome extraction prompt.
-- [ ] Store actual outcome.
-- [ ] Store success score.
-- [ ] Compare actual result with predicted result.
-- [ ] Extract prediction error.
-- [ ] Create new memory items from outcome.
-- [ ] Update person/topic model.
-- [ ] Update beliefs where applicable.
-- [ ] Update graph edges where applicable.
-- [ ] Add outcome to future retrieval.
-- [ ] Add tests for outcome update flow.
+- [x] Implement `POST /interactions/outcome`.
+- [x] Create outcome extraction prompt.
+- [x] Store actual outcome.
+- [x] Store success score.
+- [x] Compare actual result with predicted result.
+- [x] Extract prediction error.
+- [x] Create new memory items from outcome.
+- [x] Update person/topic model.
+- [x] Update beliefs where applicable.
+- [x] Update graph edges where applicable.
+- [x] Add outcome to future retrieval.
+- [x] Add tests for outcome update flow.
 
 ### Example User Outcome
 
@@ -493,9 +493,9 @@ Alex replied quickly and agreed to review, but asked me to narrow the request to
 
 ### Deliverables
 
-- [ ] User can report interaction outcomes.
-- [ ] The system updates future behavior based on outcomes.
-- [ ] Prediction errors are stored for later analysis.
+- [x] User can report interaction outcomes.
+- [x] The system updates future behavior based on outcomes.
+- [x] Prediction errors are stored for later analysis.
 
 ---
 

@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/bdobrica/SecondContext/internal/models"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -102,4 +103,29 @@ func (r *MessageRepository) ListBySession(ctx context.Context, sessionID string,
 	}
 
 	return messages, rows.Err()
+}
+
+func (r *MessageRepository) GetByID(ctx context.Context, messageID string) (models.Message, error) {
+	query := `
+		SELECT id::text, session_id::text, user_id::text, role, content, COALESCE(model, ''), COALESCE(request_id, ''), metadata, created_at
+		FROM messages
+		WHERE id = $1::uuid
+	`
+
+	var message models.Message
+	var metadata []byte
+	err := r.pool.QueryRow(ctx, query, strings.TrimSpace(messageID)).Scan(
+		&message.ID,
+		&message.SessionID,
+		&message.UserID,
+		&message.Role,
+		&message.Content,
+		&message.Model,
+		&message.RequestID,
+		&metadata,
+		&message.CreatedAt,
+	)
+	message.Metadata = scanJSON(metadata)
+
+	return message, err
 }

@@ -257,3 +257,76 @@ type beliefDebugResponse struct {
 type beliefListResponse struct {
 	Data []beliefDebugResponse `json:"data"`
 }
+
+type createInteractionOutcomeRequest struct {
+	SessionID          string         `json:"session_id,omitempty"`
+	AssistantMessageID string         `json:"assistant_message_id,omitempty"`
+	RawText            string         `json:"raw_text"`
+	Goal               string         `json:"goal,omitempty"`
+	People             []string       `json:"people,omitempty"`
+	Topics             []string       `json:"topics,omitempty"`
+	Metadata           map[string]any `json:"metadata,omitempty"`
+	User               string         `json:"user,omitempty"`
+}
+
+type outcomeAnalysisGraphEdgeResponse struct {
+	SourceKind   string  `json:"source_kind"`
+	SourceName   string  `json:"source_name"`
+	TargetKind   string  `json:"target_kind"`
+	TargetName   string  `json:"target_name"`
+	Relationship string  `json:"relationship"`
+	Confidence   float64 `json:"confidence"`
+}
+
+type outcomeAnalysisResponse struct {
+	Summary         string                             `json:"summary"`
+	SuccessScore    float64                            `json:"success_score"`
+	PredictionError string                             `json:"prediction_error,omitempty"`
+	People          []string                           `json:"people,omitempty"`
+	Topics          []string                           `json:"topics,omitempty"`
+	Importance      float64                            `json:"importance"`
+	Utility         float64                            `json:"utility"`
+	BeliefImpact    float64                            `json:"belief_impact"`
+	Confidence      float64                            `json:"confidence"`
+	GraphEdges      []outcomeAnalysisGraphEdgeResponse `json:"graph_edges,omitempty"`
+}
+
+type interactionOutcomeResponse struct {
+	ID               string         `json:"id"`
+	UserID           string         `json:"user_id"`
+	SessionID        string         `json:"session_id,omitempty"`
+	MessageID        string         `json:"message_id,omitempty"`
+	PersonID         string         `json:"person_id,omitempty"`
+	TopicID          string         `json:"topic_id,omitempty"`
+	Goal             string         `json:"goal,omitempty"`
+	PredictedOutcome string         `json:"predicted_outcome,omitempty"`
+	ActualOutcome    string         `json:"actual_outcome"`
+	SuccessScore     float64        `json:"success_score"`
+	PredictionError  string         `json:"prediction_error,omitempty"`
+	Metadata         map[string]any `json:"metadata,omitempty"`
+	CreatedAt        string         `json:"created_at"`
+	UpdatedAt        string         `json:"updated_at"`
+}
+
+type graphEdgeResponse struct {
+	ID                string         `json:"id"`
+	UserID            string         `json:"user_id"`
+	SourceKind        string         `json:"source_kind"`
+	SourceName        string         `json:"source_name"`
+	TargetKind        string         `json:"target_kind"`
+	TargetName        string         `json:"target_name"`
+	Relationship      string         `json:"relationship"`
+	Confidence        float64        `json:"confidence"`
+	EvidenceMemoryIDs []string       `json:"evidence_memory_ids,omitempty"`
+	Metadata          map[string]any `json:"metadata,omitempty"`
+	CreatedAt         string         `json:"created_at"`
+	UpdatedAt         string         `json:"updated_at"`
+}
+
+type createInteractionOutcomeResponse struct {
+	Outcome    interactionOutcomeResponse `json:"outcome"`
+	Memory     memoryResponse             `json:"memory"`
+	Analysis   outcomeAnalysisResponse    `json:"analysis"`
+	GraphEdges []graphEdgeResponse        `json:"graph_edges,omitempty"`
+	Metadata   map[string]any             `json:"metadata,omitempty"`
+}

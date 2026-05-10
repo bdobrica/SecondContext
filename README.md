@@ -281,7 +281,7 @@ POST /memory/extract         implemented
 GET  /memory                 implemented
 DELETE /memory/{id}          implemented
 POST /memory/search          implemented
-POST /interactions/outcome
+POST /interactions/outcome   implemented
 GET  /debug/context
 GET  /debug/memory/:id
 GET  /debug/beliefs          implemented
@@ -306,7 +306,7 @@ PUT  /debug/person/:id       implemented
 
 ## Development status
 
-This project now has a working Stage 11 baseline:
+This project now has a working Stage 12 baseline:
 
 - Postgres-backed schema and repositories;
 - `GET /v1/models`;
@@ -332,16 +332,20 @@ This project now has a working Stage 11 baseline:
 - server-side recommendation logic that picks a preferred strategy when the model response is incomplete or ambiguous;
 - `scenario_plan` metadata persisted alongside assistant responses for later comparison with real outcomes;
 - communication-advice mode in `/v1/responses` that returns a recommended approach, concrete draft, alternatives, and fallback steps;
+- `POST /interactions/outcome` for reporting what actually happened after an interaction;
+- structured outcome analysis that stores actual outcomes, success scores, prediction errors, and extracted graph-edge updates;
+- outcome memories linked back to the originating assistant message so future retrieval can learn from real results;
+- follow-on person-model and belief updates triggered from stored outcome memories;
 - debug endpoints to inspect and manually edit person-topic models;
 - validated Stage 9 flow covering memory ingest, person inspection, and person-model updates;
 - integration-tested Stage 10 flow covering belief extraction, contradiction tracking, debug inspection, and belief-aware prompt augmentation.
-- integration-tested Stage 11 flow covering scenario generation, recommended strategy selection, and persisted scenario metadata.
+- integration-tested Stage 11 flow covering scenario generation, recommended strategy selection, and persisted scenario metadata;
+- integration-tested Stage 12 flow covering outcome submission, outcome persistence, graph updates, and memory-driven learning updates.
 
 Not implemented yet:
 
 - streaming responses;
-- `POST /v1/chat/completions`;
-- outcome feedback loops.
+- `POST /v1/chat/completions`.
 
 See:
 

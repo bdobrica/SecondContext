@@ -51,20 +51,21 @@ type RequestMetadata struct {
 }
 
 type IngestParams struct {
-	RawText       string
-	Summary       string
-	MemoryType    string
-	Source        string
-	People        []string
-	Topics        []string
-	Importance    *float64
-	Utility       *float64
-	BeliefImpact  *float64
-	Confidence    *float64
-	ExpiresInDays *int
-	Metadata      map[string]any
-	RequestUser   string
-	Meta          RequestMetadata
+	RawText         string
+	Summary         string
+	MemoryType      string
+	Source          string
+	SourceMessageID string
+	People          []string
+	Topics          []string
+	Importance      *float64
+	Utility         *float64
+	BeliefImpact    *float64
+	Confidence      *float64
+	ExpiresInDays   *int
+	Metadata        map[string]any
+	RequestUser     string
+	Meta            RequestMetadata
 }
 
 type ListParams struct {
@@ -133,20 +134,21 @@ func (s *Service) Ingest(ctx context.Context, params IngestParams) (Record, erro
 
 	memories := db.NewMemoryRepository(s.pool)
 	record, err := memories.Create(ctx, db.CreateMemoryItemParams{
-		UserID:       user.ID,
-		SessionID:    session.ID,
-		MemoryType:   strings.TrimSpace(params.MemoryType),
-		Source:       fallbackSource(params.Source),
-		RawText:      strings.TrimSpace(params.RawText),
-		Summary:      summary,
-		People:       people,
-		Topics:       topics,
-		Importance:   clampScore(params.Importance),
-		Utility:      clampScore(params.Utility),
-		BeliefImpact: clampScore(params.BeliefImpact),
-		Confidence:   clampScore(params.Confidence),
-		ExpiresAt:    expiresAt,
-		Metadata:     metadataBytes,
+		UserID:          user.ID,
+		SessionID:       session.ID,
+		SourceMessageID: strings.TrimSpace(params.SourceMessageID),
+		MemoryType:      strings.TrimSpace(params.MemoryType),
+		Source:          fallbackSource(params.Source),
+		RawText:         strings.TrimSpace(params.RawText),
+		Summary:         summary,
+		People:          people,
+		Topics:          topics,
+		Importance:      clampScore(params.Importance),
+		Utility:         clampScore(params.Utility),
+		BeliefImpact:    clampScore(params.BeliefImpact),
+		Confidence:      clampScore(params.Confidence),
+		ExpiresAt:       expiresAt,
+		Metadata:        metadataBytes,
 	})
 	if err != nil {
 		return Record{}, err

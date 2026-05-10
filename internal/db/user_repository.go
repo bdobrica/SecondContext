@@ -69,3 +69,23 @@ func (r *UserRepository) GetByExternalID(ctx context.Context, externalID string)
 
 	return user, err
 }
+
+func (r *UserRepository) GetByID(ctx context.Context, userID string) (models.User, error) {
+	query := `
+		SELECT id::text, external_id, COALESCE(email, ''), display_name, created_at, updated_at
+		FROM users
+		WHERE id = $1::uuid
+	`
+
+	var user models.User
+	err := r.pool.QueryRow(ctx, query, strings.TrimSpace(userID)).Scan(
+		&user.ID,
+		&user.ExternalID,
+		&user.Email,
+		&user.DisplayName,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	return user, err
+}

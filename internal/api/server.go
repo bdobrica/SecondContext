@@ -51,6 +51,7 @@ func (s *Server) Handler() http.Handler {
 	router.Post("/memory/ingest", s.handleMemoryIngest)
 	router.Post("/memory/extract", s.handleMemoryExtract)
 	router.Post("/memory/search", s.handleMemorySearch)
+	router.Post("/interactions/outcome", s.handleCreateInteractionOutcome)
 	router.Get("/memory", s.handleListMemories)
 	router.Delete("/memory/{memoryID}", s.handleDeleteMemory)
 	router.Get("/debug/beliefs", s.handleListDebugBeliefs)
