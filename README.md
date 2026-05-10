@@ -447,19 +447,3 @@ The public model alias exposed by the API is `context-agent-1`, which currently 
 Licensed under the Apache License, Version 2.0.
 
 See [`LICENSE`](LICENSE).
-
-## Author
-
-Created by **Bogdan Dobrica**.
-
-## Project principle
-
-Keep the system simple, explicit, and inspectable.
-
-The first version should prove the loop:
-
-```text
-observe -> extract -> store -> retrieve -> reason -> act -> update
-```
-
-Do not optimize too early. Do not add custom predictive models until there is enough outcome data to justify them.
