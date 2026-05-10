@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bdobrica/SecondContext/internal/config"
+	"github.com/bdobrica/SecondContext/internal/llm"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,6 +18,7 @@ type Server struct {
 	cfg    config.Config
 	logger *slog.Logger
 	dbPool *pgxpool.Pool
+	llm    llm.Client
 }
 
 type healthResponse struct {
@@ -28,7 +30,11 @@ type healthResponse struct {
 }
 
 func NewServer(cfg config.Config, logger *slog.Logger, dbPool *pgxpool.Pool) *Server {
-	return &Server{cfg: cfg, logger: logger, dbPool: dbPool}
+	return NewServerWithClient(cfg, logger, dbPool, llm.NewOpenAIClient(cfg.OpenAI))
+}
+
+func NewServerWithClient(cfg config.Config, logger *slog.Logger, dbPool *pgxpool.Pool, client llm.Client) *Server {
+	return &Server{cfg: cfg, logger: logger, dbPool: dbPool, llm: client}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -40,6 +46,8 @@ func (s *Server) Handler() http.Handler {
 	router.Use(s.loggingMiddleware)
 
 	router.Get("/healthz", s.handleHealthz)
+	router.Get("/v1/models", s.handleListModels)
+	router.Post("/v1/responses", s.handleCreateResponse)
 
 	return router
 }

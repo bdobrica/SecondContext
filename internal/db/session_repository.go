@@ -74,3 +74,26 @@ func (r *SessionRepository) GetByID(ctx context.Context, sessionID string) (mode
 
 	return session, err
 }
+
+func (r *SessionRepository) GetByExternalID(ctx context.Context, externalID string) (models.Session, error) {
+	query := `
+		SELECT id::text, user_id::text, COALESCE(external_id, ''), COALESCE(title, ''), metadata, created_at, updated_at
+		FROM sessions
+		WHERE external_id = $1
+	`
+
+	var session models.Session
+	var metadata []byte
+	err := r.pool.QueryRow(ctx, query, strings.TrimSpace(externalID)).Scan(
+		&session.ID,
+		&session.UserID,
+		&session.ExternalID,
+		&session.Title,
+		&metadata,
+		&session.CreatedAt,
+		&session.UpdatedAt,
+	)
+	session.Metadata = scanJSON(metadata)
+
+	return session, err
+}

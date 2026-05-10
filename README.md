@@ -268,9 +268,9 @@ Proposed structure:
 OpenAI-compatible endpoints:
 
 ```text
-GET  /v1/models
-POST /v1/responses
-POST /v1/chat/completions   optional
+GET  /v1/models                implemented
+POST /v1/responses            implemented
+POST /v1/chat/completions     optional
 ```
 
 Internal/debug endpoints:
@@ -301,12 +301,24 @@ GET  /debug/person/:id
 
 ## Development status
 
-This project is currently at MVP planning stage.
+This project now has a working Stage 3 skeleton:
+
+- Postgres-backed schema and repositories;
+- `GET /v1/models`;
+- non-streaming `POST /v1/responses`;
+- an upstream OpenAI-compatible chat client;
+- persistence of inbound user messages and assistant replies.
+
+Not implemented yet:
+
+- streaming responses;
+- `POST /v1/chat/completions`;
+- memory retrieval and prompt augmentation.
 
 See:
 
-- [`docs/PLAN.md`](docs/PLAN.md) for the architecture and product plan.
-- [`docs/TODO.md`](docs/TODO.md) for the implementation work breakdown.
+- [`PLAN.md`](PLAN.md) for the architecture and product plan.
+- [`TODO.md`](TODO.md) for the implementation work breakdown.
 
 ## Non-goals for the MVP
 
@@ -344,39 +356,50 @@ The assistant should not present uncertain social inferences as facts.
 
 ## Running locally
 
-Local development is expected to use Docker Compose.
-
-A future version will support:
+Local development uses Docker Compose for infrastructure and the Go commands in this repository for migrations and the API.
 
 ```bash
 cp .env.example .env
-docker compose up --build
+docker compose up -d postgres qdrant
+make migrate-up
+go run ./cmd/api
 ```
 
-Expected local services:
+Core validation commands:
 
-- API server;
-- Postgres;
-- Qdrant.
+- `curl http://localhost:8080/healthz`
+- `curl http://localhost:8080/v1/models`
+- `curl http://localhost:8080/v1/responses -H 'Content-Type: application/json' -d '{"model":"context-agent-1","input":"Help me ask Alex to review the infrastructure proposal."}'`
 
 ## Configuration
 
-Expected environment variables:
+Current environment variables:
 
 ```bash
+APP_NAME=salience-graph
 APP_ENV=development
 HTTP_ADDR=:8080
+HTTP_SHUTDOWN_TIMEOUT=10s
+LOG_LEVEL=info
 
-DATABASE_URL=postgres://app:app@localhost:5432/app?sslmode=disable
+POSTGRES_ENABLED=true
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=second_context
+POSTGRES_SSLMODE=disable
+
 QDRANT_URL=http://localhost:6333
+QDRANT_COLLECTION=memory_items
 
 OPENAI_API_KEY=your_api_key_here
 OPENAI_BASE_URL=https://api.openai.com/v1
-DEFAULT_MODEL=gpt-4.1
-DEFAULT_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_CHAT_MODEL=gpt-4.1-mini
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
-Variable names may change as the implementation evolves.
+The public model alias exposed by the API is `context-agent-1`, which currently maps to `OPENAI_CHAT_MODEL` upstream.
 
 ## License
 

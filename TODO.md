@@ -140,23 +140,23 @@ interaction_outcomes
 
 ### Tasks
 
-- [ ] Implement `GET /v1/models`.
-- [ ] Implement basic `POST /v1/responses`.
+- [x] Implement `GET /v1/models`.
+- [x] Implement basic `POST /v1/responses`.
 - [ ] Optionally implement `POST /v1/chat/completions`.
-- [ ] Define request/response structs.
-- [ ] Add upstream LLM client.
-- [ ] Support non-streaming responses.
+- [x] Define request/response structs.
+- [x] Add upstream LLM client.
+- [x] Support non-streaming responses.
 - [ ] Optionally support streaming responses.
-- [ ] Persist inbound user messages.
-- [ ] Persist assistant responses.
-- [ ] Add basic error handling.
-- [ ] Add request ID logging.
+- [x] Persist inbound user messages.
+- [x] Persist assistant responses.
+- [x] Add basic error handling.
+- [x] Add request ID logging.
 
 ### Deliverables
 
-- [ ] A chat client can call the service.
-- [ ] The service can return a normal LLM response.
-- [ ] Conversations are persisted to Postgres.
+- [x] A chat client can call the service.
+- [x] The service can return a normal LLM response.
+- [x] Conversations are persisted to Postgres.
 
 ---
 
