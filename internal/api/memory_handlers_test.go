@@ -16,6 +16,7 @@ import (
 	"github.com/bdobrica/SecondContext/internal/config"
 	"github.com/bdobrica/SecondContext/internal/db"
 	"github.com/bdobrica/SecondContext/internal/llm"
+	memsvc "github.com/bdobrica/SecondContext/internal/memory"
 	"github.com/bdobrica/SecondContext/internal/qdrant"
 )
 
@@ -102,6 +103,94 @@ func TestMemoryEndpoints(t *testing.T) {
 	}
 	if len(results) != 0 {
 		t.Fatalf("expected qdrant point to be deleted, got %#v", results)
+	}
+}
+
+func TestMemoryExtractEndpoint(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	dsn := os.Getenv("POSTGRES_DSN")
+	if dsn == "" {
+		t.Skip("POSTGRES_DSN is not set")
+	}
+
+	migrationsDir, err := filepath.Abs(filepath.Join("..", "..", "migrations"))
+	if err != nil {
+		t.Fatalf("resolve migrations dir: %v", err)
+	}
+
+	pool, err := db.Open(context.Background(), config.PostgresConfig{Enabled: true, DSN: dsn, MaxConns: 4, MinConns: 1})
+	if err != nil {
+		t.Skipf("postgres is not reachable: %v", err)
+	}
+	defer db.Close(pool)
+
+	if err := db.RunMigrationsUp(config.PostgresConfig{DSN: dsn}, migrationsDir); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+
+	qdrantServer := newFakeQdrantServer()
+	defer qdrantServer.Close()
+
+	fakeClient := &fakeLLMClient{
+		responses: []llm.GenerateResponse{{
+			OutputText: "not valid json",
+		}, {
+			OutputText: `{"summary":"Alex prefers narrow review scopes.","type":"person_preference","people":["Alex"],"topics":["infrastructure","review_process"],"entities":[{"type":"person","name":"Alex","confidence":0.92},{"type":"topic","name":"Infrastructure","confidence":0.81}],"importance":0.72,"utility":0.84,"belief_impact":0.19,"confidence":0.91,"expires_in_days":45}`,
+		}},
+		embedResponse: llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}},
+	}
+
+	server := NewServerWithClient(config.Config{
+		App:    config.AppConfig{Name: "salience-graph", Env: "test"},
+		Dev:    config.DevConfig{UserExternalID: "dev-user", UserName: "Dev User", UserEmail: "dev@example.com"},
+		OpenAI: config.OpenAIConfig{ChatModel: "gpt-4.1-mini", EmbeddingModel: "text-embedding-3-small"},
+		Qdrant: config.QdrantConfig{URL: qdrantServer.URL, Collection: "memory_items", VectorSize: 3},
+	}, slog.New(slog.NewTextHandler(os.Stderr, nil)), pool, fakeClient)
+
+	body := []byte(`{"raw_text":"Alex wants tightly scoped infrastructure review requests.","user":"dev-user","metadata":{"session_id":"extract-test-session"}}`)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/memory/extract", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+
+	server.Handler().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected extract status %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if len(fakeClient.requests) != 2 {
+		t.Fatalf("expected repair flow to call llm twice, got %d", len(fakeClient.requests))
+	}
+
+	var payload extractMemoryResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.Memory.QdrantPointID == "" {
+		t.Fatal("expected qdrant point id")
+	}
+	if len(payload.Extraction.Entities) != 2 {
+		t.Fatalf("unexpected extraction entities %#v", payload.Extraction.Entities)
+	}
+
+	entities, err := db.NewMemoryEntityRepository(pool).ListByMemoryItemID(context.Background(), payload.Memory.ID)
+	if err != nil {
+		t.Fatalf("list memory entities: %v", err)
+	}
+	if len(entities) != 2 {
+		t.Fatalf("expected 2 stored entities, got %d", len(entities))
+	}
+
+	listService := memsvc.NewService(config.Config{
+		App:    config.AppConfig{Name: "salience-graph", Env: "test"},
+		Dev:    config.DevConfig{UserExternalID: "dev-user", UserName: "Dev User", UserEmail: "dev@example.com"},
+		OpenAI: config.OpenAIConfig{ChatModel: "gpt-4.1-mini", EmbeddingModel: "text-embedding-3-small"},
+		Qdrant: config.QdrantConfig{URL: qdrantServer.URL, Collection: "memory_items", VectorSize: 3},
+	}, pool, fakeClient)
+	if err := listService.Delete(context.Background(), payload.Memory.ID); err != nil {
+		t.Fatalf("cleanup delete memory: %v", err)
 	}
 }
 

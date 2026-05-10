@@ -15,15 +15,23 @@ import (
 
 type fakeLLMClient struct {
 	response      llm.GenerateResponse
+	responses     []llm.GenerateResponse
 	embedResponse llm.EmbedResponse
 	err           error
 	request       llm.GenerateRequest
+	requests      []llm.GenerateRequest
 }
 
 func (f *fakeLLMClient) Generate(_ context.Context, request llm.GenerateRequest) (llm.GenerateResponse, error) {
 	f.request = request
+	f.requests = append(f.requests, request)
 	if f.err != nil {
 		return llm.GenerateResponse{}, f.err
+	}
+	if len(f.responses) > 0 {
+		response := f.responses[0]
+		f.responses = f.responses[1:]
+		return response, nil
 	}
 
 	return f.response, nil

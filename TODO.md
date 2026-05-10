@@ -203,23 +203,23 @@ interaction_outcomes
 
 ### Tasks
 
-- [ ] Create memory extraction prompt.
-- [ ] Define strict JSON schema for extraction output.
-- [ ] Extract summary.
-- [ ] Extract memory type.
-- [ ] Extract people.
-- [ ] Extract topics.
-- [ ] Extract entities.
-- [ ] Extract importance score.
-- [ ] Extract utility score.
-- [ ] Extract belief-impact score.
-- [ ] Extract confidence score.
-- [ ] Extract expiry hints.
-- [ ] Validate LLM JSON output.
-- [ ] Add retry or repair behavior for invalid JSON.
-- [ ] Normalize people and topics.
-- [ ] Store extracted memory in Postgres.
-- [ ] Index extracted memory in Qdrant.
+- [x] Create memory extraction prompt.
+- [x] Define strict JSON schema for extraction output.
+- [x] Extract summary.
+- [x] Extract memory type.
+- [x] Extract people.
+- [x] Extract topics.
+- [x] Extract entities.
+- [x] Extract importance score.
+- [x] Extract utility score.
+- [x] Extract belief-impact score.
+- [x] Extract confidence score.
+- [x] Extract expiry hints.
+- [x] Validate LLM JSON output.
+- [x] Add retry or repair behavior for invalid JSON.
+- [x] Normalize people and topics.
+- [x] Store extracted memory in Postgres.
+- [x] Index extracted memory in Qdrant.
 
 ### Example Extraction Output
 
@@ -239,9 +239,9 @@ interaction_outcomes
 
 ### Deliverables
 
-- [ ] Raw text can become structured memory.
-- [ ] Extraction output is validated.
-- [ ] Extracted memories are retrievable.
+- [x] Raw text can become structured memory.
+- [x] Extraction output is validated.
+- [x] Extracted memories are retrievable.
 
 ---
 

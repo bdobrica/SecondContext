@@ -277,6 +277,7 @@ Internal/debug endpoints:
 
 ```text
 POST /memory/ingest          implemented
+POST /memory/extract         implemented
 GET  /memory                 implemented
 DELETE /memory/{id}          implemented
 POST /memory/search
@@ -303,7 +304,7 @@ GET  /debug/person/:id
 
 ## Development status
 
-This project now has a working Stage 4 baseline:
+This project now has a working Stage 5 baseline:
 
 - Postgres-backed schema and repositories;
 - `GET /v1/models`;
@@ -311,7 +312,9 @@ This project now has a working Stage 4 baseline:
 - an upstream OpenAI-compatible chat client;
 - persistence of inbound user messages and assistant replies;
 - manual memory ingest, list, and delete endpoints;
-- dense embedding generation and Qdrant indexing for memory items.
+- dense embedding generation and Qdrant indexing for memory items;
+- LLM-based memory extraction with JSON validation and repair;
+- extracted entity persistence in Postgres.
 
 Not implemented yet:
 
@@ -376,6 +379,7 @@ Core validation commands:
 - `curl http://localhost:8080/v1/models`
 - `curl http://localhost:8080/v1/responses -H 'Content-Type: application/json' -d '{"model":"context-agent-1","input":"Help me ask Alex to review the infrastructure proposal."}'`
 - `curl http://localhost:8080/memory/ingest -H 'Content-Type: application/json' -d '{"raw_text":"Alex prefers narrow review scopes.","summary":"Alex prefers narrow review scopes.","type":"person_preference","people":["Alex"],"topics":["infrastructure"],"importance":0.7,"utility":0.8,"belief_impact":0.2,"confidence":0.9}'`
+- `curl http://localhost:8080/memory/extract -H 'Content-Type: application/json' -d '{"raw_text":"Alex prefers tightly scoped infrastructure review requests and usually wants the API section only."}'`
 - `curl 'http://localhost:8080/memory?user_external_id=dev-user'`
 
 ## Configuration

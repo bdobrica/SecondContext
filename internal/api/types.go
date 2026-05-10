@@ -91,6 +91,37 @@ type ingestMemoryRequest struct {
 	User          string         `json:"user,omitempty"`
 }
 
+type extractMemoryRequest struct {
+	RawText  string         `json:"raw_text"`
+	Source   string         `json:"source,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+	User     string         `json:"user,omitempty"`
+}
+
+type extractedEntityResponse struct {
+	Type       string  `json:"type"`
+	Name       string  `json:"name"`
+	Confidence float64 `json:"confidence"`
+}
+
+type extractionResponse struct {
+	Summary       string                    `json:"summary"`
+	Type          string                    `json:"type"`
+	People        []string                  `json:"people"`
+	Topics        []string                  `json:"topics"`
+	Entities      []extractedEntityResponse `json:"entities"`
+	Importance    float64                   `json:"importance"`
+	Utility       float64                   `json:"utility"`
+	BeliefImpact  float64                   `json:"belief_impact"`
+	Confidence    float64                   `json:"confidence"`
+	ExpiresInDays *int                      `json:"expires_in_days,omitempty"`
+}
+
+type extractMemoryResponse struct {
+	Memory     memoryResponse     `json:"memory"`
+	Extraction extractionResponse `json:"extraction"`
+}
+
 type memoryResponse struct {
 	ID            string         `json:"id"`
 	UserID        string         `json:"user_id"`

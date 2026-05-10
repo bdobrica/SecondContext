@@ -79,3 +79,14 @@ type MemoryItem struct {
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
+
+type MemoryEntity struct {
+	ID             string
+	MemoryItemID   string
+	EntityType     string
+	EntityName     string
+	NormalizedName string
+	Confidence     float64
+	Metadata       json.RawMessage
+	CreatedAt      time.Time
+}

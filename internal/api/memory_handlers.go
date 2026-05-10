@@ -51,6 +51,55 @@ func (s *Server) handleMemoryIngest(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toMemoryResponse(record))
 }
 
+func (s *Server) handleMemoryExtract(w http.ResponseWriter, r *http.Request) {
+	var request extractMemoryRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		s.writeAPIError(w, r, http.StatusBadRequest, "invalid request body", "invalid_request_error", "invalid_json", "")
+		return
+	}
+
+	metadata := parseRequestMetadata(request.Metadata)
+	service := memsvc.NewService(s.cfg, s.dbPool, s.llm)
+	result, err := service.ExtractAndIngest(r.Context(), memsvc.ExtractParams{
+		RawText:     request.RawText,
+		Source:      request.Source,
+		Metadata:    request.Metadata,
+		RequestUser: request.User,
+		Meta: memsvc.RequestMetadata{
+			SessionID:      metadata.SessionID,
+			UserExternalID: metadata.UserExternalID,
+			UserName:       metadata.UserName,
+			UserEmail:      metadata.UserEmail,
+			SessionTitle:   metadata.SessionTitle,
+		},
+	})
+	if err != nil {
+		s.writeMemoryError(w, r, err)
+		return
+	}
+
+	entities := make([]extractedEntityResponse, 0, len(result.Extraction.Entities))
+	for _, entity := range result.Extraction.Entities {
+		entities = append(entities, extractedEntityResponse{Type: entity.Type, Name: entity.Name, Confidence: entity.Confidence})
+	}
+
+	writeJSON(w, http.StatusCreated, extractMemoryResponse{
+		Memory: toMemoryResponse(result.Memory),
+		Extraction: extractionResponse{
+			Summary:       result.Extraction.Summary,
+			Type:          result.Extraction.Type,
+			People:        result.Extraction.People,
+			Topics:        result.Extraction.Topics,
+			Entities:      entities,
+			Importance:    result.Extraction.Importance,
+			Utility:       result.Extraction.Utility,
+			BeliefImpact:  result.Extraction.BeliefImpact,
+			Confidence:    result.Extraction.Confidence,
+			ExpiresInDays: result.Extraction.ExpiresInDays,
+		},
+	})
+}
+
 func (s *Server) handleListMemories(w http.ResponseWriter, r *http.Request) {
 	limit := int32(50)
 	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
