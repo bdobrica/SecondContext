@@ -284,7 +284,8 @@ POST /memory/search          implemented
 POST /interactions/outcome
 GET  /debug/context
 GET  /debug/memory/:id
-GET  /debug/person/:id
+GET  /debug/person/:id       implemented
+PUT  /debug/person/:id       implemented
 ```
 
 ## Example request
@@ -304,7 +305,7 @@ GET  /debug/person/:id
 
 ## Development status
 
-This project now has a working Stage 8 baseline:
+This project now has a working Stage 9 baseline:
 
 - Postgres-backed schema and repositories;
 - `GET /v1/models`;
@@ -318,13 +319,18 @@ This project now has a working Stage 8 baseline:
 - sparse token indexing alongside dense embeddings in Qdrant;
 - hybrid memory retrieval with filters and score breakdowns;
 - Go-side salience reranking with configurable weights, recency decay, goal relevance, and redundancy removal;
-- prompt augmentation for `/v1/responses` using context packets built from retrieved memories.
+- prompt augmentation for `/v1/responses` using context packets built from retrieved memories;
+- person/topic model extraction and persistence from observed memories;
+- safe, topic-scoped person summaries for debug inspection;
+- debug endpoints to inspect and manually edit person-topic models;
+- live-validated Stage 9 flow covering memory ingest, person inspection, and person-model updates.
 
 Not implemented yet:
 
 - streaming responses;
 - `POST /v1/chat/completions`;
-- person/topic modeling.
+- belief and claim tracking;
+- scenario generation and outcome feedback loops.
 
 See:
 
@@ -386,6 +392,8 @@ Core validation commands:
 - `curl http://localhost:8080/memory/extract -H 'Content-Type: application/json' -d '{"raw_text":"Alex prefers tightly scoped infrastructure review requests and usually wants the API section only."}'`
 - `curl http://localhost:8080/memory/search -H 'Content-Type: application/json' -d '{"query":"api scoped review request","goal":"pick the best review strategy for Alex","user_external_id":"dev-user","people":["Alex"],"confidence_threshold":0.5,"limit":5}'`
 - `curl 'http://localhost:8080/memory?user_external_id=dev-user'`
+- `curl http://localhost:8080/debug/person/<person-id>`
+- `curl -X PUT http://localhost:8080/debug/person/<person-id> -H 'Content-Type: application/json' -d '{"topic_name":"api_review","topic_aliases":["api"],"capacity":0.25,"confidence":0.9}'`
 
 ## Configuration
 

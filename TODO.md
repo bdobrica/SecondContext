@@ -355,29 +355,29 @@ final_score =
 
 ### Tasks
 
-- [ ] Create person/topic extraction prompt.
-- [ ] Extract person names and aliases.
-- [ ] Normalize person records.
-- [ ] Normalize topic records.
-- [ ] Create or update `person_topic_models`.
-- [ ] Track:
-  - [ ] niceness;
-  - [ ] readiness;
-  - [ ] competence;
-  - [ ] capacity;
-  - [ ] confidence;
-  - [ ] evidence count;
-  - [ ] last observed timestamp.
-- [ ] Add evidence references to memory items.
-- [ ] Add safe language rules for presenting person models.
-- [ ] Add endpoint to inspect person model.
-- [ ] Add endpoint to manually edit person model.
+- [x] Create person/topic extraction prompt.
+- [x] Extract person names and aliases.
+- [x] Normalize person records.
+- [x] Normalize topic records.
+- [x] Create or update `person_topic_models`.
+- [x] Track:
+  - [x] niceness;
+  - [x] readiness;
+  - [x] competence;
+  - [x] capacity;
+  - [x] confidence;
+  - [x] evidence count;
+  - [x] last observed timestamp.
+- [x] Add evidence references to memory items.
+- [x] Add safe language rules for presenting person models.
+- [x] Add endpoint to inspect person model.
+- [x] Add endpoint to manually edit person model.
 
 ### Deliverables
 
-- [ ] System builds topic-specific models of people.
-- [ ] Communication advice uses person/topic context.
-- [ ] User can inspect and correct the model.
+- [x] System builds topic-specific models of people.
+- [x] Communication advice uses person/topic context.
+- [x] User can inspect and correct the model.
 
 ---
 
