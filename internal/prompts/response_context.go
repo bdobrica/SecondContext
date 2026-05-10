@@ -140,7 +140,7 @@ func buildTopicSection(packet *ContextPacket) string {
 
 func buildBeliefSection(packet *ContextPacket) string {
 	if len(packet.BeliefContext) == 0 {
-		return "Belief context:\n- Belief tracking is not available yet."
+		return "Belief context:\n- No tracked beliefs matched the current context."
 	}
 
 	return "Belief context:\n- " + strings.Join(packet.BeliefContext, "\n- ")

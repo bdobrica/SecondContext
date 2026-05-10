@@ -235,3 +235,25 @@ type updatePersonModelRequest struct {
 	EvidenceMemoryIDs []string   `json:"evidence_memory_ids,omitempty"`
 	LastObservedAt    *time.Time `json:"last_observed_at,omitempty"`
 }
+
+type beliefDebugResponse struct {
+	ID                string         `json:"id"`
+	UserID            string         `json:"user_id"`
+	TopicID           string         `json:"topic_id,omitempty"`
+	TopicName         string         `json:"topic_name,omitempty"`
+	TopicAliases      []string       `json:"topic_aliases,omitempty"`
+	Claim             string         `json:"claim"`
+	Stance            string         `json:"stance"`
+	Confidence        float64        `json:"confidence"`
+	EvidenceMemoryIDs []string       `json:"evidence_memory_ids,omitempty"`
+	HasContradiction  bool           `json:"has_contradiction"`
+	Summary           string         `json:"summary"`
+	Metadata          map[string]any `json:"metadata,omitempty"`
+	LastUpdatedAt     string         `json:"last_updated_at"`
+	CreatedAt         string         `json:"created_at"`
+	UpdatedAt         string         `json:"updated_at"`
+}
+
+type beliefListResponse struct {
+	Data []beliefDebugResponse `json:"data"`
+}

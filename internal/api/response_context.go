@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	beliefsvc "github.com/bdobrica/SecondContext/internal/beliefs"
 	"github.com/bdobrica/SecondContext/internal/llm"
 	"github.com/bdobrica/SecondContext/internal/modeling"
 	"github.com/bdobrica/SecondContext/internal/prompts"
@@ -15,6 +16,7 @@ const (
 	responseContextSummaryChars    = 180
 	responseContextPeopleLimit     = 6
 	responseContextTopicsLimit     = 6
+	responseContextBeliefLimit     = 6
 	responseContextCharacterBudget = 2200
 )
 
@@ -27,7 +29,6 @@ func (s *Server) buildResponseContext(ctx context.Context, request createRespons
 		UserExternalID: firstNonEmpty(stringFromMap(metadata, "user_external_id"), strings.TrimSpace(request.User), s.cfg.Dev.UserExternalID),
 		People:         uniqueStrings(stringSliceFromMap(metadata, "people")),
 		Topics:         uniqueStrings(stringSliceFromMap(metadata, "topics")),
-		BeliefContext:  []string{"Belief tracking is not implemented yet."},
 	}
 
 	if s.dbPool == nil {
@@ -54,6 +55,10 @@ func (s *Server) buildResponseContext(ctx context.Context, request createRespons
 		packet.PeopleContext = buildPeopleContext(packet, nil, results)
 	}
 	packet.TopicContext = buildTopicContext(packet, results)
+	beliefContext, err := beliefsvc.NewService(s.cfg, s.dbPool, s.llm).BuildPromptContext(ctx, packet.UserExternalID, collectContextTopics(packet, results), responseContextBeliefLimit)
+	if err == nil {
+		packet.BeliefContext = beliefContext
+	}
 
 	return packet, nil
 }

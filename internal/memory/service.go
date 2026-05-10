@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	beliefsvc "github.com/bdobrica/SecondContext/internal/beliefs"
 	"github.com/bdobrica/SecondContext/internal/config"
 	"github.com/bdobrica/SecondContext/internal/db"
 	"github.com/bdobrica/SecondContext/internal/llm"
@@ -184,6 +185,7 @@ func (s *Service) Ingest(ctx context.Context, params IngestParams) (Record, erro
 	record.QdrantPointID = pointID
 
 	_ = modeling.NewService(s.cfg, s.pool, s.llm).ObserveMemory(ctx, record)
+	_ = beliefsvc.NewService(s.cfg, s.pool, s.llm).ObserveMemory(ctx, record)
 
 	return record, nil
 }

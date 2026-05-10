@@ -128,6 +128,8 @@ func TestResponsesEndpointUsesRetrievedContext(t *testing.T) {
 	fakeClient := &fakeLLMClient{responses: []llm.GenerateResponse{{
 		OutputText: `{"pairs":[{"person_name":"Alex","person_aliases":["A."],"topic_name":"api_review","topic_aliases":["api reviews"],"niceness":0.82,"readiness":0.79,"competence":0.91,"capacity":0.44,"confidence":0.86,"evidence_summary":"Prefers tightly scoped API review requests with action items.","last_observed_at":"2025-01-01T00:00:00Z"}]}`,
 	}, {
+		OutputText: `{"beliefs":[]}`,
+	}, {
 		ID:         "chatcmpl_context",
 		Model:      "gpt-4.1-mini",
 		OutputText: "Ask Alex for an API-only review with action items.",
@@ -217,6 +219,105 @@ func TestResponsesEndpointUsesRetrievedContext(t *testing.T) {
 	}
 	if _, ok := payload.Metadata["context_packet"]; !ok {
 		t.Fatalf("expected response metadata to include context packet, got %#v", payload.Metadata)
+	}
+}
+
+func TestResponsesEndpointIncludesBeliefContext(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	dsn := os.Getenv("POSTGRES_DSN")
+	if dsn == "" {
+		t.Skip("POSTGRES_DSN is not set")
+	}
+
+	migrationsDir, err := filepath.Abs(filepath.Join("..", "..", "migrations"))
+	if err != nil {
+		t.Fatalf("resolve migrations dir: %v", err)
+	}
+
+	pool, err := db.Open(context.Background(), config.PostgresConfig{Enabled: true, DSN: dsn, MaxConns: 4, MinConns: 1})
+	if err != nil {
+		t.Skipf("postgres is not reachable: %v", err)
+	}
+	defer db.Close(pool)
+
+	if err := db.RunMigrationsUp(config.PostgresConfig{DSN: dsn}, migrationsDir); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+
+	qdrantServer := newFakeQdrantServer()
+	defer qdrantServer.Close()
+
+	fakeClient := &fakeLLMClient{responses: []llm.GenerateResponse{{
+		OutputText: `{"beliefs":[{"claim":"The migration project is more risky than originally estimated.","topic_name":"migration","stance":"supports","confidence":0.71,"evidence_summary":"Recent cutover delays increased perceived migration risk."}]}`,
+	}, {
+		ID:         "chatcmpl_belief_context",
+		Model:      "gpt-4.1-mini",
+		OutputText: "The migration project looks riskier than previously assumed.",
+	}}, embedResponse: llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}}}
+
+	requestUser := fmt.Sprintf("belief-context-user-%d", time.Now().UnixNano())
+	cfg := config.Config{
+		App:     config.AppConfig{Name: "salience-graph", Env: "test"},
+		Dev:     config.DevConfig{UserExternalID: "dev-user", UserName: "Dev User", UserEmail: "dev@example.com"},
+		OpenAI:  config.OpenAIConfig{ChatModel: "gpt-4.1-mini", EmbeddingModel: "text-embedding-3-small"},
+		Qdrant:  config.QdrantConfig{URL: qdrantServer.URL, Collection: "memory_items", VectorSize: 3, DenseVector: "dense", SparseVector: "sparse"},
+		Scoring: config.ScoringConfig{RetrievalWeight: 0.35, RecencyWeight: 0.15, ImportanceWeight: 0.15, UtilityWeight: 0.15, GoalRelevanceWeight: 0.10, BeliefImpactWeight: 0.05, ConfidenceWeight: 0.05, RecencyHalfLifeDays: 30, RedundancyThreshold: 0.82},
+	}
+	server := NewServerWithClient(cfg, slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)), pool, fakeClient)
+
+	memoryService := memsvc.NewService(cfg, pool, fakeClient)
+	record, err := memoryService.Ingest(context.Background(), memsvc.IngestParams{
+		RawText:      "Recent cutover delays suggest the migration project is more risky than originally estimated.",
+		Summary:      "Recent cutover delays suggest the migration project is more risky than originally estimated.",
+		MemoryType:   "belief_update",
+		Topics:       []string{"migration"},
+		RequestUser:  requestUser,
+		BeliefImpact: floatPointer(0.92),
+		Confidence:   floatPointer(0.88),
+	})
+	if err != nil {
+		t.Fatalf("ingest memory: %v", err)
+	}
+	defer func() { _ = memoryService.Delete(context.Background(), record.ID) }()
+
+	sessionExternalID := fmt.Sprintf("belief-context-test-%d", time.Now().UnixNano())
+	body := []byte(fmt.Sprintf(`{"model":"context-agent-1","input":"Summarize the current migration risk.","user":"%s","metadata":{"session_id":"%s","goal":"assess risk","topics":["migration"]}}`, requestUser, sessionExternalID))
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+
+	server.Handler().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if len(fakeClient.request.Messages) < 2 {
+		t.Fatalf("expected augmented llm messages, got %#v", fakeClient.request.Messages)
+	}
+	if fakeClient.request.Messages[0].Role != "system" {
+		t.Fatalf("expected system prompt first, got %#v", fakeClient.request.Messages)
+	}
+	for _, expected := range []string{"Belief context:", "The migration project is more risky than originally estimated.", "currently supported"} {
+		if !strings.Contains(strings.ToLower(fakeClient.request.Messages[0].Content), strings.ToLower(expected)) {
+			t.Fatalf("expected system prompt to contain %q, got %s", expected, fakeClient.request.Messages[0].Content)
+		}
+	}
+
+	var payload createResponseResult
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	metadata, ok := payload.Metadata["context_packet"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected context packet metadata, got %#v", payload.Metadata)
+	}
+	beliefContext, ok := metadata["belief_context"].([]any)
+	if !ok || len(beliefContext) == 0 {
+		t.Fatalf("expected belief context in metadata, got %#v", metadata)
 	}
 }
 

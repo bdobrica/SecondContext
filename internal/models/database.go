@@ -75,6 +75,21 @@ type PersonTopicModel struct {
 	UpdatedAt      time.Time
 }
 
+type Belief struct {
+	ID                string
+	UserID            string
+	TopicID           string
+	Claim             string
+	NormalizedClaim   string
+	Stance            string
+	Confidence        float64
+	EvidenceMemoryIDs []string
+	LastUpdatedAt     time.Time
+	Metadata          json.RawMessage
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
 type MemoryItem struct {
 	ID              string
 	UserID          string

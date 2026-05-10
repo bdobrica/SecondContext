@@ -284,6 +284,7 @@ POST /memory/search          implemented
 POST /interactions/outcome
 GET  /debug/context
 GET  /debug/memory/:id
+GET  /debug/beliefs          implemented
 GET  /debug/person/:id       implemented
 PUT  /debug/person/:id       implemented
 ```
@@ -305,7 +306,7 @@ PUT  /debug/person/:id       implemented
 
 ## Development status
 
-This project now has a working Stage 9 baseline:
+This project now has a working Stage 10 baseline:
 
 - Postgres-backed schema and repositories;
 - `GET /v1/models`;
@@ -322,14 +323,18 @@ This project now has a working Stage 9 baseline:
 - prompt augmentation for `/v1/responses` using context packets built from retrieved memories;
 - person/topic model extraction and persistence from observed memories;
 - safe, topic-scoped person summaries for debug inspection;
+- belief extraction and persistence from belief-relevant memories;
+- contradiction-aware belief updates with evidence memory references;
+- debug endpoint to inspect tracked beliefs by topic;
+- prompt augmentation with belief context and uncertainty language;
 - debug endpoints to inspect and manually edit person-topic models;
-- live-validated Stage 9 flow covering memory ingest, person inspection, and person-model updates.
+- validated Stage 9 flow covering memory ingest, person inspection, and person-model updates;
+- integration-tested Stage 10 flow covering belief extraction, contradiction tracking, debug inspection, and belief-aware prompt augmentation.
 
 Not implemented yet:
 
 - streaming responses;
 - `POST /v1/chat/completions`;
-- belief and claim tracking;
 - scenario generation and outcome feedback loops.
 
 See:
@@ -392,6 +397,7 @@ Core validation commands:
 - `curl http://localhost:8080/memory/extract -H 'Content-Type: application/json' -d '{"raw_text":"Alex prefers tightly scoped infrastructure review requests and usually wants the API section only."}'`
 - `curl http://localhost:8080/memory/search -H 'Content-Type: application/json' -d '{"query":"api scoped review request","goal":"pick the best review strategy for Alex","user_external_id":"dev-user","people":["Alex"],"confidence_threshold":0.5,"limit":5}'`
 - `curl 'http://localhost:8080/memory?user_external_id=dev-user'`
+- `curl 'http://localhost:8080/debug/beliefs?topic_name=migration&user_external_id=dev-user'`
 - `curl http://localhost:8080/debug/person/<person-id>`
 - `curl -X PUT http://localhost:8080/debug/person/<person-id> -H 'Content-Type: application/json' -d '{"topic_name":"api_review","topic_aliases":["api"],"capacity":0.25,"confidence":0.9}'`
 

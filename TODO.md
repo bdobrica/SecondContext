@@ -390,26 +390,26 @@ final_score =
 
 ### Tasks
 
-- [ ] Create belief extraction prompt.
-- [ ] Create `beliefs` repository.
-- [ ] Extract claims from memory items.
-- [ ] Track stance:
-  - [ ] supports;
-  - [ ] weakens;
-  - [ ] contradicts;
-  - [ ] unknown.
-- [ ] Track confidence.
-- [ ] Track evidence memory IDs.
-- [ ] Add belief update behavior.
-- [ ] Add contradiction detection.
-- [ ] Add endpoint to inspect beliefs by topic.
-- [ ] Add belief context to prompt augmentation.
+- [x] Create belief extraction prompt.
+- [x] Create `beliefs` repository.
+- [x] Extract claims from memory items.
+- [x] Track stance:
+  - [x] supports;
+  - [x] weakens;
+  - [x] contradicts;
+  - [x] unknown.
+- [x] Track confidence.
+- [x] Track evidence memory IDs.
+- [x] Add belief update behavior.
+- [x] Add contradiction detection.
+- [x] Add endpoint to inspect beliefs by topic.
+- [x] Add belief context to prompt augmentation.
 
 ### Deliverables
 
-- [ ] System can track belief changes over time.
-- [ ] System can retrieve belief-relevant memories.
-- [ ] Assistant can mention uncertainty and contradictory evidence.
+- [x] System can track belief changes over time.
+- [x] System can retrieve belief-relevant memories.
+- [x] Assistant can mention uncertainty and contradictory evidence.
 
 ---
 
