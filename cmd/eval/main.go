@@ -26,16 +26,16 @@ import (
 
 const (
 	evalBaseURLEnv     = "SECOND_CONTEXT_BASE_URL"
-	evalOutputDirEnv   = "STAGE15_OUTPUT_DIR"
-	evalOutputDir      = ".artifacts/stage15"
-	evalSourceLabel    = "eval.stage15"
-	evalCollectionPref = "stage15_eval"
+	evalOutputDirEnv   = "EVAL_OUTPUT_DIR"
+	evalOutputDir      = ".artifacts/evaluation"
+	evalSourceLabel    = "eval.evaluation"
+	evalCollectionPref = "evaluation"
 	evalModel          = "context-agent-1"
 	judgeResponseModel = "gpt-4.1-mini"
 )
 
-//go:embed stage15_dataset.json
-var stage15DatasetJSON []byte
+//go:embed dataset.json
+var evaluationDatasetJSON []byte
 
 type evaluationDataset struct {
 	Name  string           `json:"name"`
@@ -439,7 +439,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.Postgres.Enabled {
-		return fmt.Errorf("POSTGRES_ENABLED must be true for Stage 15 evaluation")
+		return fmt.Errorf("POSTGRES_ENABLED must be true for evaluation")
 	}
 
 	dataset, err := loadDataset()
@@ -509,7 +509,7 @@ func run(ctx context.Context) error {
 
 func evaluateCase(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, client *demoClient, judgeClient llm.Client, runID string, currentCase evaluationCase) (evaluationCaseRun, error) {
 	caseRun := evaluationCaseRun{ID: currentCase.ID, Title: currentCase.Title}
-	userExternalID := fmt.Sprintf("stage15-%s-%s", normalizeID(currentCase.ID), runID)
+	userExternalID := fmt.Sprintf("eval-%s-%s", normalizeID(currentCase.ID), runID)
 	userDisplayName := strings.TrimSpace(currentCase.Title)
 	if userDisplayName == "" {
 		userDisplayName = currentCase.ID
@@ -530,8 +530,8 @@ func evaluateCase(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, cl
 		return caseRun, err
 	}
 
-	baselineSessionID := fmt.Sprintf("stage15-%s-baseline-%s", normalizeID(currentCase.ID), runID)
-	augmentedSessionID := fmt.Sprintf("stage15-%s-augmented-%s", normalizeID(currentCase.ID), runID)
+	baselineSessionID := fmt.Sprintf("eval-%s-baseline-%s", normalizeID(currentCase.ID), runID)
+	augmentedSessionID := fmt.Sprintf("eval-%s-augmented-%s", normalizeID(currentCase.ID), runID)
 	caseRun.BaselineSessionID = baselineSessionID
 	caseRun.AugmentedSessionID = augmentedSessionID
 
@@ -615,7 +615,7 @@ func evaluateCase(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, cl
 		}
 
 		if strings.TrimSpace(currentCase.FollowUpQuery) != "" {
-			followUpSessionID := fmt.Sprintf("stage15-%s-followup-%s", normalizeID(currentCase.ID), runID)
+			followUpSessionID := fmt.Sprintf("eval-%s-followup-%s", normalizeID(currentCase.ID), runID)
 			caseRun.FollowUpSessionID = followUpSessionID
 			followUpResponse, followErr := client.createResponse(ctx, createResponseRequest{
 				Model:        evalModel,
@@ -664,8 +664,8 @@ func evaluateCase(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, cl
 
 func loadDataset() (evaluationDataset, error) {
 	var dataset evaluationDataset
-	if err := json.Unmarshal(stage15DatasetJSON, &dataset); err != nil {
-		return evaluationDataset{}, fmt.Errorf("decode Stage 15 dataset: %w", err)
+	if err := json.Unmarshal(evaluationDatasetJSON, &dataset); err != nil {
+		return evaluationDataset{}, fmt.Errorf("decode evaluation dataset: %w", err)
 	}
 	return dataset, nil
 }
@@ -1044,8 +1044,8 @@ func writeReportFiles(report evaluationReport, outputDir string) (string, string
 		return "", "", fmt.Errorf("marshal evaluation report: %w", err)
 	}
 	markdown := renderMarkdownReport(report)
-	jsonPath := filepath.Join(outputDir, "stage15-report-"+timestamp+".json")
-	markdownPath := filepath.Join(outputDir, "stage15-report-"+timestamp+".md")
+	jsonPath := filepath.Join(outputDir, "evaluation-report-"+timestamp+".json")
+	markdownPath := filepath.Join(outputDir, "evaluation-report-"+timestamp+".md")
 	if err := os.WriteFile(jsonPath, jsonBytes, 0o644); err != nil {
 		return "", "", fmt.Errorf("write json report: %w", err)
 	}
@@ -1063,7 +1063,7 @@ func writeReportFiles(report evaluationReport, outputDir string) (string, string
 
 func renderMarkdownReport(report evaluationReport) string {
 	var builder strings.Builder
-	builder.WriteString("# Stage 15 Evaluation Report\n\n")
+	builder.WriteString("# Evaluation Report\n\n")
 	builder.WriteString(fmt.Sprintf("Generated: %s\n\n", report.GeneratedAt.Format(time.RFC3339)))
 	builder.WriteString(fmt.Sprintf("Dataset: %s\n\n", report.DatasetName))
 	builder.WriteString(fmt.Sprintf("Server mode: %s\n\n", report.ServerMode))
@@ -1139,7 +1139,7 @@ func renderMarkdownReport(report evaluationReport) string {
 }
 
 func printSummary(report evaluationReport, jsonPath, markdownPath string) {
-	fmt.Println("Stage 15 evaluation report generated.")
+	fmt.Println("Evaluation report generated.")
 	fmt.Printf("- Cases: %d\n", report.Summary.CaseCount)
 	fmt.Printf("- Failed cases: %d\n", report.Summary.FailedCases)
 	fmt.Printf("- Average retrieval precision@5: %.2f\n", report.Summary.AverageRetrievalPrecisionAt5)

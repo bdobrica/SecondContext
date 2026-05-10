@@ -1,13 +1,13 @@
-# Stage 15 Evaluation
+# Evaluation
 
-Stage 15 adds a repeatable evaluation harness for comparing stateless and memory-augmented behavior.
+The repository includes a repeatable evaluation harness for comparing stateless and memory-augmented behavior.
 
 The evaluator is designed to answer one practical question: is the system actually better than a stateless baseline on recurring, context-heavy tasks?
 
 ## What It Adds
 
 - a dataset-driven evaluation command at `cmd/eval`
-- a seeded benchmark dataset in `cmd/eval/stage15_dataset.json`
+- a seeded benchmark dataset in `cmd/eval/dataset.json`
 - automatic baseline vs augmented response generation
 - retrieval precision and coverage tracking against manually curated expected memory keys
 - optional strategy-success and outcome-feedback checks on cases that include outcomes
@@ -19,18 +19,18 @@ The evaluator is designed to answer one practical question: is the system actual
 Use the embedded dev server mode:
 
 ```bash
-make eval-stage15
+make eval
 ```
 
-In embedded mode, the evaluator uses a fresh Stage 15 Qdrant collection for each run so old local dev collections do not contaminate retrieval metrics.
+In embedded mode, the evaluator uses a fresh evaluation Qdrant collection for each run so old local dev collections do not contaminate retrieval metrics.
 
 Or target a running development API:
 
 ```bash
-SECOND_CONTEXT_BASE_URL=http://localhost:8080 make eval-stage15
+SECOND_CONTEXT_BASE_URL=http://localhost:8080 make eval
 ```
 
-Reports are written under `.artifacts/stage15/` by default. You can override that with `STAGE15_OUTPUT_DIR`.
+Reports are written under `.artifacts/evaluation/` by default. You can override that with `EVAL_OUTPUT_DIR`.
 
 ## What The Evaluator Measures
 
@@ -66,7 +66,7 @@ The judge output is treated as one signal, not ground truth.
 
 ## Manual Metrics
 
-Some Stage 15 metrics should remain manual.
+Some evaluation metrics should remain manual.
 
 The generated report includes prompts for:
 
