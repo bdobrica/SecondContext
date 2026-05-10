@@ -306,7 +306,7 @@ PUT  /debug/person/:id       implemented
 
 ## Development status
 
-This project now has a working Stage 10 baseline:
+This project now has a working Stage 11 baseline:
 
 - Postgres-backed schema and repositories;
 - `GET /v1/models`;
@@ -327,15 +327,21 @@ This project now has a working Stage 10 baseline:
 - contradiction-aware belief updates with evidence memory references;
 - debug endpoint to inspect tracked beliefs by topic;
 - prompt augmentation with belief context and uncertainty language;
+- structured scenario generation with 3 to 4 strategy options;
+- supported interaction goals for communication and decision-support flows;
+- server-side recommendation logic that picks a preferred strategy when the model response is incomplete or ambiguous;
+- `scenario_plan` metadata persisted alongside assistant responses for later comparison with real outcomes;
+- communication-advice mode in `/v1/responses` that returns a recommended approach, concrete draft, alternatives, and fallback steps;
 - debug endpoints to inspect and manually edit person-topic models;
 - validated Stage 9 flow covering memory ingest, person inspection, and person-model updates;
 - integration-tested Stage 10 flow covering belief extraction, contradiction tracking, debug inspection, and belief-aware prompt augmentation.
+- integration-tested Stage 11 flow covering scenario generation, recommended strategy selection, and persisted scenario metadata.
 
 Not implemented yet:
 
 - streaming responses;
 - `POST /v1/chat/completions`;
-- scenario generation and outcome feedback loops.
+- outcome feedback loops.
 
 See:
 
@@ -393,6 +399,7 @@ Core validation commands:
 - `curl http://localhost:8080/v1/models`
 - `curl http://localhost:8080/v1/responses -H 'Content-Type: application/json' -d '{"model":"context-agent-1","input":"Help me ask Alex to review the infrastructure proposal."}'`
 - `curl http://localhost:8080/v1/responses -H 'Content-Type: application/json' -d '{"model":"context-agent-1","input":"Help me ask Alex to review the infrastructure proposal.","metadata":{"goal":"get_review","people":["Alex"],"memory_mode":"social_strategy"}}'`
+- `curl http://localhost:8080/v1/responses -H 'Content-Type: application/json' -d '{"model":"context-agent-1","input":"Help me ask Alex to review the infrastructure proposal.","metadata":{"goal":"get_review","people":["Alex"],"memory_mode":"scenario_generation"}}'`
 - `curl http://localhost:8080/memory/ingest -H 'Content-Type: application/json' -d '{"raw_text":"Alex prefers narrow review scopes.","summary":"Alex prefers narrow review scopes.","type":"person_preference","people":["Alex"],"topics":["infrastructure"],"importance":0.7,"utility":0.8,"belief_impact":0.2,"confidence":0.9}'`
 - `curl http://localhost:8080/memory/extract -H 'Content-Type: application/json' -d '{"raw_text":"Alex prefers tightly scoped infrastructure review requests and usually wants the API section only."}'`
 - `curl http://localhost:8080/memory/search -H 'Content-Type: application/json' -d '{"query":"api scoped review request","goal":"pick the best review strategy for Alex","user_external_id":"dev-user","people":["Alex"],"confidence_threshold":0.5,"limit":5}'`

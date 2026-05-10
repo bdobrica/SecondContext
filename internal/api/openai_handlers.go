@@ -15,6 +15,7 @@ import (
 	"github.com/bdobrica/SecondContext/internal/llm"
 	"github.com/bdobrica/SecondContext/internal/models"
 	"github.com/bdobrica/SecondContext/internal/prompts"
+	"github.com/bdobrica/SecondContext/internal/scenarios"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
 )
@@ -62,9 +63,12 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.logger.Warn("build response context", "error", err, "request_id", middleware.GetReqID(r.Context()))
 	}
-	systemPrompt := prompts.BuildResponseSystemPrompt(contextPacket, request.Instructions)
-	if strings.TrimSpace(systemPrompt) != "" {
-		messages = prependSystemMessage(messages, systemPrompt)
+	scenarioMode := contextPacket != nil && isScenarioMode(contextPacket.Mode)
+	if !scenarioMode {
+		systemPrompt := prompts.BuildResponseSystemPrompt(contextPacket, request.Instructions)
+		if strings.TrimSpace(systemPrompt) != "" {
+			messages = prependSystemMessage(messages, systemPrompt)
+		}
 	}
 
 	responseModel := request.Model
@@ -83,17 +87,30 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	upstreamResponse, err := s.llm.Generate(r.Context(), llm.GenerateRequest{
-		Model:    upstreamModel,
-		Messages: messages,
-	})
-	if err != nil {
-		s.writeLLMError(w, r, err)
-		return
+	var upstreamResponse llm.GenerateResponse
+	var scenarioPlan *scenarios.Plan
+	if scenarioMode {
+		scenarioResult, err := scenarios.NewService(s.cfg, s.llm).Generate(r.Context(), upstreamModel, contextPacket, request.Instructions)
+		if err != nil {
+			s.logger.Error("generate scenario plan", "error", err, "request_id", middleware.GetReqID(r.Context()))
+			s.writeAPIError(w, r, http.StatusInternalServerError, "failed to generate scenario plan", "server_error", "scenario_generation_failed", "")
+			return
+		}
+		upstreamResponse = scenarioResult.LLMResponse
+		scenarioPlan = &scenarioResult.Plan
+	} else {
+		upstreamResponse, err = s.llm.Generate(r.Context(), llm.GenerateRequest{
+			Model:    upstreamModel,
+			Messages: messages,
+		})
+		if err != nil {
+			s.writeLLMError(w, r, err)
+			return
+		}
 	}
 
 	if s.dbPool != nil {
-		if err := s.persistAssistantMessage(r, session, upstreamResponse, contextPacket); err != nil {
+		if err := s.persistAssistantMessage(r, session, upstreamResponse, contextPacket, scenarioPlan); err != nil {
 			s.logger.Error("persist assistant response", "error", err, "request_id", middleware.GetReqID(r.Context()))
 			s.writeAPIError(w, r, http.StatusInternalServerError, "failed to persist assistant response", "server_error", "persistence_failed", "")
 			return
@@ -134,6 +151,9 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	if contextPacket != nil {
 		response.Metadata["context_packet"] = contextPacket
+	}
+	if scenarioPlan != nil {
+		response.Metadata["scenario_plan"] = scenarioPlan
 	}
 
 	writeJSON(w, http.StatusOK, response)
@@ -227,7 +247,7 @@ func (s *Server) ensureSession(ctx context.Context, repo *db.SessionRepository, 
 	})
 }
 
-func (s *Server) persistAssistantMessage(r *http.Request, session models.Session, response llm.GenerateResponse, contextPacket *prompts.ContextPacket) error {
+func (s *Server) persistAssistantMessage(r *http.Request, session models.Session, response llm.GenerateResponse, contextPacket *prompts.ContextPacket, scenarioPlan *scenarios.Plan) error {
 	if session.ID == "" {
 		return nil
 	}
@@ -236,6 +256,9 @@ func (s *Server) persistAssistantMessage(r *http.Request, session models.Session
 	metadata := map[string]any{}
 	if contextPacket != nil {
 		metadata["context_packet"] = contextPacket
+	}
+	if scenarioPlan != nil {
+		metadata["scenario_plan"] = scenarioPlan
 	}
 	metadataBytes, err := json.Marshal(metadata)
 	if err != nil {
@@ -252,6 +275,15 @@ func (s *Server) persistAssistantMessage(r *http.Request, session models.Session
 	})
 
 	return err
+}
+
+func isScenarioMode(mode prompts.ResponseMode) bool {
+	switch mode {
+	case prompts.ResponseModeCommunicationAdvice, prompts.ResponseModeScenarioGeneration:
+		return true
+	default:
+		return false
+	}
 }
 
 func prependSystemMessage(messages []llm.Message, content string) []llm.Message {

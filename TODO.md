@@ -422,26 +422,26 @@ final_score =
 
 ### Tasks
 
-- [ ] Define supported interaction goals.
-- [ ] Create scenario generation prompt.
-- [ ] Generate 3 to 4 strategies.
-- [ ] For each strategy, produce:
-  - [ ] message draft;
-  - [ ] predicted response;
-  - [ ] benefits;
-  - [ ] risks;
-  - [ ] likelihood of success;
-  - [ ] fallback option.
-- [ ] Use person/topic model in scenario prompt.
-- [ ] Add strategy recommendation logic.
-- [ ] Persist predicted scenario where appropriate.
-- [ ] Add communication-advice mode to `/v1/responses`.
+- [x] Define supported interaction goals.
+- [x] Create scenario generation prompt.
+- [x] Generate 3 to 4 strategies.
+- [x] For each strategy, produce:
+  - [x] message draft;
+  - [x] predicted response;
+  - [x] benefits;
+  - [x] risks;
+  - [x] likelihood of success;
+  - [x] fallback option.
+- [x] Use person/topic model in scenario prompt.
+- [x] Add strategy recommendation logic.
+- [x] Persist predicted scenario where appropriate.
+- [x] Add communication-advice mode to `/v1/responses`.
 
 ### Deliverables
 
-- [ ] Assistant can generate multiple communication strategies.
-- [ ] Assistant recommends a strategy based on goal and context.
-- [ ] Predicted outcomes can later be compared with actual outcomes.
+- [x] Assistant can generate multiple communication strategies.
+- [x] Assistant recommends a strategy based on goal and context.
+- [x] Predicted outcomes can later be compared with actual outcomes.
 
 ---
 

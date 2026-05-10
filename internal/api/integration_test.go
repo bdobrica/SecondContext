@@ -132,7 +132,7 @@ func TestResponsesEndpointUsesRetrievedContext(t *testing.T) {
 	}, {
 		ID:         "chatcmpl_context",
 		Model:      "gpt-4.1-mini",
-		OutputText: "Ask Alex for an API-only review with action items.",
+		OutputText: `{"recommended_strategy_id":"scoped_direct","recommendation_rationale":"It best fits Alex's preference for narrowly scoped requests while keeping the ask actionable.","strategies":[{"id":"scoped_direct","label":"Scoped direct request","message_draft":"Alex, could you review just the API section and flag the top risks and action items?","predicted_response":"Yes, that scope works well for me.","benefits":["matches Alex's preferred scope","easy to act on"],"risks":["may omit broader architecture feedback"],"likelihood_of_success":0.82,"fallback_option":"Keep the ask API-only and offer a later follow-up for broader issues."},{"id":"context_first","label":"Context-first request","message_draft":"Alex, I'm trying to de-risk the proposal and your API perspective would help. Could you review the API section first?","predicted_response":"I can do the API section first, then decide if more is needed.","benefits":["shows why the request matters"],"risks":["slightly longer ask"],"likelihood_of_success":0.69,"fallback_option":"Trim the background and send only the concrete API questions."},{"id":"deferential_short","label":"Short deferential ask","message_draft":"Alex, if you have bandwidth, would you be open to a short API-only review this week?","predicted_response":"Possibly, send the exact section and deadline.","benefits":["polite tone"],"risks":["can invite delay"],"likelihood_of_success":0.63,"fallback_option":"Reply with the exact section and a firm deadline."}]}`,
 	}}, embedResponse: llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}}}
 
 	cfg := config.Config{
@@ -180,7 +180,7 @@ func TestResponsesEndpointUsesRetrievedContext(t *testing.T) {
 	if fakeClient.request.Messages[0].Role != "system" {
 		t.Fatalf("expected system prompt first, got %#v", fakeClient.request.Messages)
 	}
-	for _, expected := range []string{"communication advice", "Alex prefers tightly scoped API review requests with action items and evidence.", "Interaction goal:", "working estimate only", "Alex on api_review"} {
+	for _, expected := range []string{"structured interaction scenarios", "Alex prefers tightly scoped API review requests with action items and evidence.", "Interaction goal:", "working estimate only", "Alex on api_review"} {
 		if !strings.Contains(strings.ToLower(fakeClient.request.Messages[0].Content), strings.ToLower(expected)) {
 			t.Fatalf("expected system prompt to contain %q, got %s", expected, fakeClient.request.Messages[0].Content)
 		}
@@ -212,6 +212,9 @@ func TestResponsesEndpointUsesRetrievedContext(t *testing.T) {
 	if !ok || len(memoryContext) == 0 {
 		t.Fatalf("expected memory context in metadata, got %#v", contextPacket)
 	}
+	if _, ok := assistantMetadata["scenario_plan"].(map[string]any); !ok {
+		t.Fatalf("expected scenario plan in assistant metadata, got %#v", assistantMetadata)
+	}
 
 	var payload createResponseResult
 	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
@@ -219,6 +222,12 @@ func TestResponsesEndpointUsesRetrievedContext(t *testing.T) {
 	}
 	if _, ok := payload.Metadata["context_packet"]; !ok {
 		t.Fatalf("expected response metadata to include context packet, got %#v", payload.Metadata)
+	}
+	if _, ok := payload.Metadata["scenario_plan"]; !ok {
+		t.Fatalf("expected response metadata to include scenario plan, got %#v", payload.Metadata)
+	}
+	if !strings.Contains(payload.OutputText, "Recommended approach:") {
+		t.Fatalf("expected communication advice output, got %q", payload.OutputText)
 	}
 }
 
