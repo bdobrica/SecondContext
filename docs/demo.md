@@ -1,6 +1,6 @@
-# Stage 14 Demo
+# End-to-End Demo
 
-Stage 14 packages the MVP into a repeatable end-to-end demo.
+The repository includes a repeatable end-to-end demo.
 
 The demo centers on a familiar communication task:
 
@@ -35,13 +35,15 @@ If you want it to target an already running API instead, start the API separatel
 Embedded server mode:
 
 ```bash
-make demo-stage14
+make demo
 ```
+
+In embedded mode, the demo uses a fresh Qdrant collection per run so old local dev collections do not skew retrieval or trigger stale collection errors.
 
 Existing API mode:
 
 ```bash
-SECOND_CONTEXT_BASE_URL=http://localhost:8080 make demo-stage14
+SECOND_CONTEXT_BASE_URL=http://localhost:8080 make demo
 ```
 
 ## What It Does

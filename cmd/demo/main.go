@@ -20,15 +20,16 @@ import (
 )
 
 const (
-	demoBaseURLEnv  = "SECOND_CONTEXT_BASE_URL"
-	demoSourceLabel = "demo.stage14"
-	demoModel       = "context-agent-1"
+	demoBaseURLEnv     = "SECOND_CONTEXT_BASE_URL"
+	demoCollectionPref = "demo"
+	demoSourceLabel    = "demo.end_to_end"
+	demoModel          = "context-agent-1"
 )
 
-//go:embed stage14_seed.json
-var stage14SeedJSON []byte
+//go:embed seed.json
+var demoSeedJSON []byte
 
-type stage14Scenario struct {
+type demoScenario struct {
 	ScenarioName         string            `json:"scenario_name"`
 	UserExternalIDPrefix string            `json:"user_external_id_prefix"`
 	UserDisplayName      string            `json:"user_display_name"`
@@ -285,7 +286,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.Postgres.Enabled {
-		return fmt.Errorf("POSTGRES_ENABLED must be true for the Stage 14 demo")
+		return fmt.Errorf("POSTGRES_ENABLED must be true for the demo")
 	}
 
 	scenario, err := loadScenario()
@@ -300,10 +301,13 @@ func run(ctx context.Context) error {
 	defer db.Close(pool)
 
 	runID := time.Now().UTC().Format("20060102t150405")
+	if strings.TrimSpace(os.Getenv(demoBaseURLEnv)) == "" {
+		cfg.Qdrant.Collection = fmt.Sprintf("%s_%s", demoCollectionPref, runID)
+	}
 	userExternalID := fmt.Sprintf("%s-%s", scenario.UserExternalIDPrefix, runID)
 	userDisplayName := scenario.UserDisplayName
 	if strings.TrimSpace(userDisplayName) == "" {
-		userDisplayName = "Stage 14 Demo User"
+		userDisplayName = "Demo User"
 	}
 	userEmail := fmt.Sprintf("%s@secondcontext.local", userExternalID)
 	user, err := db.NewUserRepository(pool).Ensure(ctx, db.EnsureUserParams{
@@ -326,7 +330,7 @@ func run(ctx context.Context) error {
 		httpClient: &http.Client{Timeout: 60 * time.Second},
 	}
 
-	printSection("Stage 14 Demo")
+	printSection("End-to-End Demo")
 	printItem("Scenario", scenario.ScenarioName)
 	printItem("User", fmt.Sprintf("%s (%s)", user.DisplayName, user.ExternalID))
 	printItem("Server", serverMode)
@@ -353,7 +357,7 @@ func run(ctx context.Context) error {
 		fmt.Printf("- [%s] %s (%s %.2f)\n", item.TopicName, item.Claim, item.Stance, item.Confidence)
 	}
 
-	baselineSessionID := fmt.Sprintf("stage14-baseline-%s", runID)
+	baselineSessionID := fmt.Sprintf("demo-baseline-%s", runID)
 	baselineResponse, err := client.createResponse(ctx, createResponseRequest{
 		Model:         demoModel,
 		Input:         scenario.Query,
@@ -375,7 +379,7 @@ func run(ctx context.Context) error {
 	printSection("Stateless Draft")
 	printParagraph(baselineResponse.OutputText)
 
-	demoSessionID := fmt.Sprintf("stage14-demo-%s", runID)
+	demoSessionID := fmt.Sprintf("demo-run-%s", runID)
 	augmentedResponse, err := client.createResponse(ctx, createResponseRequest{
 		Model: demoModel,
 		Input: scenario.Query,
@@ -491,7 +495,7 @@ func run(ctx context.Context) error {
 		fmt.Printf("- Latest-turn memory: %s\n", memory.Summary)
 	}
 
-	followUpSessionID := fmt.Sprintf("stage14-follow-up-%s", runID)
+	followUpSessionID := fmt.Sprintf("demo-follow-up-%s", runID)
 	followUpResponse, err := client.createResponse(ctx, createResponseRequest{
 		Model: demoModel,
 		Input: scenario.FollowUpQuery,
@@ -544,10 +548,10 @@ func run(ctx context.Context) error {
 	return nil
 }
 
-func loadScenario() (stage14Scenario, error) {
-	var scenario stage14Scenario
-	if err := json.Unmarshal(stage14SeedJSON, &scenario); err != nil {
-		return stage14Scenario{}, fmt.Errorf("decode Stage 14 seed data: %w", err)
+func loadScenario() (demoScenario, error) {
+	var scenario demoScenario
+	if err := json.Unmarshal(demoSeedJSON, &scenario); err != nil {
+		return demoScenario{}, fmt.Errorf("decode demo seed data: %w", err)
 	}
 	return scenario, nil
 }
@@ -564,7 +568,7 @@ func resolveBaseURL(cfg config.Config, pool *pgxpool.Pool) (string, func(), stri
 	return server.URL, server.Close, "embedded development server", nil
 }
 
-func seedScenarioState(ctx context.Context, pool *pgxpool.Pool, client *demoClient, scenario stage14Scenario, userID, userExternalID string) (demoSeedState, error) {
+func seedScenarioState(ctx context.Context, pool *pgxpool.Pool, client *demoClient, scenario demoScenario, userID, userExternalID string) (demoSeedState, error) {
 	state := demoSeedState{Memories: make(map[string]memoryResponse, len(scenario.Memories))}
 
 	for _, item := range scenario.Memories {

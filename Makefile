@@ -1,6 +1,6 @@
 GO ?= go
 
-.PHONY: run test build docker-up docker-down docker-logs migrate-up migrate-down migrate-version seed-dev-user demo-stage14 eval
+.PHONY: run test build docker-up docker-down docker-logs migrate-up migrate-down migrate-version seed-dev-user demo eval
 
 run:
 	$(GO) run ./cmd/api
@@ -32,7 +32,7 @@ migrate-version:
 seed-dev-user:
 	$(GO) run ./cmd/devseed
 
-demo-stage14:
+demo:
 	$(GO) run ./cmd/demo
 
 eval:
