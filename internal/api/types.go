@@ -10,12 +10,13 @@ import (
 const defaultPublicModel = "context-agent-1"
 
 type createResponseRequest struct {
-	Model        string          `json:"model"`
-	Input        json.RawMessage `json:"input"`
-	Instructions string          `json:"instructions,omitempty"`
-	Stream       bool            `json:"stream,omitempty"`
-	Metadata     map[string]any  `json:"metadata,omitempty"`
-	User         string          `json:"user,omitempty"`
+	Model         string          `json:"model"`
+	Input         json.RawMessage `json:"input"`
+	Instructions  string          `json:"instructions,omitempty"`
+	DisableMemory bool            `json:"disable_memory,omitempty"`
+	Stream        bool            `json:"stream,omitempty"`
+	Metadata      map[string]any  `json:"metadata,omitempty"`
+	User          string          `json:"user,omitempty"`
 }
 
 type listModelsResponse struct {

@@ -18,6 +18,7 @@ type fakeLLMClient struct {
 	response      llm.GenerateResponse
 	responses     []llm.GenerateResponse
 	embedResponse llm.EmbedResponse
+	embedCount    int
 	err           error
 	request       llm.GenerateRequest
 	requests      []llm.GenerateRequest
@@ -39,6 +40,7 @@ func (f *fakeLLMClient) Generate(_ context.Context, request llm.GenerateRequest)
 }
 
 func (f *fakeLLMClient) Embed(_ context.Context, _ llm.EmbedRequest) (llm.EmbedResponse, error) {
+	f.embedCount++
 	if f.err != nil {
 		return llm.EmbedResponse{}, f.err
 	}
@@ -157,5 +159,71 @@ func TestHandleCreateResponseScenarioGeneration(t *testing.T) {
 	}
 	if _, ok := payload.Metadata["scenario_plan"]; !ok {
 		t.Fatalf("expected scenario plan metadata, got %#v", payload.Metadata)
+	}
+}
+
+func TestHandleCreateResponseDisableMemory(t *testing.T) {
+	fakeClient := &fakeLLMClient{response: llm.GenerateResponse{
+		ID:         "chatcmpl_disable_memory_test",
+		Model:      "gpt-4.1-mini",
+		OutputText: "Ask Alex to review the proposal.",
+	}}
+
+	server := NewServerWithClient(config.Config{
+		App:    config.AppConfig{Name: "salience-graph", Env: "test"},
+		Dev:    config.DevConfig{UserExternalID: "dev-user", UserName: "Dev User", UserEmail: "dev@example.com"},
+		OpenAI: config.OpenAIConfig{ChatModel: "gpt-4.1-mini"},
+	}, slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)), nil, fakeClient)
+
+	body := []byte(`{"model":"context-agent-1","input":"Help me ask Alex to review the proposal.","disable_memory":true,"metadata":{"goal":"get_review","people":["Alex"],"topics":["api_review"]}}`)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+
+	server.Handler().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if fakeClient.embedCount != 0 {
+		t.Fatalf("expected disable_memory to skip embeddings, got %d", fakeClient.embedCount)
+	}
+	if len(fakeClient.request.Messages) != 2 {
+		t.Fatalf("unexpected llm request %#v", fakeClient.request)
+	}
+	if fakeClient.request.Messages[0].Role != "system" {
+		t.Fatalf("unexpected llm request %#v", fakeClient.request)
+	}
+	for _, unexpected := range []string{"Alex on api_review", "currently supported", "structured interaction scenarios"} {
+		if strings.Contains(fakeClient.request.Messages[0].Content, unexpected) {
+			t.Fatalf("expected disable_memory prompt to stay sparse, got %s", fakeClient.request.Messages[0].Content)
+		}
+	}
+
+	var payload createResponseResult
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.Metadata["disable_memory"] != true {
+		t.Fatalf("expected disable_memory metadata, got %#v", payload.Metadata)
+	}
+	packet, ok := payload.Metadata["context_packet"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected context packet metadata, got %#v", payload.Metadata)
+	}
+	if _, ok := packet["memory_context"]; ok {
+		t.Fatalf("expected no memory_context when disable_memory is set, got %#v", packet)
+	}
+	if _, ok := packet["people_context"]; ok {
+		t.Fatalf("expected no people_context when disable_memory is set, got %#v", packet)
+	}
+	if _, ok := packet["belief_context"]; ok {
+		t.Fatalf("expected no belief_context when disable_memory is set, got %#v", packet)
+	}
+	if packet["people"] == nil {
+		t.Fatalf("expected top-level request hints to remain in context packet, got %#v", packet)
+	}
+	if packet["topics"] == nil {
+		t.Fatalf("expected top-level request hints to remain in context packet, got %#v", packet)
 	}
 }

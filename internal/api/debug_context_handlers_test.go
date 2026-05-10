@@ -20,6 +20,21 @@ import (
 	memsvc "github.com/bdobrica/SecondContext/internal/memory"
 )
 
+func TestDebugContextEndpointNotExposedOutsideDev(t *testing.T) {
+	cfg := config.Config{
+		App: config.AppConfig{Name: "salience-graph", Env: "production"},
+	}
+	server := NewServerWithClient(cfg, slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)), nil, &fakeLLMClient{})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/debug/context?input=test", nil)
+	server.Handler().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusNotFound, recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestDebugContextEndpointShowsStoredContextAndLatestUpdates(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")

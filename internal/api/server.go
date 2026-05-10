@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bdobrica/SecondContext/internal/config"
@@ -54,12 +55,27 @@ func (s *Server) Handler() http.Handler {
 	router.Post("/interactions/outcome", s.handleCreateInteractionOutcome)
 	router.Get("/memory", s.handleListMemories)
 	router.Delete("/memory/{memoryID}", s.handleDeleteMemory)
-	router.Get("/debug/context", s.handleGetDebugContext)
-	router.Get("/debug/beliefs", s.handleListDebugBeliefs)
-	router.Get("/debug/person/{personID}", s.handleGetDebugPerson)
-	router.Put("/debug/person/{personID}", s.handleUpdateDebugPerson)
+	if s.debugEndpointsEnabled() {
+		router.Get("/debug/context", s.handleGetDebugContext)
+		router.Get("/debug/beliefs", s.handleListDebugBeliefs)
+		router.Get("/debug/person/{personID}", s.handleGetDebugPerson)
+		router.Put("/debug/person/{personID}", s.handleUpdateDebugPerson)
+	}
 
 	return router
+}
+
+func (s *Server) debugEndpointsEnabled() bool {
+	return isDevelopmentLikeEnv(s.cfg.App.Env)
+}
+
+func isDevelopmentLikeEnv(environment string) bool {
+	switch strings.ToLower(strings.TrimSpace(environment)) {
+	case "", "development", "dev", "local", "test":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {

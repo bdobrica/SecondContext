@@ -330,6 +330,144 @@ func TestResponsesEndpointIncludesBeliefContext(t *testing.T) {
 	}
 }
 
+func TestResponsesEndpointDisableMemorySkipsRetrievedContext(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	dsn := os.Getenv("POSTGRES_DSN")
+	if dsn == "" {
+		t.Skip("POSTGRES_DSN is not set")
+	}
+
+	migrationsDir, err := filepath.Abs(filepath.Join("..", "..", "migrations"))
+	if err != nil {
+		t.Fatalf("resolve migrations dir: %v", err)
+	}
+
+	pool, err := db.Open(context.Background(), config.PostgresConfig{Enabled: true, DSN: dsn, MaxConns: 4, MinConns: 1})
+	if err != nil {
+		t.Skipf("postgres is not reachable: %v", err)
+	}
+	defer db.Close(pool)
+
+	if err := db.RunMigrationsUp(config.PostgresConfig{DSN: dsn}, migrationsDir); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+
+	qdrantServer := newFakeQdrantServer()
+	defer qdrantServer.Close()
+
+	fakeClient := &fakeLLMClient{response: llm.GenerateResponse{
+		ID:         "chatcmpl_disable_memory",
+		Model:      "gpt-4.1-mini",
+		OutputText: "Ask Alex to review the proposal.",
+	}, embedResponse: llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}}}
+
+	requestUser := fmt.Sprintf("disable-memory-user-%d", time.Now().UnixNano())
+	cfg := config.Config{
+		App:     config.AppConfig{Name: "salience-graph", Env: "test"},
+		Dev:     config.DevConfig{UserExternalID: "dev-user", UserName: "Dev User", UserEmail: "dev@example.com"},
+		OpenAI:  config.OpenAIConfig{ChatModel: "gpt-4.1-mini", EmbeddingModel: "text-embedding-3-small"},
+		Qdrant:  config.QdrantConfig{URL: qdrantServer.URL, Collection: "memory_items", VectorSize: 3, DenseVector: "dense", SparseVector: "sparse"},
+		Scoring: config.ScoringConfig{RetrievalWeight: 0.35, RecencyWeight: 0.15, ImportanceWeight: 0.15, UtilityWeight: 0.15, GoalRelevanceWeight: 0.10, BeliefImpactWeight: 0.05, ConfidenceWeight: 0.05, RecencyHalfLifeDays: 30, RedundancyThreshold: 0.82},
+	}
+	server := NewServerWithClient(cfg, slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)), pool, fakeClient)
+
+	memoryService := memsvc.NewService(cfg, pool, fakeClient)
+	record, err := memoryService.Ingest(context.Background(), memsvc.IngestParams{
+		RawText:      "Alex prefers tightly scoped API review requests with action items and evidence.",
+		Summary:      "Alex prefers tightly scoped API review requests with action items and evidence.",
+		MemoryType:   "person_preference",
+		People:       []string{"Alex"},
+		Topics:       []string{"api_review"},
+		RequestUser:  requestUser,
+		Importance:   floatPointer(0.95),
+		Utility:      floatPointer(0.96),
+		BeliefImpact: floatPointer(0.34),
+		Confidence:   floatPointer(0.97),
+	})
+	if err != nil {
+		t.Fatalf("ingest memory: %v", err)
+	}
+	defer func() { _ = memoryService.Delete(context.Background(), record.ID) }()
+
+	embedCountBefore := fakeClient.embedCount
+	sessionExternalID := fmt.Sprintf("disable-memory-test-%d", time.Now().UnixNano())
+	body := []byte(fmt.Sprintf(`{"model":"context-agent-1","input":"Help me ask Alex to review the proposal.","user":"%s","disable_memory":true,"metadata":{"session_id":"%s","goal":"get_review","people":["Alex"],"topics":["api_review"],"memory_mode":"social_strategy"}}`, requestUser, sessionExternalID))
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+
+	server.Handler().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if fakeClient.embedCount != embedCountBefore {
+		t.Fatalf("expected disable_memory to skip embeddings, before=%d after=%d", embedCountBefore, fakeClient.embedCount)
+	}
+	if len(fakeClient.request.Messages) < 2 {
+		t.Fatalf("expected llm request messages, got %#v", fakeClient.request.Messages)
+	}
+	for _, unexpected := range []string{"Alex prefers tightly scoped API review requests with action items and evidence.", "Alex on api_review", "currently supported"} {
+		if strings.Contains(fakeClient.request.Messages[0].Content, unexpected) {
+			t.Fatalf("expected disable_memory prompt to omit %q, got %s", unexpected, fakeClient.request.Messages[0].Content)
+		}
+	}
+
+	sessions := db.NewSessionRepository(pool)
+	messages := db.NewMessageRepository(pool)
+	session, err := sessions.GetByExternalID(context.Background(), sessionExternalID)
+	if err != nil {
+		t.Fatalf("get session by external id: %v", err)
+	}
+
+	storedMessages, err := messages.ListBySession(context.Background(), session.ID, 10)
+	if err != nil {
+		t.Fatalf("list messages: %v", err)
+	}
+	if len(storedMessages) != 2 {
+		t.Fatalf("expected 2 stored messages, got %d", len(storedMessages))
+	}
+	var assistantMetadata map[string]any
+	if err := json.Unmarshal(storedMessages[1].Metadata, &assistantMetadata); err != nil {
+		t.Fatalf("decode assistant metadata: %v", err)
+	}
+	if assistantMetadata["disable_memory"] != true {
+		t.Fatalf("expected assistant metadata to record disable_memory, got %#v", assistantMetadata)
+	}
+	contextPacket, ok := assistantMetadata["context_packet"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected context packet metadata, got %#v", assistantMetadata)
+	}
+	if _, ok := contextPacket["memory_context"]; ok {
+		t.Fatalf("expected sparse context packet without memory context, got %#v", contextPacket)
+	}
+	if _, ok := contextPacket["people_context"]; ok {
+		t.Fatalf("expected sparse context packet without people context, got %#v", contextPacket)
+	}
+	if _, ok := contextPacket["belief_context"]; ok {
+		t.Fatalf("expected sparse context packet without belief context, got %#v", contextPacket)
+	}
+
+	var payload createResponseResult
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.Metadata["disable_memory"] != true {
+		t.Fatalf("expected response metadata to include disable_memory, got %#v", payload.Metadata)
+	}
+	payloadContextPacket, ok := payload.Metadata["context_packet"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected response metadata context packet, got %#v", payload.Metadata)
+	}
+	if _, ok := payloadContextPacket["memory_context"]; ok {
+		t.Fatalf("expected response context packet without memory context, got %#v", payloadContextPacket)
+	}
+}
+
 func floatPointer(value float64) *float64 {
 	return &value
 }

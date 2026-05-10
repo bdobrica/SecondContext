@@ -282,8 +282,7 @@ GET  /memory                 implemented
 DELETE /memory/{id}          implemented
 POST /memory/search          implemented
 POST /interactions/outcome   implemented
-GET  /debug/context
-GET  /debug/memory/:id
+GET  /debug/context          implemented
 GET  /debug/beliefs          implemented
 GET  /debug/person/:id       implemented
 PUT  /debug/person/:id       implemented
@@ -304,9 +303,24 @@ PUT  /debug/person/:id       implemented
 }
 ```
 
+Stateless comparison request:
+
+```json
+{
+  "model": "saliencegraph-1",
+  "input": "Help me ask Alex to review the infrastructure proposal.",
+  "disable_memory": true,
+  "metadata": {
+    "goal": "get_review",
+    "people": ["Alex"],
+    "memory_mode": "social_strategy"
+  }
+}
+```
+
 ## Development status
 
-This project now has a working Stage 12 baseline:
+This project now has a working Stage 13 baseline:
 
 - Postgres-backed schema and repositories;
 - `GET /v1/models`;
@@ -337,10 +351,15 @@ This project now has a working Stage 12 baseline:
 - outcome memories linked back to the originating assistant message so future retrieval can learn from real results;
 - follow-on person-model and belief updates triggered from stored outcome memories;
 - debug endpoints to inspect and manually edit person-topic models;
+- `GET /debug/context` for inspecting stored context, rebuilt current context, people models, beliefs, latest-turn updates, and scenario metadata;
+- optional stateless-vs-memory comparison in `GET /debug/context`, with a minimal HTML debug view for interactive inspection;
+- direct `disable_memory` support on `POST /v1/responses` for stateless runs that still honor explicit request hints;
+- debug routes mounted only in development-like environments;
 - validated Stage 9 flow covering memory ingest, person inspection, and person-model updates;
 - integration-tested Stage 10 flow covering belief extraction, contradiction tracking, debug inspection, and belief-aware prompt augmentation.
 - integration-tested Stage 11 flow covering scenario generation, recommended strategy selection, and persisted scenario metadata;
-- integration-tested Stage 12 flow covering outcome submission, outcome persistence, graph updates, and memory-driven learning updates.
+- integration-tested Stage 12 flow covering outcome submission, outcome persistence, graph updates, and memory-driven learning updates;
+- integration-tested Stage 13 flow covering debug context inspection, stateless-vs-memory comparison, and direct `disable_memory` behavior on `/v1/responses`.
 
 Not implemented yet:
 
@@ -404,10 +423,13 @@ Core validation commands:
 - `curl http://localhost:8080/v1/responses -H 'Content-Type: application/json' -d '{"model":"context-agent-1","input":"Help me ask Alex to review the infrastructure proposal."}'`
 - `curl http://localhost:8080/v1/responses -H 'Content-Type: application/json' -d '{"model":"context-agent-1","input":"Help me ask Alex to review the infrastructure proposal.","metadata":{"goal":"get_review","people":["Alex"],"memory_mode":"social_strategy"}}'`
 - `curl http://localhost:8080/v1/responses -H 'Content-Type: application/json' -d '{"model":"context-agent-1","input":"Help me ask Alex to review the infrastructure proposal.","metadata":{"goal":"get_review","people":["Alex"],"memory_mode":"scenario_generation"}}'`
+- `curl http://localhost:8080/v1/responses -H 'Content-Type: application/json' -d '{"model":"context-agent-1","input":"Help me ask Alex to review the infrastructure proposal.","disable_memory":true,"metadata":{"goal":"get_review","people":["Alex"],"memory_mode":"social_strategy"}}'`
 - `curl http://localhost:8080/memory/ingest -H 'Content-Type: application/json' -d '{"raw_text":"Alex prefers narrow review scopes.","summary":"Alex prefers narrow review scopes.","type":"person_preference","people":["Alex"],"topics":["infrastructure"],"importance":0.7,"utility":0.8,"belief_impact":0.2,"confidence":0.9}'`
 - `curl http://localhost:8080/memory/extract -H 'Content-Type: application/json' -d '{"raw_text":"Alex prefers tightly scoped infrastructure review requests and usually wants the API section only."}'`
 - `curl http://localhost:8080/memory/search -H 'Content-Type: application/json' -d '{"query":"api scoped review request","goal":"pick the best review strategy for Alex","user_external_id":"dev-user","people":["Alex"],"confidence_threshold":0.5,"limit":5}'`
 - `curl 'http://localhost:8080/memory?user_external_id=dev-user'`
+- `curl 'http://localhost:8080/debug/context?session_id=<session-id>&compare=true'`
+- `curl 'http://localhost:8080/debug/context?session_id=<session-id>&format=html'`
 - `curl 'http://localhost:8080/debug/beliefs?topic_name=migration&user_external_id=dev-user'`
 - `curl http://localhost:8080/debug/person/<person-id>`
 - `curl -X PUT http://localhost:8080/debug/person/<person-id> -H 'Content-Type: application/json' -d '{"topic_name":"api_review","topic_aliases":["api"],"capacity":0.25,"confidence":0.9}'`

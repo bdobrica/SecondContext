@@ -508,23 +508,23 @@ Alex replied quickly and agreed to review, but asked me to narrow the request to
 
 ### Tasks
 
-- [ ] Implement `GET /debug/context`.
-- [ ] Show retrieved memories.
-- [ ] Show score breakdown.
-- [ ] Show prompt context packet.
-- [ ] Show person/topic model used.
-- [ ] Show relevant beliefs.
-- [ ] Show scenario predictions.
-- [ ] Show memory updates from latest turn.
-- [ ] Build minimal HTML debug page or CLI.
-- [ ] Add ability to disable memory use for comparison.
-- [ ] Add ability to compare stateless vs memory-augmented answer.
+- [x] Implement `GET /debug/context`.
+- [x] Show retrieved memories.
+- [x] Show score breakdown.
+- [x] Show prompt context packet.
+- [x] Show person/topic model used.
+- [x] Show relevant beliefs.
+- [x] Show scenario predictions.
+- [x] Show memory updates from latest turn.
+- [x] Build minimal HTML debug page or CLI.
+- [x] Add ability to disable memory use for comparison.
+- [x] Add ability to compare stateless vs memory-augmented answer.
 
 ### Deliverables
 
-- [ ] Developer can inspect retrieval behavior.
-- [ ] Developer can compare with and without memory.
-- [ ] Debugging does not require database spelunking.
+- [x] Developer can inspect retrieval behavior.
+- [x] Developer can compare with and without memory.
+- [x] Debugging does not require database spelunking.
 
 ---
 

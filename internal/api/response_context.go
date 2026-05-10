@@ -22,13 +22,20 @@ const (
 
 func (s *Server) buildResponseContext(ctx context.Context, request createResponseRequest, messages []llm.Message) (*prompts.ContextPacket, error) {
 	packet := buildBaseContextPacket(request, messages, s.cfg.Dev.UserExternalID)
+	if requestDisablesMemory(request) {
+		return packet, nil
+	}
 	return packet, s.populateResponseContext(ctx, packet)
 }
 
 func buildBaseContextPacket(request createResponseRequest, messages []llm.Message, defaultUserExternalID string) *prompts.ContextPacket {
 	metadata := request.Metadata
+	mode := resolveResponseMode(stringFromMap(metadata, "memory_mode"))
+	if requestDisablesMemory(request) {
+		mode = prompts.ResponseModeNormalAnswer
+	}
 	return &prompts.ContextPacket{
-		Mode:           resolveResponseMode(stringFromMap(metadata, "memory_mode")),
+		Mode:           mode,
 		Goal:           stringFromMap(metadata, "goal"),
 		Query:          collectUserQuery(messages),
 		UserExternalID: firstNonEmpty(stringFromMap(metadata, "user_external_id"), strings.TrimSpace(request.User), defaultUserExternalID),

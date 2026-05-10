@@ -110,7 +110,7 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.dbPool != nil {
-		if err := s.persistAssistantMessage(r, session, upstreamResponse, contextPacket, scenarioPlan); err != nil {
+		if err := s.persistAssistantMessage(r, session, upstreamResponse, contextPacket, scenarioPlan, requestDisablesMemory(request)); err != nil {
 			s.logger.Error("persist assistant response", "error", err, "request_id", middleware.GetReqID(r.Context()))
 			s.writeAPIError(w, r, http.StatusInternalServerError, "failed to persist assistant response", "server_error", "persistence_failed", "")
 			return
@@ -151,6 +151,9 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	if contextPacket != nil {
 		response.Metadata["context_packet"] = contextPacket
+	}
+	if requestDisablesMemory(request) {
+		response.Metadata["disable_memory"] = true
 	}
 	if scenarioPlan != nil {
 		response.Metadata["scenario_plan"] = scenarioPlan
@@ -247,7 +250,7 @@ func (s *Server) ensureSession(ctx context.Context, repo *db.SessionRepository, 
 	})
 }
 
-func (s *Server) persistAssistantMessage(r *http.Request, session models.Session, response llm.GenerateResponse, contextPacket *prompts.ContextPacket, scenarioPlan *scenarios.Plan) error {
+func (s *Server) persistAssistantMessage(r *http.Request, session models.Session, response llm.GenerateResponse, contextPacket *prompts.ContextPacket, scenarioPlan *scenarios.Plan, disableMemory bool) error {
 	if session.ID == "" {
 		return nil
 	}
@@ -256,6 +259,9 @@ func (s *Server) persistAssistantMessage(r *http.Request, session models.Session
 	metadata := map[string]any{}
 	if contextPacket != nil {
 		metadata["context_packet"] = contextPacket
+	}
+	if disableMemory {
+		metadata["disable_memory"] = true
 	}
 	if scenarioPlan != nil {
 		metadata["scenario_plan"] = scenarioPlan
@@ -452,6 +458,25 @@ func stringFromMap(values map[string]any, key string) string {
 	}
 
 	return strings.TrimSpace(stringValue)
+}
+
+func boolFromMap(values map[string]any, key string) bool {
+	if values == nil {
+		return false
+	}
+	value, ok := values[key]
+	if !ok {
+		return false
+	}
+	flag, ok := value.(bool)
+	if !ok {
+		return false
+	}
+	return flag
+}
+
+func requestDisablesMemory(request createResponseRequest) bool {
+	return request.DisableMemory || boolFromMap(request.Metadata, "disable_memory")
 }
 
 func resolveUpstreamModel(defaultModel, requestedModel string) string {
