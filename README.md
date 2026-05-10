@@ -1,8 +1,8 @@
-# SalienceGraph
+# SecondContext
 
 A context-augmented LLM assistant prototype.
 
-SalienceGraph is an MVP for building a persistent cognitive context layer around an LLM. Instead of relying only on a stateless chat history, it stores and retrieves structured memories about events, people, topics, beliefs, and interaction outcomes, then uses those memories to improve future responses.
+SecondContext is an MVP for building a persistent cognitive context layer around an LLM. Instead of relying only on a stateless chat history, it stores and retrieves structured memories about events, people, topics, beliefs, and interaction outcomes, then uses those memories to improve future responses.
 
 The project explores whether an LLM can behave more like a situated expert when it has access to:
 
@@ -31,7 +31,7 @@ A person makes decisions using more than facts. They use context such as:
 - how those people usually respond;
 - what goal the interaction is trying to achieve.
 
-SalienceGraph is an experiment in making that context explicit, persistent, inspectable, and useful inside a chat interface.
+SecondContext is an experiment in making that context explicit, persistent, inspectable, and useful inside a chat interface.
 
 ## MVP hypothesis
 
@@ -251,7 +251,7 @@ PUT  /debug/person/:id       implemented
 
 ```json
 {
-  "model": "saliencegraph-1",
+  "model": "secondcontext-1",
   "input": "Help me ask Alex to review the infrastructure proposal.",
   "metadata": {
     "goal": "get_review",
@@ -266,7 +266,7 @@ Stateless comparison request:
 
 ```json
 {
-  "model": "saliencegraph-1",
+  "model": "secondcontext-1",
   "input": "Help me ask Alex to review the infrastructure proposal.",
   "disable_memory": true,
   "metadata": {
