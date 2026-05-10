@@ -90,21 +90,21 @@
 
 ### Tasks
 
-- [ ] Add database migration tooling.
-- [ ] Create `users` table.
-- [ ] Create `sessions` table.
-- [ ] Create `messages` table.
-- [ ] Create `memory_items` table.
-- [ ] Create `people` table.
-- [ ] Create `topics` table.
-- [ ] Create `memory_entities` table.
-- [ ] Create `person_topic_models` table.
-- [ ] Create `beliefs` table.
-- [ ] Create `graph_edges` table.
-- [ ] Create `interaction_outcomes` table.
-- [ ] Add indexes for user ID, timestamps, people, topics, and memory type.
-- [ ] Add seed/dev user support.
-- [ ] Add basic repository layer in Go.
+- [x] Add database migration tooling.
+- [x] Create `users` table.
+- [x] Create `sessions` table.
+- [x] Create `messages` table.
+- [x] Create `memory_items` table.
+- [x] Create `people` table.
+- [x] Create `topics` table.
+- [x] Create `memory_entities` table.
+- [x] Create `person_topic_models` table.
+- [x] Create `beliefs` table.
+- [x] Create `graph_edges` table.
+- [x] Create `interaction_outcomes` table.
+- [x] Add indexes for user ID, timestamps, people, topics, and memory type.
+- [x] Add seed/dev user support.
+- [x] Add basic repository layer in Go.
 
 ### Suggested Tables
 
@@ -124,10 +124,10 @@ interaction_outcomes
 
 ### Deliverables
 
-- [ ] Migrations run successfully.
-- [ ] Repository layer can create and fetch memory items.
-- [ ] Repository layer can create and fetch people and topics.
-- [ ] Repository layer can store conversation messages.
+- [x] Migrations run successfully.
+- [x] Repository layer can create and fetch memory items.
+- [x] Repository layer can create and fetch people and topics.
+- [x] Repository layer can store conversation messages.
 
 ---
 

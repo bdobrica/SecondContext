@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	App      AppConfig
+	Dev      DevConfig
 	HTTP     HTTPConfig
 	Log      LogConfig
 	Postgres PostgresConfig
@@ -21,6 +22,12 @@ type Config struct {
 type AppConfig struct {
 	Name string
 	Env  string
+}
+
+type DevConfig struct {
+	UserExternalID string
+	UserEmail      string
+	UserName       string
 }
 
 type HTTPConfig struct {
@@ -94,6 +101,11 @@ func Load() (Config, error) {
 		App: AppConfig{
 			Name: getEnv("APP_NAME", "second-context"),
 			Env:  getEnv("APP_ENV", "development"),
+		},
+		Dev: DevConfig{
+			UserExternalID: getEnv("DEV_USER_EXTERNAL_ID", "dev-user"),
+			UserEmail:      getEnv("DEV_USER_EMAIL", "dev@secondcontext.local"),
+			UserName:       getEnv("DEV_USER_NAME", "Development User"),
 		},
 		HTTP: HTTPConfig{
 			Addr:            getEnv("HTTP_ADDR", ":8080"),
