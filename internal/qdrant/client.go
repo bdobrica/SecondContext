@@ -318,3 +318,16 @@ func mapSearchResults(items []searchResultWire) []SearchResult {
 
 	return results
 }
+
+func IsCollectionNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	message := strings.ToLower(err.Error())
+	if !strings.Contains(message, "collection") {
+		return false
+	}
+
+	return strings.Contains(message, "doesn't exist") || strings.Contains(message, "does not exist") || strings.Contains(message, "not found")
+}

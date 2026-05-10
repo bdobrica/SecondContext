@@ -104,6 +104,9 @@ func (s *Service) Search(ctx context.Context, params SearchParams) ([]Result, er
 	filter := buildFilter(user.ID, params)
 	denseResults, err := s.qdrant.SearchDense(ctx, s.cfg.Qdrant.Collection, dense.Vector, candidateLimit, filter)
 	if err != nil {
+		if qdrant.IsCollectionNotFoundError(err) {
+			return []Result{}, nil
+		}
 		return nil, &Error{StatusCode: http.StatusBadGateway, Message: "dense search failed", Type: "server_error", Code: "dense_search_failed"}
 	}
 	sparseResults, err := s.qdrant.SearchSparse(ctx, s.cfg.Qdrant.Collection, sparse, candidateLimit, filter)
