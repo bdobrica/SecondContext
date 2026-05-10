@@ -3,6 +3,8 @@ package api
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/bdobrica/SecondContext/internal/prompts"
 )
 
 const defaultPublicModel = "context-agent-1"
@@ -329,4 +331,57 @@ type createInteractionOutcomeResponse struct {
 	Analysis   outcomeAnalysisResponse    `json:"analysis"`
 	GraphEdges []graphEdgeResponse        `json:"graph_edges,omitempty"`
 	Metadata   map[string]any             `json:"metadata,omitempty"`
+}
+
+type debugContextSessionResponse struct {
+	ID                 string `json:"id,omitempty"`
+	ExternalID         string `json:"external_id,omitempty"`
+	Title              string `json:"title,omitempty"`
+	UserID             string `json:"user_id,omitempty"`
+	AssistantMessageID string `json:"assistant_message_id,omitempty"`
+	LatestUserInput    string `json:"latest_user_input,omitempty"`
+}
+
+type debugContextRequestResponse struct {
+	Input          string   `json:"input,omitempty"`
+	Goal           string   `json:"goal,omitempty"`
+	Instructions   string   `json:"instructions,omitempty"`
+	MemoryMode     string   `json:"memory_mode,omitempty"`
+	UserExternalID string   `json:"user_external_id,omitempty"`
+	People         []string `json:"people,omitempty"`
+	Topics         []string `json:"topics,omitempty"`
+	DisableMemory  bool     `json:"disable_memory,omitempty"`
+	CompareAnswers bool     `json:"compare_answers,omitempty"`
+}
+
+type debugContextVariantResponse struct {
+	ContextPacket *prompts.ContextPacket `json:"context_packet,omitempty"`
+	PromptPreview string                 `json:"prompt_preview,omitempty"`
+	OutputText    string                 `json:"output_text,omitempty"`
+	ScenarioPlan  map[string]any         `json:"scenario_plan,omitempty"`
+}
+
+type debugContextComparisonResponse struct {
+	MemoryAugmented debugContextVariantResponse `json:"memory_augmented"`
+	MemoryDisabled  debugContextVariantResponse `json:"memory_disabled"`
+}
+
+type debugContextLatestTurnResponse struct {
+	AssistantMessageID string                      `json:"assistant_message_id,omitempty"`
+	Outcome            *interactionOutcomeResponse `json:"outcome,omitempty"`
+	Memories           []memoryResponse            `json:"memories,omitempty"`
+	GraphEdges         []graphEdgeResponse         `json:"graph_edges,omitempty"`
+}
+
+type debugContextResponse struct {
+	Session              debugContextSessionResponse     `json:"session"`
+	Request              debugContextRequestResponse     `json:"request"`
+	StoredContextPacket  *prompts.ContextPacket          `json:"stored_context_packet,omitempty"`
+	CurrentContextPacket *prompts.ContextPacket          `json:"current_context_packet,omitempty"`
+	ScenarioPlan         map[string]any                  `json:"scenario_plan,omitempty"`
+	CurrentPromptPreview string                          `json:"current_prompt_preview,omitempty"`
+	PeopleModels         []personDebugResponse           `json:"people_models,omitempty"`
+	RelevantBeliefs      []beliefDebugResponse           `json:"relevant_beliefs,omitempty"`
+	LatestTurnUpdates    debugContextLatestTurnResponse  `json:"latest_turn_updates,omitempty"`
+	Comparison           *debugContextComparisonResponse `json:"comparison,omitempty"`
 }

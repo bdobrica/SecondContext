@@ -21,18 +21,28 @@ const (
 )
 
 func (s *Server) buildResponseContext(ctx context.Context, request createResponseRequest, messages []llm.Message) (*prompts.ContextPacket, error) {
+	packet := buildBaseContextPacket(request, messages, s.cfg.Dev.UserExternalID)
+	return packet, s.populateResponseContext(ctx, packet)
+}
+
+func buildBaseContextPacket(request createResponseRequest, messages []llm.Message, defaultUserExternalID string) *prompts.ContextPacket {
 	metadata := request.Metadata
-	packet := &prompts.ContextPacket{
+	return &prompts.ContextPacket{
 		Mode:           resolveResponseMode(stringFromMap(metadata, "memory_mode")),
 		Goal:           stringFromMap(metadata, "goal"),
 		Query:          collectUserQuery(messages),
-		UserExternalID: firstNonEmpty(stringFromMap(metadata, "user_external_id"), strings.TrimSpace(request.User), s.cfg.Dev.UserExternalID),
+		UserExternalID: firstNonEmpty(stringFromMap(metadata, "user_external_id"), strings.TrimSpace(request.User), defaultUserExternalID),
 		People:         uniqueStrings(stringSliceFromMap(metadata, "people")),
 		Topics:         uniqueStrings(stringSliceFromMap(metadata, "topics")),
 	}
+}
 
-	if s.dbPool == nil {
-		return packet, nil
+func (s *Server) populateResponseContext(ctx context.Context, packet *prompts.ContextPacket) error {
+	if packet == nil || s.dbPool == nil {
+		return nil
+	}
+	if strings.TrimSpace(firstNonEmpty(packet.Query, packet.Goal)) == "" {
+		return nil
 	}
 
 	results, err := retrievalsvc.NewService(s.cfg, s.dbPool, s.llm).Search(ctx, retrievalsvc.SearchParams{
@@ -44,7 +54,7 @@ func (s *Server) buildResponseContext(ctx context.Context, request createRespons
 		Limit:          responseContextMemoryLimit,
 	})
 	if err != nil {
-		return packet, err
+		return err
 	}
 
 	packet.MemoryContext, packet.OmittedMemories = buildMemoryContext(results)
@@ -60,7 +70,7 @@ func (s *Server) buildResponseContext(ctx context.Context, request createRespons
 		packet.BeliefContext = beliefContext
 	}
 
-	return packet, nil
+	return nil
 }
 
 func buildMemoryContext(results []retrievalsvc.Result) ([]prompts.ContextMemory, int) {

@@ -214,6 +214,61 @@ func (r *MemoryRepository) ListByUser(ctx context.Context, userID string, limit 
 	return memories, rows.Err()
 }
 
+func (r *MemoryRepository) ListBySession(ctx context.Context, sessionID string, limit int32) ([]models.MemoryItem, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	query := `
+		SELECT id::text, user_id::text, COALESCE(session_id::text, ''), COALESCE(source_message_id::text, ''), COALESCE(qdrant_point_id, ''), memory_type, source, raw_text, summary, people, topics, importance, utility, belief_impact, confidence, expires_at, metadata, created_at, updated_at
+		FROM memory_items
+		WHERE session_id = $1::uuid
+		ORDER BY created_at DESC
+		LIMIT $2
+	`
+
+	rows, err := r.pool.Query(ctx, query, sessionID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	memories := make([]models.MemoryItem, 0, limit)
+	for rows.Next() {
+		var memory models.MemoryItem
+		var metadata []byte
+
+		if err := rows.Scan(
+			&memory.ID,
+			&memory.UserID,
+			&memory.SessionID,
+			&memory.SourceMessageID,
+			&memory.QdrantPointID,
+			&memory.MemoryType,
+			&memory.Source,
+			&memory.RawText,
+			&memory.Summary,
+			&memory.People,
+			&memory.Topics,
+			&memory.Importance,
+			&memory.Utility,
+			&memory.BeliefImpact,
+			&memory.Confidence,
+			&memory.ExpiresAt,
+			&metadata,
+			&memory.CreatedAt,
+			&memory.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		memory.Metadata = scanJSON(metadata)
+		memories = append(memories, memory)
+	}
+
+	return memories, rows.Err()
+}
+
 func (r *MemoryRepository) ListByIDs(ctx context.Context, ids []string) ([]models.MemoryItem, error) {
 	if len(ids) == 0 {
 		return []models.MemoryItem{}, nil

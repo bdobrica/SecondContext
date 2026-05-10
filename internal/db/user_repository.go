@@ -2,9 +2,11 @@ package db
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/bdobrica/SecondContext/internal/models"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -23,6 +25,10 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 }
 
 func (r *UserRepository) Ensure(ctx context.Context, params EnsureUserParams) (models.User, error) {
+	return r.ensureWithEmail(ctx, params, strings.TrimSpace(params.Email))
+}
+
+func (r *UserRepository) ensureWithEmail(ctx context.Context, params EnsureUserParams, email string) (models.User, error) {
 	query := `
 		INSERT INTO users (external_id, email, display_name)
 		VALUES ($1, NULLIF($2, ''), $3)
@@ -36,7 +42,7 @@ func (r *UserRepository) Ensure(ctx context.Context, params EnsureUserParams) (m
 	var user models.User
 	err := r.pool.QueryRow(ctx, query,
 		strings.TrimSpace(params.ExternalID),
-		strings.TrimSpace(params.Email),
+		email,
 		strings.TrimSpace(params.DisplayName),
 	).Scan(
 		&user.ID,
@@ -46,8 +52,19 @@ func (r *UserRepository) Ensure(ctx context.Context, params EnsureUserParams) (m
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
+	if err != nil && email != "" && isUsersEmailConflict(err) {
+		return r.ensureWithEmail(ctx, params, "")
+	}
 
 	return user, err
+}
+
+func isUsersEmailConflict(err error) bool {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		return false
+	}
+	return pgErr.Code == "23505" && pgErr.ConstraintName == "users_email_key"
 }
 
 func (r *UserRepository) GetByExternalID(ctx context.Context, externalID string) (models.User, error) {

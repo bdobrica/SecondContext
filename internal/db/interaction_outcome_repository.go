@@ -77,6 +77,38 @@ func (r *InteractionOutcomeRepository) GetByID(ctx context.Context, outcomeID st
 	return r.scanOne(ctx, query, strings.TrimSpace(outcomeID))
 }
 
+func (r *InteractionOutcomeRepository) ListBySession(ctx context.Context, sessionID string, limit int32) ([]models.InteractionOutcome, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	query := `
+		SELECT id::text, user_id::text, COALESCE(session_id::text, ''), COALESCE(message_id::text, ''), COALESCE(person_id::text, ''), COALESCE(topic_id::text, ''),
+			COALESCE(goal, ''), COALESCE(predicted_outcome, ''), actual_outcome, success_score, COALESCE(prediction_error, ''), metadata, created_at, updated_at
+		FROM interaction_outcomes
+		WHERE session_id = $1::uuid
+		ORDER BY created_at DESC
+		LIMIT $2
+	`
+
+	rows, err := r.pool.Query(ctx, query, strings.TrimSpace(sessionID), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	outcomes := make([]models.InteractionOutcome, 0, limit)
+	for rows.Next() {
+		outcome, err := scanInteractionOutcome(rows)
+		if err != nil {
+			return nil, err
+		}
+		outcomes = append(outcomes, outcome)
+	}
+
+	return outcomes, rows.Err()
+}
+
 func (r *InteractionOutcomeRepository) scanOne(ctx context.Context, query string, args ...any) (models.InteractionOutcome, error) {
 	row := r.pool.QueryRow(ctx, query, args...)
 	return scanInteractionOutcome(row)
