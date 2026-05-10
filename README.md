@@ -77,53 +77,12 @@ The system then updates its memories and person/topic model so future recommenda
 
 ## Architecture
 
-```text
-┌──────────────────────────┐
-│ Chat client / OpenAI SDK │
-└────────────┬─────────────┘
-             │ OpenAI-compatible /v1/responses
-             ▼
-┌──────────────────────────┐
-│ Go API Gateway            │
-│ - auth                    │
-│ - conversation state      │
-│ - LLM calls               │
-│ - retrieval policy        │
-│ - scoring/reranking       │
-│ - memory updates          │
-└───────┬─────────┬────────┘
-        │         │
-        │         ▼
-        │   ┌──────────────────┐
-        │   │ Postgres          │
-        │   │ - sessions        │
-        │   │ - messages        │
-        │   │ - memories        │
-        │   │ - people          │
-        │   │ - topics          │
-        │   │ - beliefs         │
-        │   │ - graph edges     │
-        │   │ - outcomes        │
-        │   └──────────────────┘
-        │
-        ▼
-┌──────────────────────────┐
-│ Qdrant                    │
-│ - dense vectors           │
-│ - sparse/BM25 vectors     │
-│ - payload metadata        │
-│ - hybrid retrieval        │
-└──────────────────────────┘
-        │
-        ▼
-┌──────────────────────────┐
-│ Upstream LLM Provider     │
-│ - extraction              │
-│ - embeddings              │
-│ - answer generation       │
-│ - scenario simulation     │
-│ - memory consolidation    │
-└──────────────────────────┘
+```mermaid
+flowchart TD
+    client["Chat client / OpenAI SDK"] -->|OpenAI-compatible /v1/responses| gateway["Go API Gateway<br/>- auth<br/>- conversation state<br/>- LLM calls<br/>- retrieval policy<br/>- scoring/reranking<br/>- memory updates"]
+    gateway --> postgres["Postgres<br/>- sessions<br/>- messages<br/>- memories<br/>- people<br/>- topics<br/>- beliefs<br/>- graph edges<br/>- outcomes"]
+    gateway --> qdrant["Qdrant<br/>- dense vectors<br/>- sparse/BM25 vectors<br/>- payload metadata<br/>- hybrid retrieval"]
+    qdrant --> llm["Upstream LLM Provider<br/>- extraction<br/>- embeddings<br/>- answer generation<br/>- scenario simulation<br/>- memory consolidation"]
 ```
 
 ## Core loop
