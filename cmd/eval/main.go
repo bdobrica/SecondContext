@@ -61,6 +61,8 @@ type evaluationCase struct {
 	Beliefs                   []seedBelief      `json:"beliefs"`
 	ManualRatingInstructions  string            `json:"manual_rating_instructions"`
 	ManualPrecisionAssessment string            `json:"manual_precision_assessment"`
+	JudgeFocus                string            `json:"judge_focus"`
+	JudgeFailureModes         []string          `json:"judge_failure_modes"`
 }
 
 type seedMemory struct {
@@ -447,6 +449,11 @@ func run(ctx context.Context) error {
 		return err
 	}
 
+	runID := time.Now().UTC().Format("20060102t150405")
+	if strings.TrimSpace(os.Getenv(evalBaseURLEnv)) == "" {
+		cfg.Qdrant.Collection = fmt.Sprintf("%s_%s", evalCollectionPref, runID)
+	}
+
 	pool, err := db.Open(ctx, cfg.Postgres)
 	if err != nil {
 		return fmt.Errorf("connect postgres: %w", err)
@@ -461,10 +468,6 @@ func run(ctx context.Context) error {
 
 	client := &demoClient{baseURL: baseURL, httpClient: &http.Client{Timeout: 60 * time.Second}}
 	judgeClient := llm.NewOpenAIClient(cfg.OpenAI)
-	runID := time.Now().UTC().Format("20060102t150405")
-	if strings.TrimSpace(os.Getenv(evalBaseURLEnv)) == "" {
-		cfg.Qdrant.Collection = fmt.Sprintf("%s_%s", evalCollectionPref, runID)
-	}
 
 	report := evaluationReport{
 		GeneratedAt: time.Now().UTC(),
@@ -911,6 +914,30 @@ func judgeResponses(ctx context.Context, cfg config.Config, judgeClient llm.Clie
 		return nil, fmt.Errorf("OPENAI_API_KEY is not configured for judge evaluation")
 	}
 
+	userPromptLines := []string{
+		fmt.Sprintf("Case: %s", currentCase.Title),
+		fmt.Sprintf("Goal: %s", currentCase.Goal),
+		fmt.Sprintf("People: %s", strings.Join(currentCase.People, ", ")),
+		fmt.Sprintf("Topics: %s", strings.Join(currentCase.Topics, ", ")),
+		fmt.Sprintf("Task instructions: %s", firstNonEmpty(strings.TrimSpace(currentCase.Instructions), "none provided")),
+		fmt.Sprintf("Manual review emphasis: %s", firstNonEmpty(strings.TrimSpace(currentCase.ManualRatingInstructions), "none provided")),
+		fmt.Sprintf("Expected helpful cues: %s", strings.Join(currentCase.ExpectedAugmentedCues, ", ")),
+	}
+	if focus := strings.TrimSpace(currentCase.JudgeFocus); focus != "" {
+		userPromptLines = append(userPromptLines, fmt.Sprintf("Case-specific judging focus: %s", focus))
+	}
+	if len(currentCase.JudgeFailureModes) > 0 {
+		userPromptLines = append(userPromptLines, fmt.Sprintf("Penalize these failure modes when present: %s", strings.Join(currentCase.JudgeFailureModes, "; ")))
+	}
+	userPromptLines = append(userPromptLines,
+		"",
+		"Baseline answer:",
+		baseline,
+		"",
+		"Memory-augmented answer:",
+		augmented,
+	)
+
 	request := llm.GenerateRequest{
 		Model: judgeResponseModel,
 		Messages: []llm.Message{{
@@ -923,11 +950,15 @@ func judgeResponses(ctx context.Context, cfg config.Config, judgeClient llm.Clie
 				"Score from 1 to 5 where 5 is best.",
 				"Personalization means using the person/topic context appropriately.",
 				"Strategy quality means the answer is actionable, socially appropriate, and handles risk or scope tradeoffs well.",
-				"Prefer tie when differences are marginal.",
+				"Do not reward extra length unless it materially improves the answer.",
+				"Penalize unsupported specifics, including invented numbers, dates, certainty, technical facts, or predicted reactions that are not grounded in the case.",
+				"Reward answers that acknowledge uncertainty when exact evidence is missing.",
+				"Expected helpful cues are hints, not a license to stuff keywords or hallucinate details.",
+				"Prefer tie when differences are marginal or when each answer has offsetting strengths and weaknesses.",
 			}, "\n"),
 		}, {
 			Role:    "user",
-			Content: fmt.Sprintf("Case: %s\nGoal: %s\nPeople: %s\nTopics: %s\nExpected helpful cues: %s\n\nBaseline answer:\n%s\n\nMemory-augmented answer:\n%s", currentCase.Title, currentCase.Goal, strings.Join(currentCase.People, ", "), strings.Join(currentCase.Topics, ", "), strings.Join(currentCase.ExpectedAugmentedCues, ", "), baseline, augmented),
+			Content: strings.Join(userPromptLines, "\n"),
 		}},
 	}
 

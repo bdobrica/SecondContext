@@ -13,6 +13,7 @@ The evaluator is designed to answer one practical question: is the system actual
 - optional strategy-success and outcome-feedback checks on cases that include outcomes
 - a generated JSON and Markdown report
 - explicit placeholders for manual ratings instead of pretending those scores can be automated faithfully
+- case-specific judge guidance so each benchmark case can emphasize its real success criteria and failure modes
 
 ## Run It
 
@@ -63,6 +64,13 @@ When a real OpenAI-compatible chat model is configured, the evaluator also asks 
 - communication strategy quality
 
 The judge output is treated as one signal, not ground truth.
+
+The rubric is tuned to avoid rewarding answers just because they are longer or more specific-sounding. The judge is instructed to:
+
+- penalize unsupported specifics such as invented numbers, dates, certainty, or technical facts
+- reward grounded uncertainty when the case does not supply exact evidence
+- treat expected cues as hints rather than a reason to reward keyword stuffing
+- apply any case-specific focus and failure-mode guidance stored in the dataset
 
 ## Manual Metrics
 

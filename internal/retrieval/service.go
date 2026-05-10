@@ -218,7 +218,7 @@ func buildFilter(userID string, params SearchParams) *qdrant.Filter {
 			"match": map[string]any{"value": strings.TrimSpace(params.MemoryType)},
 		})
 	}
-	if len(params.People) > 0 {
+	if shouldRequirePeopleFilter(params) {
 		must = append(must, map[string]any{
 			"key":   "people",
 			"match": map[string]any{"any": uniqueValues(params.People)},
@@ -238,6 +238,62 @@ func buildFilter(userID string, params SearchParams) *qdrant.Filter {
 	}
 
 	return &qdrant.Filter{Must: must}
+}
+
+func shouldRequirePeopleFilter(params SearchParams) bool {
+	if len(uniqueValues(params.People)) == 0 {
+		return false
+	}
+	if len(uniqueValues(params.Topics)) == 0 {
+		return true
+	}
+
+	return !isMixedProjectStateStakeholderQuery(params)
+}
+
+func isMixedProjectStateStakeholderQuery(params SearchParams) bool {
+	text := strings.ToLower(strings.Join([]string{params.Query, params.Goal}, " "))
+	if strings.TrimSpace(text) == "" {
+		return false
+	}
+
+	projectStateCues := []string{
+		"summarize",
+		"summary",
+		"status",
+		"current",
+		"risk",
+		"issue",
+		"delay",
+		"timeline",
+		"migration",
+		"launch",
+		"rollout",
+		"incident",
+		"approval",
+	}
+	stakeholderGuidanceCues := []string{
+		"steering committee",
+		"committee",
+		"board",
+		"leadership",
+		"stakeholder",
+		"what to emphasize",
+		"emphasize to",
+		"tell me what to emphasize",
+	}
+
+	return containsAnyCue(text, projectStateCues) && containsAnyCue(text, stakeholderGuidanceCues)
+}
+
+func containsAnyCue(text string, cues []string) bool {
+	for _, cue := range cues {
+		if strings.Contains(text, cue) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *Service) resolveUser(ctx context.Context, externalID string) (models.User, error) {
