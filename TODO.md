@@ -583,33 +583,33 @@ The assistant should recommend a narrow, low-friction request to Alex.
 
 ### Tasks
 
-- [ ] Define evaluation prompts.
-- [ ] Define baseline stateless LLM responses.
-- [ ] Define memory-augmented responses.
-- [ ] Compare relevance.
-- [ ] Compare usefulness.
-- [ ] Compare personalization.
-- [ ] Compare communication strategy quality.
-- [ ] Track retrieval precision manually.
-- [ ] Track user satisfaction manually.
-- [ ] Track prediction accuracy over small sample.
-- [ ] Track whether outcome feedback changes future behavior.
+- [x] Define evaluation prompts.
+- [x] Define baseline stateless LLM responses.
+- [x] Define memory-augmented responses.
+- [x] Compare relevance.
+- [x] Compare usefulness.
+- [x] Compare personalization.
+- [x] Compare communication strategy quality.
+- [x] Track retrieval precision manually.
+- [x] Track user satisfaction manually.
+- [x] Track prediction accuracy over small sample.
+- [x] Track whether outcome feedback changes future behavior.
 
 ### Simple Metrics
 
-- [ ] Retrieval precision@5.
-- [ ] User-rated answer usefulness.
-- [ ] User-rated contextual appropriateness.
-- [ ] Strategy success estimate.
-- [ ] Actual interaction success score.
-- [ ] Prediction error notes.
-- [ ] Number of useful memories created per session.
+- [x] Retrieval precision@5.
+- [x] User-rated answer usefulness.
+- [x] User-rated contextual appropriateness.
+- [x] Strategy success estimate.
+- [x] Actual interaction success score.
+- [x] Prediction error notes.
+- [x] Number of useful memories created per session.
 
 ### Deliverables
 
-- [ ] Evaluation dataset.
-- [ ] Baseline comparison.
-- [ ] Short evaluation report.
+- [x] Evaluation dataset.
+- [x] Baseline comparison.
+- [x] Short evaluation report.
 
 ---
 

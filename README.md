@@ -454,6 +454,28 @@ SECOND_CONTEXT_BASE_URL=http://localhost:8080 make demo-stage14
 
 The runner prints the demo user and session IDs so you can inspect the run through the debug endpoints. More detail is in `docs/stage14-demo.md`.
 
+## Stage 15 evaluation
+
+Stage 15 now includes a dataset-driven evaluator that compares stateless and memory-augmented behavior across multiple seeded cases.
+
+It runs baseline and augmented responses, checks retrieval against labeled gold memories, captures strategy and outcome metrics where available, and generates JSON and Markdown reports under `.artifacts/stage15/`.
+
+Run it with an embedded temporary dev server:
+
+```bash
+make eval-stage15
+```
+
+In embedded mode, the evaluator uses a fresh Stage 15 Qdrant collection per run so old local dev collections do not skew retrieval metrics.
+
+Or point it at an already running development API:
+
+```bash
+SECOND_CONTEXT_BASE_URL=http://localhost:8080 make eval-stage15
+```
+
+More detail is in `docs/stage15-evaluation.md`.
+
 ## Configuration
 
 Current environment variables:

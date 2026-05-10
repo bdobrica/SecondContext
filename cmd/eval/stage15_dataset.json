@@ -1,0 +1,297 @@
+{
+  "name": "stage15-mvp-evaluation",
+  "cases": [
+    {
+      "id": "alex-review-request",
+      "title": "Alex review request",
+      "query": "Help me ask Alex to review the infrastructure proposal this week. He is busy, and Dana will care about quantified risk before approval.",
+      "goal": "get_review",
+      "people": ["Alex", "Dana"],
+      "topics": ["api_review", "infrastructure_proposal", "risk_quantification"],
+      "instructions": "Write a concise message that minimizes friction but still gets a useful review.",
+      "strategy_instructions": "Generate concise stakeholder-facing options and recommend the lowest-friction path that still sets Dana up for quantified risk review later.",
+      "outcome_text": "Alex replied quickly and agreed to review, but only if I narrow the request to the API section and include a short quantified risk summary for Dana.",
+      "follow_up_query": "Draft the revised follow-up to Alex and include a short note I can send Dana after Alex reviews it.",
+      "expected_memory_keys": [
+        "alex_prefers_narrow_scope",
+        "alex_low_capacity",
+        "prior_short_requests_worked",
+        "dana_wants_quantified_risk"
+      ],
+      "expected_augmented_cues": [
+        "Alex",
+        "narrow",
+        "API",
+        "quantified risk",
+        "low-friction"
+      ],
+      "expected_follow_up_cues": [
+        "API section",
+        "quantified risk",
+        "Dana"
+      ],
+      "manual_rating_instructions": "Score whether the augmented answer is clearly better than the baseline for stakeholder communication.",
+      "manual_precision_assessment": "Confirm that Alex capacity, narrow scope, and Dana risk framing were the right gold memories for this case.",
+      "memories": [
+        {
+          "key": "alex_prefers_narrow_scope",
+          "raw_text": "Alex prefers review requests that are tightly scoped and easy to answer quickly.",
+          "summary": "Alex prefers tightly scoped review requests that are quick to answer.",
+          "type": "person_preference",
+          "source": "eval.stage15",
+          "people": ["Alex"],
+          "topics": ["api_review", "infrastructure_proposal"],
+          "importance": 0.92,
+          "utility": 0.95,
+          "belief_impact": 0.34,
+          "confidence": 0.94
+        },
+        {
+          "key": "alex_low_capacity",
+          "raw_text": "Alex has low capacity this week and responds best to small asks with explicit boundaries.",
+          "summary": "Alex has low capacity this week and responds best to small, bounded asks.",
+          "type": "interaction_observation",
+          "source": "eval.stage15",
+          "people": ["Alex"],
+          "topics": ["api_review", "infrastructure_proposal"],
+          "importance": 0.89,
+          "utility": 0.91,
+          "belief_impact": 0.27,
+          "confidence": 0.9
+        },
+        {
+          "key": "prior_short_requests_worked",
+          "raw_text": "Previous asks to Alex landed better when they were short, specific, and framed around one subsystem at a time.",
+          "summary": "Previous asks to Alex worked better when they were short, specific, and limited to one subsystem.",
+          "type": "interaction_observation",
+          "source": "eval.stage15",
+          "people": ["Alex"],
+          "topics": ["api_review", "infrastructure_proposal"],
+          "importance": 0.88,
+          "utility": 0.93,
+          "belief_impact": 0.29,
+          "confidence": 0.91
+        },
+        {
+          "key": "dana_wants_quantified_risk",
+          "raw_text": "Dana is the approver and usually wants a short quantified risk summary before she signs off.",
+          "summary": "Dana usually wants a short quantified risk summary before approval.",
+          "type": "person_preference",
+          "source": "eval.stage15",
+          "people": ["Dana"],
+          "topics": ["risk_quantification", "infrastructure_proposal"],
+          "importance": 0.86,
+          "utility": 0.9,
+          "belief_impact": 0.31,
+          "confidence": 0.92
+        }
+      ],
+      "people_models": [
+        {
+          "person_name": "Alex",
+          "topic_name": "api_review",
+          "topic_aliases": ["api"],
+          "niceness": 0.79,
+          "readiness": 0.58,
+          "competence": 0.93,
+          "capacity": 0.31,
+          "confidence": 0.87,
+          "evidence_memory_keys": ["alex_prefers_narrow_scope", "alex_low_capacity", "prior_short_requests_worked"]
+        },
+        {
+          "person_name": "Dana",
+          "topic_name": "risk_quantification",
+          "topic_aliases": ["approval", "risk"],
+          "niceness": 0.74,
+          "readiness": 0.66,
+          "competence": 0.77,
+          "capacity": 0.62,
+          "confidence": 0.8,
+          "evidence_memory_keys": ["dana_wants_quantified_risk"]
+        }
+      ],
+      "beliefs": [
+        {
+          "topic_name": "infrastructure_proposal",
+          "claim": "A narrow API-only review request is the highest-probability way to get Alex's response this week.",
+          "stance": "supports",
+          "confidence": 0.85,
+          "evidence_memory_keys": ["alex_prefers_narrow_scope", "alex_low_capacity", "prior_short_requests_worked"]
+        }
+      ]
+    },
+    {
+      "id": "migration-risk-summary",
+      "title": "Migration risk summary",
+      "query": "Summarize the current migration risk for the steering committee and tell me what to emphasize to Dana.",
+      "goal": "assess_risk",
+      "people": ["Dana"],
+      "topics": ["migration", "risk_quantification"],
+      "instructions": "Make the answer concise, grounded, and oriented toward a decision meeting.",
+      "expected_memory_keys": [
+        "cutover_delays",
+        "qa_slip",
+        "dana_quantified_risk"
+      ],
+      "expected_augmented_cues": [
+        "migration risk",
+        "delay",
+        "Dana",
+        "quantified",
+        "steering committee"
+      ],
+      "manual_rating_instructions": "Check whether the augmented answer is more decision-useful than the baseline, not just longer.",
+      "manual_precision_assessment": "Confirm that the delay and quantified-risk memories are the right gold set before relying on precision numbers.",
+      "memories": [
+        {
+          "key": "cutover_delays",
+          "raw_text": "Recent cutover rehearsals took longer than planned and exposed several rollout dependencies.",
+          "summary": "Recent cutover rehearsals ran long and exposed extra rollout dependencies.",
+          "type": "belief_update",
+          "source": "eval.stage15",
+          "people": [],
+          "topics": ["migration"],
+          "importance": 0.91,
+          "utility": 0.9,
+          "belief_impact": 0.88,
+          "confidence": 0.9
+        },
+        {
+          "key": "qa_slip",
+          "raw_text": "QA sign-off slipped by four days because the rollback procedure still has open issues.",
+          "summary": "QA sign-off slipped by four days because the rollback procedure still has open issues.",
+          "type": "topic_fact",
+          "source": "eval.stage15",
+          "people": [],
+          "topics": ["migration"],
+          "importance": 0.88,
+          "utility": 0.87,
+          "belief_impact": 0.74,
+          "confidence": 0.89
+        },
+        {
+          "key": "dana_quantified_risk",
+          "raw_text": "Dana prefers quantified risk framing and explicit tradeoffs before she approves schedule changes.",
+          "summary": "Dana prefers quantified risk framing and explicit tradeoffs before approving schedule changes.",
+          "type": "person_preference",
+          "source": "eval.stage15",
+          "people": ["Dana"],
+          "topics": ["risk_quantification", "migration"],
+          "importance": 0.85,
+          "utility": 0.9,
+          "belief_impact": 0.32,
+          "confidence": 0.9
+        }
+      ],
+      "people_models": [
+        {
+          "person_name": "Dana",
+          "topic_name": "risk_quantification",
+          "topic_aliases": ["approval", "risk"],
+          "niceness": 0.72,
+          "readiness": 0.69,
+          "competence": 0.78,
+          "capacity": 0.63,
+          "confidence": 0.82,
+          "evidence_memory_keys": ["dana_quantified_risk"]
+        }
+      ],
+      "beliefs": [
+        {
+          "topic_name": "migration",
+          "claim": "The migration is riskier than the original plan assumed.",
+          "stance": "supports",
+          "confidence": 0.88,
+          "evidence_memory_keys": ["cutover_delays", "qa_slip"]
+        }
+      ]
+    },
+    {
+      "id": "launch-approval-strategy",
+      "title": "Launch approval strategy",
+      "query": "Help me ask Priya for approval on the launch plan without overwhelming her.",
+      "goal": "get_approval",
+      "people": ["Priya"],
+      "topics": ["launch_plan", "approval", "scope_management"],
+      "instructions": "Write a message that reduces decision load and makes the next step obvious.",
+      "strategy_instructions": "Generate 3 concise approval-request strategies and recommend the one with the lowest decision load.",
+      "expected_memory_keys": [
+        "priya_prefers_options",
+        "priya_capacity_low",
+        "decision_packets_work"
+      ],
+      "expected_augmented_cues": [
+        "Priya",
+        "decision",
+        "options",
+        "small",
+        "next step"
+      ],
+      "manual_rating_instructions": "Judge whether the augmented answer better reflects Priya's decision style than the baseline.",
+      "manual_precision_assessment": "Confirm that decision-load and option-framing memories are the right retrieval gold set.",
+      "memories": [
+        {
+          "key": "priya_prefers_options",
+          "raw_text": "Priya responds best when approval requests present two clear options and a recommendation.",
+          "summary": "Priya responds best when approval requests present two options and a recommendation.",
+          "type": "person_preference",
+          "source": "eval.stage15",
+          "people": ["Priya"],
+          "topics": ["approval", "launch_plan"],
+          "importance": 0.9,
+          "utility": 0.94,
+          "belief_impact": 0.28,
+          "confidence": 0.93
+        },
+        {
+          "key": "priya_capacity_low",
+          "raw_text": "Priya has very little review capacity this week and tends to ignore large information dumps.",
+          "summary": "Priya has low review capacity this week and tends to ignore large information dumps.",
+          "type": "interaction_observation",
+          "source": "eval.stage15",
+          "people": ["Priya"],
+          "topics": ["approval", "scope_management"],
+          "importance": 0.89,
+          "utility": 0.92,
+          "belief_impact": 0.24,
+          "confidence": 0.91
+        },
+        {
+          "key": "decision_packets_work",
+          "raw_text": "Compact decision packets have worked better than narrative updates when asking Priya to approve a plan.",
+          "summary": "Compact decision packets have worked better than narrative updates for Priya approvals.",
+          "type": "interaction_observation",
+          "source": "eval.stage15",
+          "people": ["Priya"],
+          "topics": ["approval", "launch_plan"],
+          "importance": 0.87,
+          "utility": 0.9,
+          "belief_impact": 0.21,
+          "confidence": 0.9
+        }
+      ],
+      "people_models": [
+        {
+          "person_name": "Priya",
+          "topic_name": "approval",
+          "topic_aliases": ["decision"],
+          "niceness": 0.76,
+          "readiness": 0.61,
+          "competence": 0.88,
+          "capacity": 0.29,
+          "confidence": 0.85,
+          "evidence_memory_keys": ["priya_prefers_options", "priya_capacity_low", "decision_packets_work"]
+        }
+      ],
+      "beliefs": [
+        {
+          "topic_name": "launch_plan",
+          "claim": "Priya is more likely to approve when the ask is framed as a compact decision packet.",
+          "stance": "supports",
+          "confidence": 0.84,
+          "evidence_memory_keys": ["priya_prefers_options", "decision_packets_work"]
+        }
+      ]
+    }
+  ]
+}
