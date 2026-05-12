@@ -513,6 +513,9 @@ func resolveTopicForUpdate(ctx context.Context, repo *db.TopicRepository, userID
 			}
 			return models.Topic{}, err
 		}
+		if topic.UserID != userID {
+			return models.Topic{}, &Error{StatusCode: http.StatusNotFound, Message: "topic not found", Type: "invalid_request_error", Code: "topic_not_found", Param: "topic_id"}
+		}
 		return topic, nil
 	}
 	if strings.TrimSpace(topicName) == "" {

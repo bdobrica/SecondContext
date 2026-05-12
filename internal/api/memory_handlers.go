@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bdobrica/SecondContext/internal/db"
 	memsvc "github.com/bdobrica/SecondContext/internal/memory"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -135,6 +136,24 @@ func (s *Server) handleDeleteMemory(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(memoryID) == "" {
 		s.writeAPIError(w, r, http.StatusBadRequest, "memory id is required", "invalid_request_error", "missing_memory_id", "memoryID")
 		return
+	}
+	if s.dbPool != nil {
+		record, err := db.NewMemoryRepository(s.dbPool).GetByID(r.Context(), memoryID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				s.writeAPIError(w, r, http.StatusNotFound, "memory not found", "invalid_request_error", "memory_not_found", "memoryID")
+				return
+			}
+			s.writeMemoryError(w, r, err)
+			return
+		}
+		if err := s.ensureActorOwnsUserID(r.Context(), record.UserID, "memory not found", "memory_not_found", "memoryID"); err != nil {
+			if s.writeRequestScopeError(w, r, err) {
+				return
+			}
+			s.writeMemoryError(w, r, err)
+			return
+		}
 	}
 
 	service := memsvc.NewService(s.cfg, s.dbPool, s.llm)

@@ -267,10 +267,18 @@ func (s *Service) resolveContext(ctx context.Context, params CreateOutcomeParams
 	sessions := db.NewSessionRepository(s.pool)
 	messages := db.NewMessageRepository(s.pool)
 
+	var expectedUser models.User
+	var err error
+	if strings.TrimSpace(params.UserExternalID) != "" {
+		expectedUser, err = s.resolveUser(ctx, params.UserExternalID)
+		if err != nil {
+			return models.User{}, models.Session{}, models.Message{}, nil, "", nil, nil, err
+		}
+	}
+
 	var assistantMessage models.Message
 	var session models.Session
 	var user models.User
-	var err error
 
 	if strings.TrimSpace(params.AssistantMessageID) != "" {
 		assistantMessage, err = messages.GetByID(ctx, params.AssistantMessageID)
@@ -283,6 +291,9 @@ func (s *Service) resolveContext(ctx context.Context, params CreateOutcomeParams
 		user, err = users.GetByID(ctx, assistantMessage.UserID)
 		if err != nil {
 			return models.User{}, models.Session{}, models.Message{}, nil, "", nil, nil, err
+		}
+		if strings.TrimSpace(expectedUser.ID) != "" && user.ID != expectedUser.ID {
+			return models.User{}, models.Session{}, models.Message{}, nil, "", nil, nil, &Error{StatusCode: http.StatusNotFound, Message: "assistant message not found", Type: "invalid_request_error", Code: "assistant_message_not_found", Param: "assistant_message_id"}
 		}
 		if strings.TrimSpace(assistantMessage.SessionID) != "" {
 			session, err = sessions.GetByID(ctx, assistantMessage.SessionID)
@@ -304,12 +315,19 @@ func (s *Service) resolveContext(ctx context.Context, params CreateOutcomeParams
 		if err != nil {
 			return models.User{}, models.Session{}, models.Message{}, nil, "", nil, nil, err
 		}
+		if strings.TrimSpace(expectedUser.ID) != "" && user.ID != expectedUser.ID {
+			return models.User{}, models.Session{}, models.Message{}, nil, "", nil, nil, &Error{StatusCode: http.StatusNotFound, Message: "session not found", Type: "invalid_request_error", Code: "session_not_found", Param: "session_id"}
+		}
 	}
 
 	if strings.TrimSpace(user.ID) == "" {
-		user, err = s.resolveUser(ctx, params.UserExternalID)
-		if err != nil {
-			return models.User{}, models.Session{}, models.Message{}, nil, "", nil, nil, err
+		if strings.TrimSpace(expectedUser.ID) != "" {
+			user = expectedUser
+		} else {
+			user, err = s.resolveUser(ctx, params.UserExternalID)
+			if err != nil {
+				return models.User{}, models.Session{}, models.Message{}, nil, "", nil, nil, err
+			}
 		}
 	}
 

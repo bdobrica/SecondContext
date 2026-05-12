@@ -233,6 +233,9 @@ func (s *Service) resolveUserSession(ctx context.Context, meta RequestMetadata, 
 	sessions := db.NewSessionRepository(s.pool)
 	session, err := sessions.GetByExternalID(ctx, strings.TrimSpace(meta.SessionID))
 	if err == nil {
+		if session.UserID != user.ID {
+			return models.User{}, models.Session{}, &Error{StatusCode: http.StatusNotFound, Message: "session not found", Type: "invalid_request_error", Code: "session_not_found", Param: "session_id"}
+		}
 		return user, session, nil
 	}
 	if err != pgx.ErrNoRows {

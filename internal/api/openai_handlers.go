@@ -81,6 +81,9 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	if s.dbPool != nil {
 		session, err = s.persistInboundMessages(r, request, messages, upstreamModel)
 		if err != nil {
+			if s.writeRequestScopeError(w, r, err) {
+				return
+			}
 			s.logger.Error("persist inbound messages", "error", err, "request_id", middleware.GetReqID(r.Context()))
 			s.writeAPIError(w, r, http.StatusInternalServerError, "failed to persist inbound messages", "server_error", "persistence_failed", "")
 			return
@@ -209,6 +212,9 @@ func (s *Server) ensureSession(ctx context.Context, repo *db.SessionRepository, 
 	if metadata.SessionID != "" {
 		session, err := repo.GetByExternalID(ctx, metadata.SessionID)
 		if err == nil {
+			if session.UserID != userID {
+				return models.Session{}, &requestScopeError{StatusCode: http.StatusNotFound, Message: "session not found", Type: "invalid_request_error", Code: "session_not_found", Param: "session_id"}
+			}
 			return session, nil
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {

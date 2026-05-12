@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bdobrica/SecondContext/internal/db"
 	modelsvc "github.com/bdobrica/SecondContext/internal/modeling"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -17,6 +18,24 @@ func (s *Server) handleGetDebugPerson(w http.ResponseWriter, r *http.Request) {
 	if personID == "" {
 		s.writeAPIError(w, r, http.StatusBadRequest, "person id is required", "invalid_request_error", "missing_person_id", "personID")
 		return
+	}
+	if s.dbPool != nil {
+		person, err := db.NewPersonRepository(s.dbPool).GetByID(r.Context(), personID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				s.writeAPIError(w, r, http.StatusNotFound, "person not found", "invalid_request_error", "person_not_found", "personID")
+				return
+			}
+			s.writeModelingError(w, r, err)
+			return
+		}
+		if err := s.ensureActorOwnsUserID(r.Context(), person.UserID, "person not found", "person_not_found", "personID"); err != nil {
+			if s.writeRequestScopeError(w, r, err) {
+				return
+			}
+			s.writeModelingError(w, r, err)
+			return
+		}
 	}
 
 	service := modelsvc.NewService(s.cfg, s.dbPool, s.llm)
@@ -39,6 +58,24 @@ func (s *Server) handleUpdateDebugPerson(w http.ResponseWriter, r *http.Request)
 	if personID == "" {
 		s.writeAPIError(w, r, http.StatusBadRequest, "person id is required", "invalid_request_error", "missing_person_id", "personID")
 		return
+	}
+	if s.dbPool != nil {
+		person, err := db.NewPersonRepository(s.dbPool).GetByID(r.Context(), personID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				s.writeAPIError(w, r, http.StatusNotFound, "person not found", "invalid_request_error", "person_not_found", "personID")
+				return
+			}
+			s.writeModelingError(w, r, err)
+			return
+		}
+		if err := s.ensureActorOwnsUserID(r.Context(), person.UserID, "person not found", "person_not_found", "personID"); err != nil {
+			if s.writeRequestScopeError(w, r, err) {
+				return
+			}
+			s.writeModelingError(w, r, err)
+			return
+		}
 	}
 
 	var request updatePersonModelRequest

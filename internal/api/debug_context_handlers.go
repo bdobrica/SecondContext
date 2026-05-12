@@ -61,12 +61,15 @@ func (s *Server) buildDebugContextResponse(ctx context.Context, query debugConte
 	users := db.NewUserRepository(s.dbPool)
 	sessions := db.NewSessionRepository(s.dbPool)
 	messagesRepo := db.NewMessageRepository(s.dbPool)
+	actor, hasActor, err := s.actorUser(ctx)
+	if err != nil {
+		return debugContextResponse{}, err
+	}
 
 	var session models.Session
 	var user models.User
 	var listedMessages []models.Message
 	var assistantMessage models.Message
-	var err error
 
 	if strings.TrimSpace(query.AssistantMessageID) != "" {
 		assistantMessage, err = messagesRepo.GetByID(ctx, query.AssistantMessageID)
@@ -75,6 +78,9 @@ func (s *Server) buildDebugContextResponse(ctx context.Context, query debugConte
 				return debugContextResponse{}, newDebugContextError(http.StatusNotFound, "assistant message not found", "assistant_message_not_found", "assistant_message_id")
 			}
 			return debugContextResponse{}, err
+		}
+		if hasActor && assistantMessage.UserID != actor.ID {
+			return debugContextResponse{}, newDebugContextError(http.StatusNotFound, "assistant message not found", "assistant_message_not_found", "assistant_message_id")
 		}
 		user, err = users.GetByID(ctx, assistantMessage.UserID)
 		if err != nil {
@@ -96,6 +102,9 @@ func (s *Server) buildDebugContextResponse(ctx context.Context, query debugConte
 			}
 			return debugContextResponse{}, err
 		}
+		if hasActor && session.UserID != actor.ID {
+			return debugContextResponse{}, newDebugContextError(http.StatusNotFound, "session not found", "session_not_found", "session_id")
+		}
 		user, err = users.GetByID(ctx, session.UserID)
 		if err != nil {
 			return debugContextResponse{}, err
@@ -113,10 +122,14 @@ func (s *Server) buildDebugContextResponse(ctx context.Context, query debugConte
 	}
 
 	if strings.TrimSpace(user.ID) == "" {
-		resolvedExternalID := s.defaultUserExternalID(ctx, query.UserExternalID)
-		user, err = users.Ensure(ctx, db.EnsureUserParams{ExternalID: resolvedExternalID, Email: s.cfg.Dev.UserEmail, DisplayName: firstNonEmpty(resolvedExternalID, s.cfg.Dev.UserName)})
-		if err != nil {
-			return debugContextResponse{}, err
+		if hasActor {
+			user = actor
+		} else {
+			resolvedExternalID := s.defaultUserExternalID(ctx, query.UserExternalID)
+			user, err = users.Ensure(ctx, db.EnsureUserParams{ExternalID: resolvedExternalID, Email: s.cfg.Dev.UserEmail, DisplayName: firstNonEmpty(resolvedExternalID, s.cfg.Dev.UserName)})
+			if err != nil {
+				return debugContextResponse{}, err
+			}
 		}
 	}
 

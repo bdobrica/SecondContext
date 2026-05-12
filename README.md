@@ -375,7 +375,7 @@ make migrate-up
 go run ./cmd/api
 ```
 
-Authentication is optional by default. To require bearer tokens, set `AUTH_ENABLED=true` and configure `AUTH_BEARER_TOKENS` as a comma-separated list of `subject=token` pairs, for example `AUTH_BEARER_TOKENS=dev-user=change-me-token`.
+Authentication is optional by default. To require bearer tokens, set `AUTH_ENABLED=true` and configure `AUTH_BEARER_TOKENS` as a comma-separated list of `subject=token` pairs, for example `AUTH_BEARER_TOKENS=dev-user=change-me-token`. When authentication is enabled, the authenticated subject becomes the effective user scope for reads and writes, so request-level user selectors cannot escape into another user's data.
 
 Core validation commands:
 

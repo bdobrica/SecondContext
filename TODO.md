@@ -622,7 +622,7 @@ The assistant should recommend a narrow, low-friction request to Alex.
 ### Tasks
 
 - [x] Add authentication.
-- [ ] Add per-user data isolation.
+- [x] Add per-user data isolation.
 - [x] Add request rate limits.
 - [ ] Add better error messages.
 - [ ] Add schema validation everywhere.

@@ -3,17 +3,21 @@ package api
 import (
 	"context"
 	"crypto/subtle"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/bdobrica/SecondContext/internal/config"
+	"github.com/bdobrica/SecondContext/internal/db"
+	"github.com/bdobrica/SecondContext/internal/models"
 )
 
 const (
 	authErrorType                 = "authentication_error"
 	authRequiredErrorCode         = "authentication_required"
 	invalidAuthTokenErrorCode     = "invalid_authentication_token"
+	authorizationErrorType        = "authorization_error"
 	authorizationHeaderName       = "Authorization"
 	wwwAuthenticateHeaderName     = "WWW-Authenticate"
 	wwwAuthenticateSchemeBearer   = "Bearer"
@@ -24,6 +28,22 @@ type authContextKey struct{}
 
 type authPrincipal struct {
 	Subject string
+}
+
+type requestScopeError struct {
+	StatusCode int
+	Message    string
+	Type       string
+	Code       string
+	Param      string
+}
+
+func (e *requestScopeError) Error() string {
+	if e == nil {
+		return ""
+	}
+
+	return e.Message
 }
 
 type requestAuthenticator struct {
@@ -126,11 +146,11 @@ func authenticatedSubject(ctx context.Context) string {
 }
 
 func (s *Server) defaultUserExternalID(ctx context.Context, values ...string) string {
-	if resolved := firstNonEmpty(values...); strings.TrimSpace(resolved) != "" {
-		return resolved
-	}
 	if subject := authenticatedSubject(ctx); subject != "" {
 		return subject
+	}
+	if resolved := firstNonEmpty(values...); strings.TrimSpace(resolved) != "" {
+		return resolved
 	}
 	return s.cfg.Dev.UserExternalID
 }
@@ -150,4 +170,60 @@ func (s *Server) resolveRequestMetadata(ctx context.Context, metadataValues map[
 	}
 
 	return metadata
+}
+
+func (s *Server) actorUser(ctx context.Context) (models.User, bool, error) {
+	subject := authenticatedSubject(ctx)
+	if subject == "" || s.dbPool == nil {
+		return models.User{}, false, nil
+	}
+
+	resolvedName := subject
+	resolvedEmail := ""
+	if subject == s.cfg.Dev.UserExternalID {
+		resolvedName = s.cfg.Dev.UserName
+		resolvedEmail = s.cfg.Dev.UserEmail
+	}
+
+	user, err := db.NewUserRepository(s.dbPool).Ensure(ctx, db.EnsureUserParams{
+		ExternalID:  subject,
+		Email:       resolvedEmail,
+		DisplayName: resolvedName,
+	})
+	if err != nil {
+		return models.User{}, false, err
+	}
+
+	return user, true, nil
+}
+
+func (s *Server) ensureActorOwnsUserID(ctx context.Context, resourceUserID, message, code, param string) error {
+	actor, ok, err := s.actorUser(ctx)
+	if err != nil {
+		return err
+	}
+	if !ok || strings.TrimSpace(resourceUserID) == "" {
+		return nil
+	}
+	if actor.ID == strings.TrimSpace(resourceUserID) {
+		return nil
+	}
+
+	return &requestScopeError{
+		StatusCode: http.StatusNotFound,
+		Message:    message,
+		Type:       "invalid_request_error",
+		Code:       code,
+		Param:      param,
+	}
+}
+
+func (s *Server) writeRequestScopeError(w http.ResponseWriter, r *http.Request, err error) bool {
+	var scopeErr *requestScopeError
+	if !errors.As(err, &scopeErr) {
+		return false
+	}
+
+	s.writeAPIError(w, r, scopeErr.StatusCode, scopeErr.Message, scopeErr.Type, scopeErr.Code, scopeErr.Param)
+	return true
 }
