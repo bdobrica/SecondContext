@@ -375,6 +375,8 @@ make migrate-up
 go run ./cmd/api
 ```
 
+Authentication is optional by default. To require bearer tokens, set `AUTH_ENABLED=true` and configure `AUTH_BEARER_TOKENS` as a comma-separated list of `subject=token` pairs, for example `AUTH_BEARER_TOKENS=dev-user=change-me-token`.
+
 Core validation commands:
 
 - `curl http://localhost:8080/healthz`
@@ -392,6 +394,8 @@ Core validation commands:
 - `curl 'http://localhost:8080/debug/beliefs?topic_name=migration&user_external_id=dev-user'`
 - `curl http://localhost:8080/debug/person/<person-id>`
 - `curl -X PUT http://localhost:8080/debug/person/<person-id> -H 'Content-Type: application/json' -d '{"topic_name":"api_review","topic_aliases":["api"],"capacity":0.25,"confidence":0.9}'`
+
+When authentication is enabled, include `-H 'Authorization: Bearer <token>'` on every endpoint except `/healthz`.
 
 ## End-to-end demo
 

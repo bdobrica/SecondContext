@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	App      AppConfig
+	Auth     AuthConfig
 	Dev      DevConfig
 	HTTP     HTTPConfig
 	Log      LogConfig
@@ -23,6 +24,17 @@ type Config struct {
 type AppConfig struct {
 	Name string
 	Env  string
+}
+
+type AuthConfig struct {
+	Enabled bool
+	Realm   string
+	Tokens  []AuthTokenConfig
+}
+
+type AuthTokenConfig struct {
+	Subject string
+	Token   string
 }
 
 type DevConfig struct {
@@ -92,6 +104,15 @@ func Load() (Config, error) {
 	shutdownTimeout, err := parseDuration("HTTP_SHUTDOWN_TIMEOUT", "10s")
 	if err != nil {
 		return Config{}, err
+	}
+
+	authTokens, err := parseAuthTokens(os.Getenv("AUTH_BEARER_TOKENS"))
+	if err != nil {
+		return Config{}, err
+	}
+	authEnabled := getEnvBool("AUTH_ENABLED", false)
+	if authEnabled && len(authTokens) == 0 {
+		return Config{}, fmt.Errorf("AUTH_ENABLED requires at least one AUTH_BEARER_TOKENS entry")
 	}
 
 	rateLimitRPM, err := parseInt("HTTP_RATE_LIMIT_REQUESTS_PER_MINUTE", 60)
@@ -165,6 +186,11 @@ func Load() (Config, error) {
 		App: AppConfig{
 			Name: getEnv("APP_NAME", "second-context"),
 			Env:  getEnv("APP_ENV", "development"),
+		},
+		Auth: AuthConfig{
+			Enabled: authEnabled,
+			Realm:   getEnv("AUTH_REALM", "second-context"),
+			Tokens:  authTokens,
 		},
 		Dev: DevConfig{
 			UserExternalID: getEnv("DEV_USER_EXTERNAL_ID", "dev-user"),
@@ -322,4 +348,35 @@ func parseLogLevel(value string) (slog.Level, error) {
 	default:
 		return 0, fmt.Errorf("unsupported LOG_LEVEL %q", value)
 	}
+}
+
+func parseAuthTokens(value string) ([]AuthTokenConfig, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	entries := strings.Split(trimmed, ",")
+	tokens := make([]AuthTokenConfig, 0, len(entries))
+	for _, entry := range entries {
+		item := strings.TrimSpace(entry)
+		if item == "" {
+			continue
+		}
+
+		subject, token, hasSubject := strings.Cut(item, "=")
+		if hasSubject {
+			subject = strings.TrimSpace(subject)
+			token = strings.TrimSpace(token)
+			if subject == "" || token == "" {
+				return nil, fmt.Errorf("invalid AUTH_BEARER_TOKENS entry %q", entry)
+			}
+			tokens = append(tokens, AuthTokenConfig{Subject: subject, Token: token})
+			continue
+		}
+
+		tokens = append(tokens, AuthTokenConfig{Token: item})
+	}
+
+	return tokens, nil
 }

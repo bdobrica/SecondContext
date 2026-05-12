@@ -21,7 +21,7 @@ const (
 )
 
 func (s *Server) buildResponseContext(ctx context.Context, request createResponseRequest, messages []llm.Message) (*prompts.ContextPacket, error) {
-	packet := buildBaseContextPacket(request, messages, s.cfg.Dev.UserExternalID)
+	packet := buildBaseContextPacket(request, messages, s.defaultUserExternalID(ctx))
 	if requestDisablesMemory(request) {
 		return packet, nil
 	}

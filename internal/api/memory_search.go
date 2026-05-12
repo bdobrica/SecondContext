@@ -21,7 +21,7 @@ func (s *Server) handleMemorySearch(w http.ResponseWriter, r *http.Request) {
 	results, err := service.Search(r.Context(), retrievalsvc.SearchParams{
 		Query:               request.Query,
 		Goal:                request.Goal,
-		UserExternalID:      request.UserExternalID,
+		UserExternalID:      s.defaultUserExternalID(r.Context(), request.UserExternalID),
 		MemoryType:          request.MemoryType,
 		People:              request.People,
 		Topics:              request.Topics,

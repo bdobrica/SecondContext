@@ -127,6 +127,10 @@ func shouldSkipRateLimit(path string) bool {
 }
 
 func clientRateLimitKey(r *http.Request) string {
+	if subject := authenticatedSubject(r.Context()); subject != "" {
+		return "subject:" + subject
+	}
+
 	remoteAddr := strings.TrimSpace(r.RemoteAddr)
 	if remoteAddr == "" {
 		return "unknown"

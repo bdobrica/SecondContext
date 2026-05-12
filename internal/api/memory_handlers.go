@@ -21,6 +21,7 @@ func (s *Server) handleMemoryIngest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service := memsvc.NewService(s.cfg, s.dbPool, s.llm)
+	metadata := s.resolveRequestMetadata(r.Context(), request.Metadata, request.User)
 	record, err := service.Ingest(r.Context(), memsvc.IngestParams{
 		RawText:       request.RawText,
 		Summary:       request.Summary,
@@ -34,13 +35,13 @@ func (s *Server) handleMemoryIngest(w http.ResponseWriter, r *http.Request) {
 		Confidence:    request.Confidence,
 		ExpiresInDays: request.ExpiresInDays,
 		Metadata:      request.Metadata,
-		RequestUser:   request.User,
+		RequestUser:   metadata.UserExternalID,
 		Meta: memsvc.RequestMetadata{
-			SessionID:      parseRequestMetadata(request.Metadata).SessionID,
-			UserExternalID: parseRequestMetadata(request.Metadata).UserExternalID,
-			UserName:       parseRequestMetadata(request.Metadata).UserName,
-			UserEmail:      parseRequestMetadata(request.Metadata).UserEmail,
-			SessionTitle:   parseRequestMetadata(request.Metadata).SessionTitle,
+			SessionID:      metadata.SessionID,
+			UserExternalID: metadata.UserExternalID,
+			UserName:       metadata.UserName,
+			UserEmail:      metadata.UserEmail,
+			SessionTitle:   metadata.SessionTitle,
 		},
 	})
 	if err != nil {
@@ -58,13 +59,13 @@ func (s *Server) handleMemoryExtract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metadata := parseRequestMetadata(request.Metadata)
+	metadata := s.resolveRequestMetadata(r.Context(), request.Metadata, request.User)
 	service := memsvc.NewService(s.cfg, s.dbPool, s.llm)
 	result, err := service.ExtractAndIngest(r.Context(), memsvc.ExtractParams{
 		RawText:     request.RawText,
 		Source:      request.Source,
 		Metadata:    request.Metadata,
-		RequestUser: request.User,
+		RequestUser: metadata.UserExternalID,
 		Meta: memsvc.RequestMetadata{
 			SessionID:      metadata.SessionID,
 			UserExternalID: metadata.UserExternalID,
@@ -113,7 +114,7 @@ func (s *Server) handleListMemories(w http.ResponseWriter, r *http.Request) {
 
 	service := memsvc.NewService(s.cfg, s.dbPool, s.llm)
 	memories, err := service.List(r.Context(), memsvc.ListParams{
-		UserExternalID: strings.TrimSpace(r.URL.Query().Get("user_external_id")),
+		UserExternalID: s.defaultUserExternalID(r.Context(), strings.TrimSpace(r.URL.Query().Get("user_external_id"))),
 		Limit:          limit,
 	})
 	if err != nil {

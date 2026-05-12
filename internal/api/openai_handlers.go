@@ -168,23 +168,7 @@ func (s *Server) persistInboundMessages(r *http.Request, request createResponseR
 	sessions := db.NewSessionRepository(s.dbPool)
 	messageRepo := db.NewMessageRepository(s.dbPool)
 
-	metadata := parseRequestMetadata(request.Metadata)
-	if metadata.UserExternalID == "" {
-		metadata.UserExternalID = strings.TrimSpace(request.User)
-	}
-	if metadata.UserExternalID == "" {
-		metadata.UserExternalID = s.cfg.Dev.UserExternalID
-	}
-	if metadata.UserName == "" {
-		if metadata.UserExternalID == s.cfg.Dev.UserExternalID {
-			metadata.UserName = s.cfg.Dev.UserName
-		} else {
-			metadata.UserName = metadata.UserExternalID
-		}
-	}
-	if metadata.UserEmail == "" && metadata.UserExternalID == s.cfg.Dev.UserExternalID {
-		metadata.UserEmail = s.cfg.Dev.UserEmail
-	}
+	metadata := s.resolveRequestMetadata(ctx, request.Metadata, request.User)
 
 	user, err := users.Ensure(ctx, db.EnsureUserParams{
 		ExternalID:  metadata.UserExternalID,

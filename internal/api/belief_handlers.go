@@ -24,7 +24,7 @@ func (s *Server) handleListDebugBeliefs(w http.ResponseWriter, r *http.Request) 
 
 	service := beliefsvc.NewService(s.cfg, s.dbPool, s.llm)
 	beliefsList, err := service.ListBeliefs(r.Context(), beliefsvc.ListBeliefsParams{
-		UserExternalID: strings.TrimSpace(r.URL.Query().Get("user_external_id")),
+		UserExternalID: s.defaultUserExternalID(r.Context(), strings.TrimSpace(r.URL.Query().Get("user_external_id"))),
 		TopicID:        strings.TrimSpace(r.URL.Query().Get("topic_id")),
 		TopicName:      strings.TrimSpace(r.URL.Query().Get("topic_name")),
 		Limit:          limit,

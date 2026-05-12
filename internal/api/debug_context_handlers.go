@@ -113,7 +113,7 @@ func (s *Server) buildDebugContextResponse(ctx context.Context, query debugConte
 	}
 
 	if strings.TrimSpace(user.ID) == "" {
-		resolvedExternalID := firstNonEmpty(query.UserExternalID, s.cfg.Dev.UserExternalID)
+		resolvedExternalID := s.defaultUserExternalID(ctx, query.UserExternalID)
 		user, err = users.Ensure(ctx, db.EnsureUserParams{ExternalID: resolvedExternalID, Email: s.cfg.Dev.UserEmail, DisplayName: firstNonEmpty(resolvedExternalID, s.cfg.Dev.UserName)})
 		if err != nil {
 			return debugContextResponse{}, err
@@ -146,8 +146,8 @@ func (s *Server) buildDebugContextResponse(ctx context.Context, query debugConte
 		return debugContextResponse{}, newDebugContextError(http.StatusBadRequest, err.Error(), "invalid_input", "input")
 	}
 
-	memoryDisabledPacket := buildBaseContextPacket(request, promptMessages, s.cfg.Dev.UserExternalID)
-	augmentedPacket := buildBaseContextPacket(request, promptMessages, s.cfg.Dev.UserExternalID)
+	memoryDisabledPacket := buildBaseContextPacket(request, promptMessages, s.defaultUserExternalID(ctx))
+	augmentedPacket := buildBaseContextPacket(request, promptMessages, s.defaultUserExternalID(ctx))
 	if err := s.populateResponseContext(ctx, augmentedPacket); err != nil {
 		return debugContextResponse{}, err
 	}

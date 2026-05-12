@@ -16,7 +16,7 @@ func (s *Server) handleCreateInteractionOutcome(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	metadata := parseRequestMetadata(request.Metadata)
+	metadata := s.resolveRequestMetadata(r.Context(), request.Metadata, request.User)
 	service := outcomesvc.NewService(s.cfg, s.dbPool, s.llm)
 	result, err := service.CreateOutcome(r.Context(), outcomesvc.CreateOutcomeParams{
 		SessionID:          firstNonEmpty(request.SessionID, metadata.SessionID),
@@ -26,7 +26,7 @@ func (s *Server) handleCreateInteractionOutcome(w http.ResponseWriter, r *http.R
 		People:             request.People,
 		Topics:             request.Topics,
 		Metadata:           request.Metadata,
-		UserExternalID:     firstNonEmpty(metadata.UserExternalID, request.User),
+		UserExternalID:     s.defaultUserExternalID(r.Context(), metadata.UserExternalID, request.User),
 	})
 	if err != nil {
 		s.writeOutcomeError(w, r, err)

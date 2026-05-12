@@ -20,6 +20,7 @@ type Server struct {
 	logger *slog.Logger
 	dbPool *pgxpool.Pool
 	llm    llm.Client
+	auth   *requestAuthenticator
 	rate   *requestRateLimiter
 }
 
@@ -41,6 +42,7 @@ func NewServerWithClient(cfg config.Config, logger *slog.Logger, dbPool *pgxpool
 		logger: logger,
 		dbPool: dbPool,
 		llm:    client,
+		auth:   newRequestAuthenticator(cfg.Auth),
 		rate:   newRequestRateLimiter(cfg.HTTP.RateLimitRPM, time.Minute),
 	}
 }
@@ -52,6 +54,9 @@ func (s *Server) Handler() http.Handler {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Timeout(30 * time.Second))
 	router.Use(s.loggingMiddleware)
+	if s.auth != nil {
+		router.Use(s.auth.middleware(s))
+	}
 	if s.rate != nil {
 		router.Use(s.rate.middleware(s))
 	}
