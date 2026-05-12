@@ -34,6 +34,7 @@ type DevConfig struct {
 type HTTPConfig struct {
 	Addr            string
 	ShutdownTimeout time.Duration
+	RateLimitRPM    int
 }
 
 type LogConfig struct {
@@ -89,6 +90,11 @@ func Load() (Config, error) {
 	}
 
 	shutdownTimeout, err := parseDuration("HTTP_SHUTDOWN_TIMEOUT", "10s")
+	if err != nil {
+		return Config{}, err
+	}
+
+	rateLimitRPM, err := parseInt("HTTP_RATE_LIMIT_REQUESTS_PER_MINUTE", 60)
 	if err != nil {
 		return Config{}, err
 	}
@@ -168,6 +174,7 @@ func Load() (Config, error) {
 		HTTP: HTTPConfig{
 			Addr:            getEnv("HTTP_ADDR", ":8080"),
 			ShutdownTimeout: shutdownTimeout,
+			RateLimitRPM:    rateLimitRPM,
 		},
 		Log: LogConfig{Level: logLevel},
 		Postgres: PostgresConfig{

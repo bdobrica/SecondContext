@@ -623,7 +623,7 @@ The assistant should recommend a narrow, low-friction request to Alex.
 
 - [ ] Add authentication.
 - [ ] Add per-user data isolation.
-- [ ] Add request rate limits.
+- [x] Add request rate limits.
 - [ ] Add better error messages.
 - [ ] Add schema validation everywhere.
 - [ ] Add integration tests.

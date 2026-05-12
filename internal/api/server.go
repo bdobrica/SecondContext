@@ -20,6 +20,7 @@ type Server struct {
 	logger *slog.Logger
 	dbPool *pgxpool.Pool
 	llm    llm.Client
+	rate   *requestRateLimiter
 }
 
 type healthResponse struct {
@@ -35,7 +36,13 @@ func NewServer(cfg config.Config, logger *slog.Logger, dbPool *pgxpool.Pool) *Se
 }
 
 func NewServerWithClient(cfg config.Config, logger *slog.Logger, dbPool *pgxpool.Pool, client llm.Client) *Server {
-	return &Server{cfg: cfg, logger: logger, dbPool: dbPool, llm: client}
+	return &Server{
+		cfg:    cfg,
+		logger: logger,
+		dbPool: dbPool,
+		llm:    client,
+		rate:   newRequestRateLimiter(cfg.HTTP.RateLimitRPM, time.Minute),
+	}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -45,6 +52,9 @@ func (s *Server) Handler() http.Handler {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Timeout(30 * time.Second))
 	router.Use(s.loggingMiddleware)
+	if s.rate != nil {
+		router.Use(s.rate.middleware(s))
+	}
 
 	router.Get("/healthz", s.handleHealthz)
 	router.Get("/v1/models", s.handleListModels)
