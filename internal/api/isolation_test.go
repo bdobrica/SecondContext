@@ -54,6 +54,142 @@ func TestAuthenticatedUserCannotReuseForeignSession(t *testing.T) {
 	assertAPIErrorCode(t, recorder.Body.Bytes(), "session_not_found")
 }
 
+func TestAuthenticatedResponseCannotSelectForeignTenantContext(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	pool, cleanup := openIsolationTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	cfg := isolationTestConfig(t, "memory_items_isolation_response_identity")
+	fakeClient := &fakeLLMClient{response: llm.GenerateResponse{OutputText: "foreign marker from upstream"}}
+	server := NewServerWithClient(cfg, slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)), pool, fakeClient)
+
+	foreignUser, err := db.NewUserRepository(pool).Ensure(ctx, db.EnsureUserParams{ExternalID: "tenant-b", DisplayName: "tenant-b"})
+	if err != nil {
+		t.Fatalf("ensure foreign user: %v", err)
+	}
+	foreignMemory, err := db.NewMemoryRepository(pool).Create(ctx, db.CreateMemoryItemParams{
+		UserID:     foreignUser.ID,
+		MemoryType: "note",
+		Source:     "test",
+		RawText:    "tenant-b-private-memory-marker",
+		Summary:    "tenant-b-private-memory-marker",
+		People:     []string{"Tenant B Private Person"},
+		Topics:     []string{"tenant-b-private-topic"},
+		Confidence: 1,
+	})
+	if err != nil {
+		t.Fatalf("create foreign memory: %v", err)
+	}
+	foreignPerson, err := db.NewPersonRepository(pool).Upsert(ctx, db.UpsertPersonParams{
+		UserID: foreignUser.ID,
+		Name:   "Tenant B Private Person",
+	})
+	if err != nil {
+		t.Fatalf("create foreign person: %v", err)
+	}
+	foreignTopic, err := db.NewTopicRepository(pool).Upsert(ctx, db.UpsertTopicParams{
+		UserID: foreignUser.ID,
+		Name:   "tenant-b-private-topic",
+	})
+	if err != nil {
+		t.Fatalf("create foreign topic: %v", err)
+	}
+	foreignBelief, err := db.NewBeliefRepository(pool).Save(ctx, db.SaveBeliefParams{
+		UserID:            foreignUser.ID,
+		TopicID:           foreignTopic.ID,
+		Claim:             "tenant-b-private-belief-marker",
+		Stance:            "supports",
+		Confidence:        1,
+		EvidenceMemoryIDs: []string{foreignMemory.ID},
+		LastUpdatedAt:     time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("create foreign belief: %v", err)
+	}
+	var beforeMemories, beforePeople, beforeTopics, beforeBeliefs, beforeSessions, beforeMessages int
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*) FROM memory_items WHERE user_id = $1::uuid),
+			(SELECT count(*) FROM people WHERE user_id = $1::uuid),
+			(SELECT count(*) FROM topics WHERE user_id = $1::uuid),
+			(SELECT count(*) FROM beliefs WHERE user_id = $1::uuid),
+			(SELECT count(*) FROM sessions WHERE user_id = $1::uuid),
+			(SELECT count(*) FROM messages WHERE user_id = $1::uuid)
+	`, foreignUser.ID).Scan(&beforeMemories, &beforePeople, &beforeTopics, &beforeBeliefs, &beforeSessions, &beforeMessages); err != nil {
+		t.Fatalf("snapshot foreign state: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "metadata user_external_id",
+			body: `{"model":"context-agent-1","input":"tenant-b-private-memory-marker","metadata":{"user_external_id":"tenant-b"}}`,
+		},
+		{
+			name: "top-level user",
+			body: `{"model":"context-agent-1","input":"tenant-b-private-memory-marker","user":"tenant-b"}`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(test.body))
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set(authorizationHeaderName, "Bearer token-a")
+			server.Handler().ServeHTTP(recorder, request)
+
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("expected status %d, got %d body=%s", http.StatusBadRequest, recorder.Code, recorder.Body.String())
+			}
+			assertAPIErrorCode(t, recorder.Body.Bytes(), "identity_conflict")
+			for _, marker := range []string{"tenant-b-private-memory-marker", "Tenant B Private Person", "tenant-b-private-topic", "tenant-b-private-belief-marker", "context_packet", "foreign marker from upstream"} {
+				if bytes.Contains(recorder.Body.Bytes(), []byte(marker)) {
+					t.Fatalf("response disclosed foreign context marker %q: %s", marker, recorder.Body.String())
+				}
+			}
+		})
+	}
+
+	if len(fakeClient.requests) != 0 || fakeClient.embedCount != 0 {
+		t.Fatalf("conflicting requests reached retrieval/upstream: requests=%d embeds=%d", len(fakeClient.requests), fakeClient.embedCount)
+	}
+	storedMemory, err := db.NewMemoryRepository(pool).GetByID(ctx, foreignMemory.ID)
+	if err != nil || storedMemory.UpdatedAt != foreignMemory.UpdatedAt {
+		t.Fatalf("foreign memory changed: before=%#v after=%#v err=%v", foreignMemory, storedMemory, err)
+	}
+	storedPerson, err := db.NewPersonRepository(pool).GetByID(ctx, foreignPerson.ID)
+	if err != nil || storedPerson.UpdatedAt != foreignPerson.UpdatedAt {
+		t.Fatalf("foreign person changed: before=%#v after=%#v err=%v", foreignPerson, storedPerson, err)
+	}
+	storedBelief, err := db.NewBeliefRepository(pool).GetByClaimAndTopic(ctx, foreignUser.ID, foreignBelief.Claim, foreignTopic.ID)
+	if err != nil || storedBelief.UpdatedAt != foreignBelief.UpdatedAt {
+		t.Fatalf("foreign belief changed: before=%#v after=%#v err=%v", foreignBelief, storedBelief, err)
+	}
+	var afterMemories, afterPeople, afterTopics, afterBeliefs, afterSessions, afterMessages int
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*) FROM memory_items WHERE user_id = $1::uuid),
+			(SELECT count(*) FROM people WHERE user_id = $1::uuid),
+			(SELECT count(*) FROM topics WHERE user_id = $1::uuid),
+			(SELECT count(*) FROM beliefs WHERE user_id = $1::uuid),
+			(SELECT count(*) FROM sessions WHERE user_id = $1::uuid),
+			(SELECT count(*) FROM messages WHERE user_id = $1::uuid)
+	`, foreignUser.ID).Scan(&afterMemories, &afterPeople, &afterTopics, &afterBeliefs, &afterSessions, &afterMessages); err != nil {
+		t.Fatalf("verify foreign state: %v", err)
+	}
+	beforeCounts := [6]int{beforeMemories, beforePeople, beforeTopics, beforeBeliefs, beforeSessions, beforeMessages}
+	afterCounts := [6]int{afterMemories, afterPeople, afterTopics, afterBeliefs, afterSessions, afterMessages}
+	if afterCounts != beforeCounts {
+		t.Fatalf("foreign state counts changed: before=%v after=%v", beforeCounts, afterCounts)
+	}
+}
+
 func TestAuthenticatedUserCannotDeleteForeignMemory(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")

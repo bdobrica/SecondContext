@@ -159,9 +159,45 @@ func (s *Server) defaultUserExternalID(ctx context.Context, values ...string) st
 	return s.cfg.Dev.UserExternalID
 }
 
-func (s *Server) resolveRequestMetadata(ctx context.Context, metadataValues map[string]any, requestUser string) requestMetadata {
+func (s *Server) resolveUserExternalID(ctx context.Context, selectors ...requestUserSelector) (string, error) {
+	if subject := authenticatedSubject(ctx); subject != "" {
+		for _, selector := range selectors {
+			value := strings.TrimSpace(selector.Value)
+			if value != "" && value != subject {
+				return "", &requestScopeError{
+					StatusCode: http.StatusBadRequest,
+					Message:    selector.Param + " must match the authenticated subject",
+					Type:       "invalid_request_error",
+					Code:       "identity_conflict",
+					Param:      selector.Param,
+				}
+			}
+		}
+		return subject, nil
+	}
+
+	values := make([]string, 0, len(selectors))
+	for _, selector := range selectors {
+		values = append(values, selector.Value)
+	}
+	return s.defaultUserExternalID(ctx, values...), nil
+}
+
+type requestUserSelector struct {
+	Param string
+	Value string
+}
+
+func (s *Server) resolveRequestMetadata(ctx context.Context, metadataValues map[string]any, requestUser string) (requestMetadata, error) {
 	metadata := parseRequestMetadata(metadataValues)
-	metadata.UserExternalID = s.defaultUserExternalID(ctx, metadata.UserExternalID, strings.TrimSpace(requestUser))
+	userExternalID, err := s.resolveUserExternalID(ctx,
+		requestUserSelector{Param: "metadata.user_external_id", Value: metadata.UserExternalID},
+		requestUserSelector{Param: "user", Value: requestUser},
+	)
+	if err != nil {
+		return requestMetadata{}, err
+	}
+	metadata.UserExternalID = userExternalID
 	if metadata.UserName == "" {
 		if metadata.UserExternalID == s.cfg.Dev.UserExternalID {
 			metadata.UserName = s.cfg.Dev.UserName
@@ -173,7 +209,7 @@ func (s *Server) resolveRequestMetadata(ctx context.Context, metadataValues map[
 		metadata.UserEmail = s.cfg.Dev.UserEmail
 	}
 
-	return metadata
+	return metadata, nil
 }
 
 func (s *Server) actorUser(ctx context.Context) (models.User, bool, error) {

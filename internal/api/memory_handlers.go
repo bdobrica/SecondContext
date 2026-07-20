@@ -22,7 +22,11 @@ func (s *Server) handleMemoryIngest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service := memsvc.NewService(s.cfg, s.dbPool, s.llm)
-	metadata := s.resolveRequestMetadata(r.Context(), request.Metadata, request.User)
+	metadata, err := s.resolveRequestMetadata(r.Context(), request.Metadata, request.User)
+	if err != nil {
+		s.writeRequestScopeError(w, r, err)
+		return
+	}
 	record, err := service.Ingest(r.Context(), memsvc.IngestParams{
 		RawText:       request.RawText,
 		Summary:       request.Summary,
@@ -60,7 +64,11 @@ func (s *Server) handleMemoryExtract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metadata := s.resolveRequestMetadata(r.Context(), request.Metadata, request.User)
+	metadata, err := s.resolveRequestMetadata(r.Context(), request.Metadata, request.User)
+	if err != nil {
+		s.writeRequestScopeError(w, r, err)
+		return
+	}
 	service := memsvc.NewService(s.cfg, s.dbPool, s.llm)
 	result, err := service.ExtractAndIngest(r.Context(), memsvc.ExtractParams{
 		RawText:     request.RawText,
@@ -113,9 +121,14 @@ func (s *Server) handleListMemories(w http.ResponseWriter, r *http.Request) {
 		limit = int32(parsed)
 	}
 
+	userExternalID, err := s.resolveUserExternalID(r.Context(), requestUserSelector{Param: "user_external_id", Value: r.URL.Query().Get("user_external_id")})
+	if err != nil {
+		s.writeRequestScopeError(w, r, err)
+		return
+	}
 	service := memsvc.NewService(s.cfg, s.dbPool, s.llm)
 	memories, err := service.List(r.Context(), memsvc.ListParams{
-		UserExternalID: s.defaultUserExternalID(r.Context(), strings.TrimSpace(r.URL.Query().Get("user_external_id"))),
+		UserExternalID: userExternalID,
 		Limit:          limit,
 	})
 	if err != nil {

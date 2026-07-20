@@ -16,7 +16,11 @@ func (s *Server) handleCreateInteractionOutcome(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	metadata := s.resolveRequestMetadata(r.Context(), request.Metadata, request.User)
+	metadata, err := s.resolveRequestMetadata(r.Context(), request.Metadata, request.User)
+	if err != nil {
+		s.writeRequestScopeError(w, r, err)
+		return
+	}
 	service := outcomesvc.NewService(s.cfg, s.dbPool, s.llm)
 	result, err := service.CreateOutcome(r.Context(), outcomesvc.CreateOutcomeParams{
 		SessionID:          firstNonEmpty(request.SessionID, metadata.SessionID),
@@ -26,7 +30,7 @@ func (s *Server) handleCreateInteractionOutcome(w http.ResponseWriter, r *http.R
 		People:             request.People,
 		Topics:             request.Topics,
 		Metadata:           request.Metadata,
-		UserExternalID:     s.defaultUserExternalID(r.Context(), metadata.UserExternalID, request.User),
+		UserExternalID:     metadata.UserExternalID,
 	})
 	if err != nil {
 		s.writeOutcomeError(w, r, err)

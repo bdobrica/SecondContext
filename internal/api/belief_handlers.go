@@ -22,9 +22,14 @@ func (s *Server) handleListDebugBeliefs(w http.ResponseWriter, r *http.Request) 
 		limit = parsed
 	}
 
+	userExternalID, err := s.resolveUserExternalID(r.Context(), requestUserSelector{Param: "user_external_id", Value: r.URL.Query().Get("user_external_id")})
+	if err != nil {
+		s.writeRequestScopeError(w, r, err)
+		return
+	}
 	service := beliefsvc.NewService(s.cfg, s.dbPool, s.llm)
 	beliefsList, err := service.ListBeliefs(r.Context(), beliefsvc.ListBeliefsParams{
-		UserExternalID: s.defaultUserExternalID(r.Context(), strings.TrimSpace(r.URL.Query().Get("user_external_id"))),
+		UserExternalID: userExternalID,
 		TopicID:        strings.TrimSpace(r.URL.Query().Get("topic_id")),
 		TopicName:      strings.TrimSpace(r.URL.Query().Get("topic_name")),
 		Limit:          limit,

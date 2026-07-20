@@ -37,12 +37,19 @@ type debugContextQuery struct {
 }
 
 func (s *Server) handleGetDebugContext(w http.ResponseWriter, r *http.Request) {
+	query := parseDebugContextQuery(r)
+	resolvedRequestUser, err := s.resolveUserExternalID(r.Context(), requestUserSelector{Param: "user_external_id", Value: query.UserExternalID})
+	if err != nil {
+		s.writeRequestScopeError(w, r, err)
+		return
+	}
+	query.UserExternalID = resolvedRequestUser
+
 	if s.dbPool == nil {
 		s.writeAPIError(w, r, http.StatusInternalServerError, "postgres is not configured", "server_error", "postgres_disabled", "")
 		return
 	}
 
-	query := parseDebugContextQuery(r)
 	response, err := s.buildDebugContextResponse(r.Context(), query)
 	if err != nil {
 		s.writeDebugContextError(w, r, err)
@@ -58,6 +65,10 @@ func (s *Server) handleGetDebugContext(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) buildDebugContextResponse(ctx context.Context, query debugContextQuery) (debugContextResponse, error) {
+	resolvedRequestUser, err := s.resolveUserExternalID(ctx, requestUserSelector{Param: "user_external_id", Value: query.UserExternalID})
+	if err != nil {
+		return debugContextResponse{}, err
+	}
 	users := db.NewUserRepository(s.dbPool)
 	sessions := db.NewSessionRepository(s.dbPool)
 	messagesRepo := db.NewMessageRepository(s.dbPool)
@@ -125,8 +136,7 @@ func (s *Server) buildDebugContextResponse(ctx context.Context, query debugConte
 		if hasActor {
 			user = actor
 		} else {
-			resolvedExternalID := s.defaultUserExternalID(ctx, query.UserExternalID)
-			user, err = users.Ensure(ctx, db.EnsureUserParams{ExternalID: resolvedExternalID, Email: s.cfg.Dev.UserEmail, DisplayName: firstNonEmpty(resolvedExternalID, s.cfg.Dev.UserName)})
+			user, err = users.Ensure(ctx, db.EnsureUserParams{ExternalID: resolvedRequestUser, Email: s.cfg.Dev.UserEmail, DisplayName: firstNonEmpty(resolvedRequestUser, s.cfg.Dev.UserName)})
 			if err != nil {
 				return debugContextResponse{}, err
 			}
@@ -159,8 +169,8 @@ func (s *Server) buildDebugContextResponse(ctx context.Context, query debugConte
 		return debugContextResponse{}, newDebugContextError(http.StatusBadRequest, err.Error(), "invalid_input", "input")
 	}
 
-	memoryDisabledPacket := buildBaseContextPacket(request, promptMessages, s.defaultUserExternalID(ctx))
-	augmentedPacket := buildBaseContextPacket(request, promptMessages, s.defaultUserExternalID(ctx))
+	memoryDisabledPacket := buildBaseContextPacket(request, promptMessages, user.ExternalID)
+	augmentedPacket := buildBaseContextPacket(request, promptMessages, user.ExternalID)
 	if err := s.populateResponseContext(ctx, augmentedPacket); err != nil {
 		return debugContextResponse{}, err
 	}
@@ -663,6 +673,9 @@ func newDebugContextError(statusCode int, message, code, param string) error {
 
 func (s *Server) writeDebugContextError(w http.ResponseWriter, r *http.Request, err error) {
 	s.logger.Error("debug context request failed", "error", err, "request_id", middleware.GetReqID(r.Context()))
+	if s.writeRequestScopeError(w, r, err) {
+		return
+	}
 	var debugErr *debugContextError
 	if errors.As(err, &debugErr) {
 		s.writeAPIError(w, r, debugErr.statusCode, debugErr.message, "invalid_request_error", debugErr.code, debugErr.param)

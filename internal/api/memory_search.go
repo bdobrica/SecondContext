@@ -17,11 +17,16 @@ func (s *Server) handleMemorySearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userExternalID, err := s.resolveUserExternalID(r.Context(), requestUserSelector{Param: "user_external_id", Value: request.UserExternalID})
+	if err != nil {
+		s.writeRequestScopeError(w, r, err)
+		return
+	}
 	service := retrievalsvc.NewService(s.cfg, s.dbPool, s.llm)
 	results, err := service.Search(r.Context(), retrievalsvc.SearchParams{
 		Query:               request.Query,
 		Goal:                request.Goal,
-		UserExternalID:      s.defaultUserExternalID(r.Context(), request.UserExternalID),
+		UserExternalID:      userExternalID,
 		MemoryType:          request.MemoryType,
 		People:              request.People,
 		Topics:              request.Topics,

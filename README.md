@@ -375,7 +375,7 @@ make migrate-up
 go run ./cmd/api
 ```
 
-Authentication is optional by default. To require bearer tokens, set `AUTH_ENABLED=true` and configure `AUTH_BEARER_TOKENS` as a comma-separated list of `subject=token` pairs, for example `AUTH_BEARER_TOKENS=dev-user=change-me-token`. When authentication is enabled, the authenticated subject becomes the effective user scope for reads and writes, so request-level user selectors cannot escape into another user's data.
+Authentication is optional by default. To require bearer tokens, set `AUTH_ENABLED=true` and configure `AUTH_BEARER_TOKENS` as a comma-separated list of `subject=token` pairs, for example `AUTH_BEARER_TOKENS=dev-user=change-me-token`. When authentication is enabled, the authenticated subject is resolved once as the effective user scope before any read or write. A top-level `user`, `user_external_id` field, or `metadata.user_external_id` may be omitted or match that subject; a conflicting value is rejected with HTTP 400 and the stable error code `identity_conflict`.
 
 The API now emits structured JSON logs on stdout for HTTP requests and upstream LLM calls. It also exposes Prometheus-style metrics on `/metrics` by default.
 

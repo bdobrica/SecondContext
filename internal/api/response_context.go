@@ -20,8 +20,8 @@ const (
 	responseContextCharacterBudget = 2200
 )
 
-func (s *Server) buildResponseContext(ctx context.Context, request createResponseRequest, messages []llm.Message) (*prompts.ContextPacket, error) {
-	packet := buildBaseContextPacket(request, messages, s.defaultUserExternalID(ctx))
+func (s *Server) buildResponseContext(ctx context.Context, request createResponseRequest, metadata requestMetadata, messages []llm.Message) (*prompts.ContextPacket, error) {
+	packet := buildBaseContextPacket(request, messages, metadata.UserExternalID)
 	if requestDisablesMemory(request) {
 		return packet, nil
 	}
@@ -38,7 +38,7 @@ func buildBaseContextPacket(request createResponseRequest, messages []llm.Messag
 		Mode:           mode,
 		Goal:           stringFromMap(metadata, "goal"),
 		Query:          collectUserQuery(messages),
-		UserExternalID: firstNonEmpty(stringFromMap(metadata, "user_external_id"), strings.TrimSpace(request.User), defaultUserExternalID),
+		UserExternalID: strings.TrimSpace(defaultUserExternalID),
 		People:         uniqueStrings(stringSliceFromMap(metadata, "people")),
 		Topics:         uniqueStrings(stringSliceFromMap(metadata, "topics")),
 	}

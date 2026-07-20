@@ -53,13 +53,19 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	metadata, err := s.resolveRequestMetadata(r.Context(), request.Metadata, request.User)
+	if err != nil {
+		s.writeRequestScopeError(w, r, err)
+		return
+	}
+
 	messages, err := buildPromptMessages("", request.Input)
 	if err != nil {
 		s.writeAPIError(w, r, http.StatusBadRequest, err.Error(), "invalid_request_error", "invalid_input", "input")
 		return
 	}
 
-	contextPacket, err := s.buildResponseContext(r.Context(), request, messages)
+	contextPacket, err := s.buildResponseContext(r.Context(), request, metadata, messages)
 	if err != nil {
 		s.logger.Warn("build response context", "error", err, "request_id", middleware.GetReqID(r.Context()))
 	}
@@ -79,7 +85,7 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 
 	var session models.Session
 	if s.dbPool != nil {
-		session, err = s.persistInboundMessages(r, request, messages, upstreamModel)
+		session, err = s.persistInboundMessages(r, metadata, messages, upstreamModel)
 		if err != nil {
 			if s.writeRequestScopeError(w, r, err) {
 				return
@@ -165,13 +171,11 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response)
 }
 
-func (s *Server) persistInboundMessages(r *http.Request, request createResponseRequest, messages []llm.Message, upstreamModel string) (models.Session, error) {
+func (s *Server) persistInboundMessages(r *http.Request, metadata requestMetadata, messages []llm.Message, upstreamModel string) (models.Session, error) {
 	ctx := r.Context()
 	users := db.NewUserRepository(s.dbPool)
 	sessions := db.NewSessionRepository(s.dbPool)
 	messageRepo := db.NewMessageRepository(s.dbPool)
-
-	metadata := s.resolveRequestMetadata(ctx, request.Metadata, request.User)
 
 	user, err := users.Ensure(ctx, db.EnsureUserParams{
 		ExternalID:  metadata.UserExternalID,
