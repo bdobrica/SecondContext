@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -12,8 +11,15 @@ import (
 
 func (s *Server) handleMemorySearch(w http.ResponseWriter, r *http.Request) {
 	var request memorySearchRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		s.writeAPIError(w, r, http.StatusBadRequest, "invalid request body", "invalid_request_error", "invalid_json", "")
+	if !s.decodeJSONRequest(w, r, &request, true) {
+		return
+	}
+	limit := 0
+	if request.Limit != nil {
+		limit = *request.Limit
+	}
+	if request.Limit != nil && (limit <= 0 || limit > maxSearchResults) {
+		s.writeAPIError(w, r, http.StatusBadRequest, "limit must be between 1 and 50 when provided", "invalid_request_error", "invalid_limit", "limit")
 		return
 	}
 
@@ -32,7 +38,7 @@ func (s *Server) handleMemorySearch(w http.ResponseWriter, r *http.Request) {
 		Topics:              request.Topics,
 		ConfidenceThreshold: request.ConfidenceThreshold,
 		IncludeExpired:      request.IncludeExpired,
-		Limit:               request.Limit,
+		Limit:               limit,
 	})
 	if err != nil {
 		s.writeRetrievalError(w, r, err)

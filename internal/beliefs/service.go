@@ -67,6 +67,8 @@ type ListBeliefsParams struct {
 	Limit          int
 }
 
+const MaxListResults = 100
+
 func NewService(cfg config.Config, pool *pgxpool.Pool, client llm.Client) *Service {
 	return &Service{cfg: cfg, pool: pool, llm: client}
 }
@@ -134,6 +136,9 @@ func (s *Service) ListBeliefs(ctx context.Context, params ListBeliefsParams) ([]
 	limit := params.Limit
 	if limit <= 0 {
 		limit = 10
+	}
+	if limit > MaxListResults {
+		return nil, &Error{StatusCode: http.StatusBadRequest, Message: "limit must not exceed 100", Type: "invalid_request_error", Code: "invalid_limit", Param: "limit"}
 	}
 
 	user, err := s.resolveUser(ctx, params.UserExternalID)

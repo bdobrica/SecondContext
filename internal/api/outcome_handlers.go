@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -11,8 +10,7 @@ import (
 
 func (s *Server) handleCreateInteractionOutcome(w http.ResponseWriter, r *http.Request) {
 	var request createInteractionOutcomeRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		s.writeAPIError(w, r, http.StatusBadRequest, "invalid request body", "invalid_request_error", "invalid_json", "")
+	if !s.decodeJSONRequest(w, r, &request, true) {
 		return
 	}
 

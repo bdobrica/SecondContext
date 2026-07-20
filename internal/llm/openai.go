@@ -12,6 +12,8 @@ import (
 	"github.com/bdobrica/SecondContext/internal/config"
 )
 
+const MaxOpenAIResponseBodyBytes = 8 << 20
+
 type OpenAIClient struct {
 	baseURL    string
 	apiKey     string
@@ -37,14 +39,6 @@ type openAIChatCompletionsResponse struct {
 		CompletionTokens int `json:"completion_tokens"`
 		TotalTokens      int `json:"total_tokens"`
 	} `json:"usage"`
-}
-
-type openAIErrorResponse struct {
-	Error struct {
-		Message string `json:"message"`
-		Type    string `json:"type"`
-		Code    string `json:"code"`
-	} `json:"error"`
 }
 
 type openAIEmbeddingsRequest struct {
@@ -104,22 +98,12 @@ func (c *OpenAIClient) Generate(ctx context.Context, request GenerateRequest) (G
 	}
 	defer httpResponse.Body.Close()
 
-	payload, err := io.ReadAll(httpResponse.Body)
+	payload, err := readLimitedResponse(httpResponse.Body)
 	if err != nil {
 		return GenerateResponse{}, err
 	}
 
 	if httpResponse.StatusCode >= http.StatusBadRequest {
-		var upstreamError openAIErrorResponse
-		if err := json.Unmarshal(payload, &upstreamError); err == nil && upstreamError.Error.Message != "" {
-			return GenerateResponse{}, &Error{
-				StatusCode: http.StatusBadGateway,
-				Message:    upstreamError.Error.Message,
-				Type:       upstreamError.Error.Type,
-				Code:       upstreamError.Error.Code,
-			}
-		}
-
 		return GenerateResponse{}, &Error{
 			StatusCode: http.StatusBadGateway,
 			Message:    fmt.Sprintf("upstream returned status %d", httpResponse.StatusCode),
@@ -184,22 +168,12 @@ func (c *OpenAIClient) Embed(ctx context.Context, request EmbedRequest) (EmbedRe
 	}
 	defer httpResponse.Body.Close()
 
-	payload, err := io.ReadAll(httpResponse.Body)
+	payload, err := readLimitedResponse(httpResponse.Body)
 	if err != nil {
 		return EmbedResponse{}, err
 	}
 
 	if httpResponse.StatusCode >= http.StatusBadRequest {
-		var upstreamError openAIErrorResponse
-		if err := json.Unmarshal(payload, &upstreamError); err == nil && upstreamError.Error.Message != "" {
-			return EmbedResponse{}, &Error{
-				StatusCode: http.StatusBadGateway,
-				Message:    upstreamError.Error.Message,
-				Type:       upstreamError.Error.Type,
-				Code:       upstreamError.Error.Code,
-			}
-		}
-
 		return EmbedResponse{}, &Error{
 			StatusCode: http.StatusBadGateway,
 			Message:    fmt.Sprintf("upstream returned status %d", httpResponse.StatusCode),
@@ -228,4 +202,20 @@ func (c *OpenAIClient) Embed(ctx context.Context, request EmbedRequest) (EmbedRe
 			TotalTokens: response.Usage.TotalTokens,
 		},
 	}, nil
+}
+
+func readLimitedResponse(reader io.Reader) ([]byte, error) {
+	payload, err := io.ReadAll(io.LimitReader(reader, MaxOpenAIResponseBodyBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(payload) > MaxOpenAIResponseBodyBytes {
+		return nil, &Error{
+			StatusCode: http.StatusBadGateway,
+			Message:    "upstream response exceeded size limit",
+			Type:       "upstream_error",
+			Code:       "response_too_large",
+		}
+	}
+	return payload, nil
 }

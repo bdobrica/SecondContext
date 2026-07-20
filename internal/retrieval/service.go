@@ -16,6 +16,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const (
+	DefaultSearchLimit    = 10
+	MaxSearchLimit        = 50
+	MaxCandidateLimit     = 200
+	MaxPrefetchLimit      = 600
+	candidateLimitFactor  = 4
+	minimumCandidateLimit = 20
+)
+
 type Service struct {
 	cfg    config.Config
 	pool   *pgxpool.Pool
@@ -77,6 +86,9 @@ func NewService(cfg config.Config, pool *pgxpool.Pool, client llm.Client) *Servi
 }
 
 func (s *Service) Search(ctx context.Context, params SearchParams) ([]Result, error) {
+	if params.Limit < 0 || params.Limit > MaxSearchLimit {
+		return nil, &Error{StatusCode: http.StatusBadRequest, Message: "limit must be between 1 and 50 when provided", Type: "invalid_request_error", Code: "invalid_limit", Param: "limit"}
+	}
 	if s.pool == nil {
 		return nil, &Error{StatusCode: http.StatusInternalServerError, Message: "postgres is not configured", Type: "server_error", Code: "postgres_disabled"}
 	}
@@ -96,9 +108,10 @@ func (s *Service) Search(ctx context.Context, params SearchParams) ([]Result, er
 	sparse := BuildSparseVector(params.Query)
 	limit := params.Limit
 	if limit <= 0 {
-		limit = 10
+		limit = DefaultSearchLimit
 	}
 	candidateLimit := expandedLimit(limit)
+	prefetchLimit := expandedPrefetchLimit(candidateLimit)
 	now := time.Now().UTC()
 
 	filter := buildFilter(user.ID, params)
@@ -113,7 +126,7 @@ func (s *Service) Search(ctx context.Context, params SearchParams) ([]Result, er
 	if err != nil {
 		return nil, &Error{StatusCode: http.StatusBadGateway, Message: "sparse search failed", Type: "server_error", Code: "sparse_search_failed"}
 	}
-	hybridResults, err := s.qdrant.SearchHybrid(ctx, s.cfg.Qdrant.Collection, dense.Vector, sparse, candidateLimit, candidateLimit*3, filter)
+	hybridResults, err := s.qdrant.SearchHybrid(ctx, s.cfg.Qdrant.Collection, dense.Vector, sparse, candidateLimit, prefetchLimit, filter)
 	if err != nil {
 		return nil, &Error{StatusCode: http.StatusBadGateway, Message: "hybrid search failed", Type: "server_error", Code: "hybrid_search_failed"}
 	}
@@ -366,13 +379,28 @@ func MetadataMap(raw json.RawMessage) map[string]any {
 
 func expandedLimit(limit int) int {
 	if limit <= 0 {
-		limit = 10
+		limit = DefaultSearchLimit
 	}
-	if limit*4 > 20 {
-		return limit * 4
+	if limit > MaxCandidateLimit/candidateLimitFactor {
+		return MaxCandidateLimit
+	}
+	expanded := limit * candidateLimitFactor
+	if expanded > minimumCandidateLimit {
+		return expanded
 	}
 
-	return 20
+	return minimumCandidateLimit
+}
+
+func expandedPrefetchLimit(candidateLimit int) int {
+	const factor = 3
+	if candidateLimit <= 0 {
+		return minimumCandidateLimit * factor
+	}
+	if candidateLimit > MaxPrefetchLimit/factor {
+		return MaxPrefetchLimit
+	}
+	return candidateLimit * factor
 }
 
 func normalizeByMax(value, maxValue float64) float64 {

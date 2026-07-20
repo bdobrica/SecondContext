@@ -406,6 +406,12 @@ Core validation commands:
 - `curl http://localhost:8080/debug/person/<person-id>`
 - `curl -X PUT http://localhost:8080/debug/person/<person-id> -H 'Content-Type: application/json' -d '{"topic_name":"api_review","topic_aliases":["api"],"capacity":0.25,"confidence":0.9}'`
 
+### API resource limits
+
+JSON request bodies are limited to 1 MiB and must contain exactly one JSON value. Internal mutation endpoints reject unknown fields; the OpenAI-compatible `/v1/responses` endpoint accepts unknown fields for client compatibility. Within a response request, `input` is limited to 256 KiB of encoded JSON and `metadata` to 64 KiB.
+
+Memory and belief list endpoints accept `limit` values from 1 through 100. Memory search defaults to 10 results when `limit` is omitted and accepts explicit values from 1 through 50. Retrieval expands a request to at most 200 Qdrant candidates and 600 hybrid-prefetch candidates. Upstream OpenAI responses are limited to 8 MiB and Qdrant responses to 16 MiB; oversized responses fail with a bounded generic error rather than being included in API output.
+
 When authentication is enabled, include `-H 'Authorization: Bearer <token>'` on every endpoint except `/healthz`.
 
 The `/metrics` endpoint exposes request counts, request latency histograms, in-flight request count, upstream LLM request counts, upstream LLM latency histograms, and token counters.

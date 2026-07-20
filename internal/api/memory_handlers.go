@@ -16,8 +16,7 @@ import (
 
 func (s *Server) handleMemoryIngest(w http.ResponseWriter, r *http.Request) {
 	var request ingestMemoryRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		s.writeAPIError(w, r, http.StatusBadRequest, "invalid request body", "invalid_request_error", "invalid_json", "")
+	if !s.decodeJSONRequest(w, r, &request, true) {
 		return
 	}
 
@@ -59,8 +58,7 @@ func (s *Server) handleMemoryIngest(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleMemoryExtract(w http.ResponseWriter, r *http.Request) {
 	var request extractMemoryRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		s.writeAPIError(w, r, http.StatusBadRequest, "invalid request body", "invalid_request_error", "invalid_json", "")
+	if !s.decodeJSONRequest(w, r, &request, true) {
 		return
 	}
 
@@ -114,8 +112,8 @@ func (s *Server) handleListMemories(w http.ResponseWriter, r *http.Request) {
 	limit := int32(50)
 	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
 		parsed, err := strconv.Atoi(rawLimit)
-		if err != nil || parsed <= 0 {
-			s.writeAPIError(w, r, http.StatusBadRequest, "limit must be a positive integer", "invalid_request_error", "invalid_limit", "limit")
+		if err != nil || parsed <= 0 || parsed > maxListResults {
+			s.writeAPIError(w, r, http.StatusBadRequest, "limit must be between 1 and 100", "invalid_request_error", "invalid_limit", "limit")
 			return
 		}
 		limit = int32(parsed)

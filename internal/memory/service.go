@@ -75,6 +75,8 @@ type ListParams struct {
 
 type Record = models.MemoryItem
 
+const MaxListResults int32 = 100
+
 func NewService(cfg config.Config, pool *pgxpool.Pool, client llm.Client) *Service {
 	return &Service{cfg: cfg, pool: pool, llm: client, qdrant: qdrant.NewClient(cfg.Qdrant)}
 }
@@ -193,6 +195,9 @@ func (s *Service) Ingest(ctx context.Context, params IngestParams) (Record, erro
 }
 
 func (s *Service) List(ctx context.Context, params ListParams) ([]Record, error) {
+	if params.Limit <= 0 || params.Limit > MaxListResults {
+		return nil, &Error{StatusCode: http.StatusBadRequest, Message: "limit must be between 1 and 100", Type: "invalid_request_error", Code: "invalid_limit", Param: "limit"}
+	}
 	user, err := s.resolveUser(ctx, params.UserExternalID)
 	if err != nil {
 		return nil, err

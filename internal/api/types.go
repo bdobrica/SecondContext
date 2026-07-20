@@ -166,7 +166,7 @@ type memorySearchRequest struct {
 	Topics              []string `json:"topics,omitempty"`
 	ConfidenceThreshold *float64 `json:"confidence_threshold,omitempty"`
 	IncludeExpired      bool     `json:"include_expired,omitempty"`
-	Limit               int      `json:"limit,omitempty"`
+	Limit               *int     `json:"limit,omitempty"`
 }
 
 type memorySearchScoresResponse struct {

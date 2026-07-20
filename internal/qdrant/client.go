@@ -13,6 +13,20 @@ import (
 	"github.com/bdobrica/SecondContext/internal/config"
 )
 
+const (
+	MaxSearchLimit       = 200
+	MaxSearchPrefetch    = 600
+	MaxResponseBodyBytes = 16 << 20
+)
+
+type ResponseTooLargeError struct {
+	Limit int64
+}
+
+func (e *ResponseTooLargeError) Error() string {
+	return fmt.Sprintf("qdrant response exceeds %d-byte limit", e.Limit)
+}
+
 type Client struct {
 	baseURL      string
 	apiKey       string
@@ -131,6 +145,9 @@ func (c *Client) SearchDense(ctx context.Context, collection string, vector []fl
 	if limit <= 0 {
 		limit = 5
 	}
+	if limit > MaxSearchLimit {
+		return nil, fmt.Errorf("qdrant search limit must not exceed %d", MaxSearchLimit)
+	}
 	bodyMap := map[string]any{
 		"query":        vector,
 		"using":        c.denseVector,
@@ -158,6 +175,9 @@ func (c *Client) SearchDense(ctx context.Context, collection string, vector []fl
 func (c *Client) SearchSparse(ctx context.Context, collection string, vector SparseVector, limit int, filter *Filter) ([]SearchResult, error) {
 	if limit <= 0 {
 		limit = 5
+	}
+	if limit > MaxSearchLimit {
+		return nil, fmt.Errorf("qdrant search limit must not exceed %d", MaxSearchLimit)
 	}
 	bodyMap := map[string]any{
 		"query":        vector,
@@ -187,8 +207,14 @@ func (c *Client) SearchHybrid(ctx context.Context, collection string, dense []fl
 	if limit <= 0 {
 		limit = 5
 	}
+	if limit > MaxSearchLimit {
+		return nil, fmt.Errorf("qdrant search limit must not exceed %d", MaxSearchLimit)
+	}
 	if prefetchLimit <= 0 {
 		prefetchLimit = limit * 3
+	}
+	if prefetchLimit > MaxSearchPrefetch {
+		return nil, fmt.Errorf("qdrant search limits exceed maximums (%d result, %d prefetch)", MaxSearchLimit, MaxSearchPrefetch)
 	}
 
 	densePrefetch := map[string]any{
@@ -244,7 +270,7 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, out a
 	}
 	defer response.Body.Close()
 
-	payload, err := io.ReadAll(response.Body)
+	payload, err := readLimitedResponse(response.Body, MaxResponseBodyBytes)
 	if err != nil {
 		return err
 	}
@@ -257,7 +283,7 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, out a
 				message = qdrantError.Status.Error
 			}
 			if message != "" {
-				return fmt.Errorf("qdrant %s %s: %s", method, path, message)
+				return fmt.Errorf("qdrant %s %s returned an error", method, path)
 			}
 		}
 
@@ -271,6 +297,17 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, out a
 	}
 
 	return nil
+}
+
+func readLimitedResponse(reader io.Reader, limit int64) ([]byte, error) {
+	payload, err := io.ReadAll(io.LimitReader(reader, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(payload)) > limit {
+		return nil, &ResponseTooLargeError{Limit: limit}
+	}
+	return payload, nil
 }
 
 func stringifyID(value any) string {

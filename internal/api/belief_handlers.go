@@ -15,8 +15,8 @@ func (s *Server) handleListDebugBeliefs(w http.ResponseWriter, r *http.Request) 
 	limit := 10
 	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
 		parsed, err := strconv.Atoi(rawLimit)
-		if err != nil || parsed <= 0 {
-			s.writeAPIError(w, r, http.StatusBadRequest, "limit must be a positive integer", "invalid_request_error", "invalid_limit", "limit")
+		if err != nil || parsed <= 0 || parsed > maxListResults {
+			s.writeAPIError(w, r, http.StatusBadRequest, "limit must be between 1 and 100", "invalid_request_error", "invalid_limit", "limit")
 			return
 		}
 		limit = parsed

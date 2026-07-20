@@ -79,8 +79,7 @@ func (s *Server) handleUpdateDebugPerson(w http.ResponseWriter, r *http.Request)
 	}
 
 	var request updatePersonModelRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		s.writeAPIError(w, r, http.StatusBadRequest, "invalid request body", "invalid_request_error", "invalid_json", "")
+	if !s.decodeJSONRequest(w, r, &request, true) {
 		return
 	}
 

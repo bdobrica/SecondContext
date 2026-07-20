@@ -3,13 +3,44 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/bdobrica/SecondContext/internal/config"
 )
+
+func TestOpenAIClientRejectsOversizedResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(strings.Repeat("x", MaxOpenAIResponseBodyBytes+1)))
+	}))
+	defer server.Close()
+
+	client := NewOpenAIClient(config.OpenAIConfig{BaseURL: server.URL, APIKey: "test-key", RequestTimeout: time.Second})
+	_, err := client.Generate(context.Background(), GenerateRequest{Model: "test"})
+	var clientError *Error
+	if !errors.As(err, &clientError) || clientError.Code != "response_too_large" {
+		t.Fatalf("Generate error = %#v, want response_too_large", err)
+	}
+}
+
+func TestOpenAIClientDoesNotEchoUpstreamErrorBody(t *testing.T) {
+	const secret = "provider-secret-diagnostic"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeTestJSON(w, http.StatusBadRequest, map[string]any{"error": map[string]any{"message": secret, "type": secret, "code": secret}})
+	}))
+	defer server.Close()
+
+	client := NewOpenAIClient(config.OpenAIConfig{BaseURL: server.URL, APIKey: "test-key", RequestTimeout: time.Second})
+	_, err := client.Generate(context.Background(), GenerateRequest{Model: "test"})
+	if err == nil || strings.Contains(err.Error(), secret) {
+		t.Fatalf("Generate error exposed upstream body: %v", err)
+	}
+}
 
 func TestOpenAIClientGenerate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

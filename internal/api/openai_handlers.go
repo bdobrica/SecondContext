@@ -43,8 +43,11 @@ func (s *Server) handleListModels(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	var request createResponseRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		s.writeAPIError(w, r, http.StatusBadRequest, "invalid request body", "invalid_request_error", "invalid_json", "")
+	if !s.decodeJSONRequest(w, r, &request, false) {
+		return
+	}
+	if bodyError := validateResponseRequestSize(request); bodyError != nil {
+		s.writeAPIError(w, r, bodyError.status, bodyError.message, "invalid_request_error", bodyError.code, "")
 		return
 	}
 
