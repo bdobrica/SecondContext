@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"testing"
 
@@ -75,6 +76,7 @@ func TestRequestLoggingIncludesRouteAndAuthSubject(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	request.RemoteAddr = "203.0.113.10:1234"
+	request.Header.Set(forwardedForHeader, "198.51.100.8")
 	request.Header.Set("User-Agent", "observability-test")
 	request.Header.Set(authorizationHeaderName, "Bearer secret-token")
 
@@ -103,5 +105,30 @@ func TestRequestLoggingIncludesRouteAndAuthSubject(t *testing.T) {
 	}
 	if payload["remote_ip"] != "203.0.113.10" {
 		t.Fatalf("expected remote_ip, got %#v", payload)
+	}
+}
+
+func TestRequestLoggingUsesTrustedForwardedClientIP(t *testing.T) {
+	var buffer bytes.Buffer
+	server := NewServerWithClient(config.Config{
+		App: config.AppConfig{Name: "salience-graph", Env: "test"},
+		HTTP: config.HTTPConfig{
+			TrustedProxies: []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")},
+		},
+		OpenAI: config.OpenAIConfig{ChatModel: "gpt-4.1-mini"},
+	}, slog.New(slog.NewJSONHandler(&buffer, nil)), nil, &fakeLLMClient{})
+
+	request := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	request.RemoteAddr = "10.0.0.4:4000"
+	request.Header.Set(forwardedForHeader, "203.0.113.10")
+	recorder := httptest.NewRecorder()
+	server.Handler().ServeHTTP(recorder, request)
+
+	var payload map[string]any
+	if err := json.Unmarshal(bytes.TrimSpace(buffer.Bytes()), &payload); err != nil {
+		t.Fatalf("decode log line: %v", err)
+	}
+	if payload["remote_ip"] != "203.0.113.10" {
+		t.Fatalf("expected trusted forwarded remote_ip, got %#v", payload)
 	}
 }

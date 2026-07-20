@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net/netip"
 	"os"
 	"strings"
 	"testing"
@@ -114,6 +115,64 @@ func TestParseAuthTokensConfiguration(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestParseTrustedProxyCIDRsConfiguration(t *testing.T) {
+	tests := []struct {
+		name      string
+		value     string
+		want      []netip.Prefix
+		wantError bool
+	}{
+		{name: "unset trusts no proxies", value: "", want: nil},
+		{name: "blank trusts no proxies", value: "  ", want: nil},
+		{
+			name:  "IPv4 and IPv6",
+			value: "10.20.0.9/16, 2001:db8:abcd::1/48",
+			want: []netip.Prefix{
+				netip.MustParsePrefix("10.20.0.0/16"),
+				netip.MustParsePrefix("2001:db8:abcd::/48"),
+			},
+		},
+		{
+			name:  "IPv4-mapped IPv6 normalizes to IPv4",
+			value: "::ffff:192.0.2.8/120",
+			want:  []netip.Prefix{netip.MustParsePrefix("192.0.2.0/24")},
+		},
+		{name: "address without prefix", value: "192.0.2.1", wantError: true},
+		{name: "empty entry", value: "192.0.2.0/24,", wantError: true},
+		{name: "invalid prefix", value: "not-a-network", wantError: true},
+		{name: "overbroad mapped prefix", value: "::ffff:0:0/80", wantError: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := parseTrustedProxyCIDRs(test.value)
+			if (err != nil) != test.wantError {
+				t.Fatalf("parseTrustedProxyCIDRs() error = %v, wantError %v", err, test.wantError)
+			}
+			if err != nil {
+				return
+			}
+			if len(got) != len(test.want) {
+				t.Fatalf("parseTrustedProxyCIDRs() = %#v, want %#v", got, test.want)
+			}
+			for index := range got {
+				if got[index] != test.want[index] {
+					t.Fatalf("parseTrustedProxyCIDRs()[%d] = %v, want %v", index, got[index], test.want[index])
+				}
+			}
+		})
+	}
+}
+
+func TestLoadRejectsInvalidTrustedProxyCIDRs(t *testing.T) {
+	t.Setenv("HTTP_TRUSTED_PROXY_CIDRS", "192.0.2.1")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "HTTP_TRUSTED_PROXY_CIDRS") {
+		t.Fatalf("Load() error = %v, want trusted proxy configuration error", err)
 	}
 }
 

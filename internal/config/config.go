@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -49,6 +50,7 @@ type HTTPConfig struct {
 	RateLimitRPM    int
 	MetricsEnabled  bool
 	MetricsPath     string
+	TrustedProxies  []netip.Prefix
 }
 
 type LogConfig struct {
@@ -132,6 +134,11 @@ func Load() (Config, error) {
 	}
 
 	rateLimitRPM, err := parseInt("HTTP_RATE_LIMIT_REQUESTS_PER_MINUTE", 60)
+	if err != nil {
+		return Config{}, err
+	}
+
+	trustedProxies, err := parseTrustedProxyCIDRs(os.Getenv("HTTP_TRUSTED_PROXY_CIDRS"))
 	if err != nil {
 		return Config{}, err
 	}
@@ -224,6 +231,7 @@ func Load() (Config, error) {
 			RateLimitRPM:    rateLimitRPM,
 			MetricsEnabled:  metricsEnabled,
 			MetricsPath:     metricsPath,
+			TrustedProxies:  trustedProxies,
 		},
 		Log: LogConfig{Level: logLevel},
 		Postgres: PostgresConfig{
@@ -408,4 +416,34 @@ func parseAuthTokens(value string) ([]AuthTokenConfig, error) {
 	}
 
 	return tokens, nil
+}
+
+func parseTrustedProxyCIDRs(value string) ([]netip.Prefix, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	entries := strings.Split(trimmed, ",")
+	prefixes := make([]netip.Prefix, 0, len(entries))
+	for index, entry := range entries {
+		item := strings.TrimSpace(entry)
+		prefix, err := netip.ParsePrefix(item)
+		if err != nil {
+			return nil, fmt.Errorf("parse HTTP_TRUSTED_PROXY_CIDRS entry %d: %w", index+1, err)
+		}
+		if prefix.Addr().Is4In6() && prefix.Bits() < 96 {
+			return nil, fmt.Errorf("parse HTTP_TRUSTED_PROXY_CIDRS entry %d: IPv4-mapped prefix must be at least /96", index+1)
+		}
+		prefixes = append(prefixes, normalizeIPPrefix(prefix))
+	}
+	return prefixes, nil
+}
+
+func normalizeIPPrefix(prefix netip.Prefix) netip.Prefix {
+	address := prefix.Addr()
+	if !address.Is4In6() {
+		return prefix.Masked()
+	}
+	return netip.PrefixFrom(address.Unmap(), prefix.Bits()-96).Masked()
 }

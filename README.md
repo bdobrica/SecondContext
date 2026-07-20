@@ -381,7 +381,11 @@ When authentication is enabled, the authenticated subject is resolved once as th
 
 Boolean environment settings (`AUTH_ENABLED`, `HTTP_METRICS_ENABLED`, and `POSTGRES_ENABLED`) accept the forms supported by Go's `strconv.ParseBool`: `1`, `t`, `T`, `TRUE`, `true`, `True`, `0`, `f`, `F`, `FALSE`, `false`, and `False`. An unset or blank value uses the documented default. Any other non-empty value fails startup instead of silently selecting a fallback.
 
-The API now emits structured JSON logs on stdout for HTTP requests and upstream LLM calls. It also exposes Prometheus-style metrics on `/metrics` by default.
+Forwarded client addresses are disabled by default. `HTTP_TRUSTED_PROXY_CIDRS` is a comma-separated list of IPv4 or IPv6 CIDRs for reverse proxies that are allowed to supply `X-Forwarded-For`. The API starts with an error if an entry is not a CIDR. When the immediate socket peer is trusted, the API evaluates the header from right to left and uses the first untrusted hop as the client. Malformed chains fall back to the socket peer. IPv4-mapped IPv6 peers match equivalent IPv4 CIDRs.
+
+Leave `HTTP_TRUSTED_PROXY_CIDRS` empty when publishing the API port directly, including the repository's Docker Compose configuration. A direct client cannot influence its rate-limit identity or logged address with `X-Forwarded-For`, `X-Real-IP`, or `True-Client-IP`. Behind multiple proxies, list every proxy network controlled by the deployment; do not list client or general-purpose network ranges.
+
+The API emits structured JSON logs on stdout for HTTP requests and upstream LLM calls. The HTTP `remote_ip` field and unauthenticated rate limiter use the same resolved client address. It also exposes Prometheus-style metrics on `/metrics` by default.
 
 Core validation commands:
 
@@ -463,6 +467,7 @@ AUTH_BEARER_TOKENS=
 HTTP_ADDR=:8080
 HTTP_SHUTDOWN_TIMEOUT=10s
 HTTP_RATE_LIMIT_REQUESTS_PER_MINUTE=60
+HTTP_TRUSTED_PROXY_CIDRS=
 HTTP_METRICS_ENABLED=true
 HTTP_METRICS_PATH=/metrics
 LOG_LEVEL=info

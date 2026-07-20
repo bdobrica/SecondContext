@@ -23,6 +23,7 @@ type Server struct {
 	auth   *requestAuthenticator
 	obs    *observability
 	rate   *requestRateLimiter
+	client *clientIPResolver
 }
 
 type healthResponse struct {
@@ -47,13 +48,14 @@ func NewServerWithClient(cfg config.Config, logger *slog.Logger, dbPool *pgxpool
 		auth:   newRequestAuthenticator(cfg.Auth),
 		obs:    obs,
 		rate:   newRequestRateLimiter(cfg.HTTP.RateLimitRPM, time.Minute),
+		client: newClientIPResolver(cfg.HTTP.TrustedProxies),
 	}
 }
 
 func (s *Server) Handler() http.Handler {
 	router := chi.NewRouter()
 	router.Use(middleware.RequestID)
-	router.Use(middleware.RealIP)
+	router.Use(s.client.middleware)
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Timeout(30 * time.Second))
 	if s.auth != nil {

@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -133,15 +132,9 @@ func clientRateLimitKey(r *http.Request) string {
 		return "subject:" + subject
 	}
 
-	remoteAddr := strings.TrimSpace(r.RemoteAddr)
-	if remoteAddr == "" {
+	address := resolvedClientIP(r)
+	if address == "" {
 		return "unknown"
 	}
-
-	host, _, err := net.SplitHostPort(remoteAddr)
-	if err == nil && strings.TrimSpace(host) != "" {
-		return host
-	}
-
-	return remoteAddr
+	return "ip:" + address
 }

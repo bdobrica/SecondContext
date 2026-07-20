@@ -89,3 +89,28 @@ func TestRateLimitMiddlewareSeparatesClientsAndSkipsHealthz(t *testing.T) {
 		t.Fatalf("expected healthz status %d, got %d body=%s", http.StatusOK, healthRecorder.Code, healthRecorder.Body.String())
 	}
 }
+
+func TestRateLimitDirectClientCannotBypassWithForwardedFor(t *testing.T) {
+	server := NewServerWithClient(config.Config{
+		App:    config.AppConfig{Name: "salience-graph", Env: "test"},
+		HTTP:   config.HTTPConfig{RateLimitRPM: 1},
+		OpenAI: config.OpenAIConfig{ChatModel: "gpt-4.1-mini"},
+	}, slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)), nil, &fakeLLMClient{})
+
+	for attempt, forwarded := range []string{"198.51.100.1", "198.51.100.2"} {
+		request := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+		request.RemoteAddr = "203.0.113.10:4000"
+		request.Header.Set(forwardedForHeader, forwarded)
+		recorder := httptest.NewRecorder()
+
+		server.Handler().ServeHTTP(recorder, request)
+
+		want := http.StatusOK
+		if attempt == 1 {
+			want = http.StatusTooManyRequests
+		}
+		if recorder.Code != want {
+			t.Fatalf("attempt %d with X-Forwarded-For %q got status %d, want %d", attempt+1, forwarded, recorder.Code, want)
+		}
+	}
+}

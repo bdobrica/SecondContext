@@ -1,7 +1,6 @@
 package api
 
 import (
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -91,13 +90,5 @@ func looksLikeIdentifier(value string) bool {
 }
 
 func clientIP(r *http.Request) string {
-	remoteAddr := strings.TrimSpace(r.RemoteAddr)
-	if remoteAddr == "" {
-		return ""
-	}
-	host, _, err := net.SplitHostPort(remoteAddr)
-	if err == nil {
-		return strings.TrimSpace(host)
-	}
-	return remoteAddr
+	return resolvedClientIP(r)
 }
