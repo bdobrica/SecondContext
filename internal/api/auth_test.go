@@ -62,6 +62,26 @@ func TestAuthenticationMiddlewareSkipsHealthz(t *testing.T) {
 	}
 }
 
+func TestAuthenticationMiddlewareRejectsTokenWithoutSubject(t *testing.T) {
+	server := NewServerWithClient(config.Config{
+		App:    config.AppConfig{Name: "salience-graph", Env: "test"},
+		Auth:   config.AuthConfig{Enabled: true, Tokens: []config.AuthTokenConfig{{Token: "subjectless-token"}}},
+		OpenAI: config.OpenAIConfig{ChatModel: "gpt-4.1-mini"},
+	}, slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)), nil, &fakeLLMClient{})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	request.Header.Set(authorizationHeaderName, "Bearer subjectless-token")
+	server.Handler().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusUnauthorized, recorder.Code, recorder.Body.String())
+	}
+	if subject := authenticatedSubject(request.Context()); subject != "" {
+		t.Fatalf("subjectless token produced authenticated subject %q", subject)
+	}
+}
+
 func TestAuthenticatedSubjectBecomesDefaultRequestUser(t *testing.T) {
 	fakeClient := &fakeLLMClient{response: llm.GenerateResponse{
 		ID:         "chatcmpl_auth_test",

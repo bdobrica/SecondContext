@@ -375,7 +375,11 @@ make migrate-up
 go run ./cmd/api
 ```
 
-Authentication is optional by default. To require bearer tokens, set `AUTH_ENABLED=true` and configure `AUTH_BEARER_TOKENS` as a comma-separated list of `subject=token` pairs, for example `AUTH_BEARER_TOKENS=dev-user=change-me-token`. When authentication is enabled, the authenticated subject is resolved once as the effective user scope before any read or write. A top-level `user`, `user_external_id` field, or `metadata.user_external_id` may be omitted or match that subject; a conflicting value is rejected with HTTP 400 and the stable error code `identity_conflict`.
+Authentication is optional by default. To require bearer tokens, set `AUTH_ENABLED=true` and configure `AUTH_BEARER_TOKENS` as a comma-separated list of `subject=token` pairs, for example `AUTH_BEARER_TOKENS=dev-user=change-me-token`. Every entry must contain a non-empty subject and token; bare tokens, empty entries, duplicate subjects, and duplicate token values make startup fail. Token values may contain `=`, because only the first `=` separates the subject. Configuration errors identify an entry position without printing its token.
+
+When authentication is enabled, the authenticated subject is resolved once as the effective user scope before any read or write. A top-level `user`, `user_external_id` field, or `metadata.user_external_id` may be omitted or match that subject; a conflicting value is rejected with HTTP 400 and the stable error code `identity_conflict`.
+
+Boolean environment settings (`AUTH_ENABLED`, `HTTP_METRICS_ENABLED`, and `POSTGRES_ENABLED`) accept the forms supported by Go's `strconv.ParseBool`: `1`, `t`, `T`, `TRUE`, `true`, `True`, `0`, `f`, `F`, `FALSE`, `false`, and `False`. An unset or blank value uses the documented default. Any other non-empty value fails startup instead of silently selecting a fallback.
 
 The API now emits structured JSON logs on stdout for HTTP requests and upstream LLM calls. It also exposes Prometheus-style metrics on `/metrics` by default.
 
@@ -453,6 +457,9 @@ Current environment variables:
 ```bash
 APP_NAME=salience-graph
 APP_ENV=development
+AUTH_ENABLED=false
+AUTH_REALM=second-context
+AUTH_BEARER_TOKENS=
 HTTP_ADDR=:8080
 HTTP_SHUTDOWN_TIMEOUT=10s
 HTTP_RATE_LIMIT_REQUESTS_PER_MINUTE=60

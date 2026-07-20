@@ -78,7 +78,7 @@ func (a *requestAuthenticator) middleware(server *Server) func(http.Handler) htt
 			}
 
 			principal, ok := a.authenticate(token)
-			if !ok {
+			if !ok || strings.TrimSpace(principal.Subject) == "" {
 				a.writeAuthenticationChallenge(w)
 				server.observeRejectedRequest(r, http.StatusUnauthorized, time.Since(startedAt), invalidAuthTokenErrorCode)
 				server.writeAPIError(w, r, http.StatusUnauthorized, "invalid bearer token", authErrorType, invalidAuthTokenErrorCode, "")
@@ -96,7 +96,11 @@ func (a *requestAuthenticator) authenticate(token string) (authPrincipal, bool) 
 			continue
 		}
 
-		return authPrincipal{Subject: strings.TrimSpace(candidate.Subject)}, true
+		subject := strings.TrimSpace(candidate.Subject)
+		if subject == "" {
+			return authPrincipal{}, false
+		}
+		return authPrincipal{Subject: subject}, true
 	}
 
 	return authPrincipal{}, false
@@ -135,8 +139,9 @@ func authenticatedPrincipal(ctx context.Context) (authPrincipal, bool) {
 		return authPrincipal{}, false
 	}
 	if strings.TrimSpace(principal.Subject) == "" {
-		return principal, true
+		return authPrincipal{}, false
 	}
+	principal.Subject = strings.TrimSpace(principal.Subject)
 	return principal, true
 }
 

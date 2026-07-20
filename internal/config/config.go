@@ -103,6 +103,21 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	authEnabled, err := parseBool("AUTH_ENABLED", false)
+	if err != nil {
+		return Config{}, err
+	}
+
+	metricsEnabled, err := parseBool("HTTP_METRICS_ENABLED", true)
+	if err != nil {
+		return Config{}, err
+	}
+
+	postgresEnabled, err := parseBool("POSTGRES_ENABLED", false)
+	if err != nil {
+		return Config{}, err
+	}
+
 	shutdownTimeout, err := parseDuration("HTTP_SHUTDOWN_TIMEOUT", "10s")
 	if err != nil {
 		return Config{}, err
@@ -112,7 +127,6 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	authEnabled := getEnvBool("AUTH_ENABLED", false)
 	if authEnabled && len(authTokens) == 0 {
 		return Config{}, fmt.Errorf("AUTH_ENABLED requires at least one AUTH_BEARER_TOKENS entry")
 	}
@@ -208,12 +222,12 @@ func Load() (Config, error) {
 			Addr:            getEnv("HTTP_ADDR", ":8080"),
 			ShutdownTimeout: shutdownTimeout,
 			RateLimitRPM:    rateLimitRPM,
-			MetricsEnabled:  getEnvBool("HTTP_METRICS_ENABLED", true),
+			MetricsEnabled:  metricsEnabled,
 			MetricsPath:     metricsPath,
 		},
 		Log: LogConfig{Level: logLevel},
 		Postgres: PostgresConfig{
-			Enabled:  getEnvBool("POSTGRES_ENABLED", false),
+			Enabled:  postgresEnabled,
 			DSN:      os.Getenv("POSTGRES_DSN"),
 			Host:     getEnv("POSTGRES_HOST", "localhost"),
 			Port:     postgresPort,
@@ -278,18 +292,18 @@ func getEnv(key, fallback string) string {
 	return value
 }
 
-func getEnvBool(key string, fallback bool) bool {
+func parseBool(key string, fallback bool) (bool, error) {
 	value := strings.TrimSpace(os.Getenv(key))
 	if value == "" {
-		return fallback
+		return fallback, nil
 	}
 
 	parsed, err := strconv.ParseBool(value)
 	if err != nil {
-		return fallback
+		return false, fmt.Errorf("parse %s: %w", key, err)
 	}
 
-	return parsed
+	return parsed, nil
 }
 
 func parseInt(key string, fallback int) (int, error) {
@@ -367,24 +381,30 @@ func parseAuthTokens(value string) ([]AuthTokenConfig, error) {
 
 	entries := strings.Split(trimmed, ",")
 	tokens := make([]AuthTokenConfig, 0, len(entries))
-	for _, entry := range entries {
+	subjects := make(map[string]struct{}, len(entries))
+	tokenValues := make(map[string]struct{}, len(entries))
+	for index, entry := range entries {
 		item := strings.TrimSpace(entry)
 		if item == "" {
-			continue
+			return nil, fmt.Errorf("invalid AUTH_BEARER_TOKENS entry %d: expected subject=token", index+1)
 		}
 
 		subject, token, hasSubject := strings.Cut(item, "=")
-		if hasSubject {
-			subject = strings.TrimSpace(subject)
-			token = strings.TrimSpace(token)
-			if subject == "" || token == "" {
-				return nil, fmt.Errorf("invalid AUTH_BEARER_TOKENS entry %q", entry)
-			}
-			tokens = append(tokens, AuthTokenConfig{Subject: subject, Token: token})
-			continue
+		subject = strings.TrimSpace(subject)
+		token = strings.TrimSpace(token)
+		if !hasSubject || subject == "" || token == "" {
+			return nil, fmt.Errorf("invalid AUTH_BEARER_TOKENS entry %d: expected non-empty subject=token", index+1)
+		}
+		if _, exists := subjects[subject]; exists {
+			return nil, fmt.Errorf("duplicate AUTH_BEARER_TOKENS subject at entry %d", index+1)
+		}
+		if _, exists := tokenValues[token]; exists {
+			return nil, fmt.Errorf("duplicate AUTH_BEARER_TOKENS token at entry %d", index+1)
 		}
 
-		tokens = append(tokens, AuthTokenConfig{Token: item})
+		subjects[subject] = struct{}{}
+		tokenValues[token] = struct{}{}
+		tokens = append(tokens, AuthTokenConfig{Subject: subject, Token: token})
 	}
 
 	return tokens, nil
