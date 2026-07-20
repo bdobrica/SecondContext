@@ -24,6 +24,10 @@ type fakeLLMClient struct {
 	requests      []llm.GenerateRequest
 }
 
+func emptyDerivedUpdatesResponse() llm.GenerateResponse {
+	return llm.GenerateResponse{OutputText: `{"pairs":[],"beliefs":[]}`}
+}
+
 func (f *fakeLLMClient) Generate(_ context.Context, request llm.GenerateRequest) (llm.GenerateResponse, error) {
 	f.request = request
 	f.requests = append(f.requests, request)

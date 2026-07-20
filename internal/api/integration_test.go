@@ -358,11 +358,14 @@ func TestResponsesEndpointDisableMemorySkipsRetrievedContext(t *testing.T) {
 	qdrantServer := newFakeQdrantServer()
 	defer qdrantServer.Close()
 
-	fakeClient := &fakeLLMClient{response: llm.GenerateResponse{
-		ID:         "chatcmpl_disable_memory",
-		Model:      "gpt-4.1-mini",
-		OutputText: "Ask Alex to review the proposal.",
-	}, embedResponse: llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}}}
+	fakeClient := &fakeLLMClient{
+		responses: []llm.GenerateResponse{
+			emptyDerivedUpdatesResponse(),
+			emptyDerivedUpdatesResponse(),
+			{ID: "chatcmpl_disable_memory", Model: "gpt-4.1-mini", OutputText: "Ask Alex to review the proposal."},
+		},
+		embedResponse: llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}},
+	}
 
 	requestUser := fmt.Sprintf("disable-memory-user-%d", time.Now().UnixNano())
 	cfg := config.Config{

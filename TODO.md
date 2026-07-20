@@ -626,7 +626,7 @@ The assistant should recommend a narrow, low-friction request to Alex.
 - [x] Add request rate limits.
 - [ ] Add better error messages.
 - [ ] Add schema validation everywhere.
-- [ ] Add integration tests.
+- [x] Add mandatory, visible integration tests with pinned dependency services and CI enforcement.
 - [x] Add backup/restore notes.
 - [ ] Add memory deletion.
 - [ ] Add person model editing.
@@ -638,6 +638,7 @@ The assistant should recommend a narrow, low-friction request to Alex.
   - [x] metrics;
   - [ ] traces if needed.
 - [x] Make interaction-outcome retries idempotent and persist recoverable stage failures.
+- [x] Require formatting, vet, unit, tenant-isolation, and cross-store integration checks in CI.
 
 ### Deliverables
 

@@ -61,7 +61,10 @@ func TestMemoryEndpoints(t *testing.T) {
 		Dev:    config.DevConfig{UserExternalID: "dev-user", UserName: "Dev User", UserEmail: "dev@example.com"},
 		OpenAI: config.OpenAIConfig{EmbeddingModel: "text-embedding-3-small"},
 		Qdrant: config.QdrantConfig{URL: qdrantServer.URL, Collection: "memory_items", VectorSize: 3},
-	}, slog.New(slog.NewTextHandler(os.Stderr, nil)), pool, &fakeLLMClient{embedResponse: llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}}})
+	}, slog.New(slog.NewTextHandler(os.Stderr, nil)), pool, &fakeLLMClient{
+		response:      emptyDerivedUpdatesResponse(),
+		embedResponse: llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}},
+	})
 
 	ingestBody := []byte(`{"raw_text":"Alex prefers narrow review scopes.","summary":"Alex prefers narrow review scopes.","type":"person_preference","people":["Alex"],"topics":["infrastructure"],"importance":0.7,"utility":0.8,"belief_impact":0.2,"confidence":0.9}`)
 	ingestRecorder := httptest.NewRecorder()
@@ -147,7 +150,10 @@ func TestMemoryExtractEndpoint(t *testing.T) {
 			OutputText: "not valid json",
 		}, {
 			OutputText: `{"summary":"Alex prefers narrow review scopes.","type":"person_preference","people":["Alex"],"topics":["infrastructure","review_process"],"entities":[{"type":"person","name":"Alex","confidence":0.92},{"type":"topic","name":"Infrastructure","confidence":0.81}],"importance":0.72,"utility":0.84,"belief_impact":0.19,"confidence":0.91,"expires_in_days":45}`,
-		}},
+		},
+			emptyDerivedUpdatesResponse(),
+			emptyDerivedUpdatesResponse(),
+		},
 		embedResponse: llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}},
 	}
 
@@ -230,7 +236,10 @@ func TestMemorySearchEndpoint(t *testing.T) {
 	qdrantServer := newFakeQdrantServer()
 	defer qdrantServer.Close()
 
-	fakeClient := &fakeLLMClient{embedResponse: llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}}}
+	fakeClient := &fakeLLMClient{
+		response:      emptyDerivedUpdatesResponse(),
+		embedResponse: llm.EmbedResponse{Vector: []float64{0.1, 0.2, 0.3}},
+	}
 	server := NewServerWithClient(config.Config{
 		App:    config.AppConfig{Name: "salience-graph", Env: "test"},
 		Dev:    config.DevConfig{UserExternalID: "dev-user", UserName: "Dev User", UserEmail: "dev@example.com"},

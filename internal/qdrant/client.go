@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,6 +26,17 @@ type ResponseTooLargeError struct {
 
 func (e *ResponseTooLargeError) Error() string {
 	return fmt.Sprintf("qdrant response exceeds %d-byte limit", e.Limit)
+}
+
+type responseError struct {
+	method             string
+	path               string
+	statusCode         int
+	collectionNotFound bool
+}
+
+func (e *responseError) Error() string {
+	return fmt.Sprintf("qdrant %s %s returned status %d", e.method, e.path, e.statusCode)
 }
 
 type Client struct {
@@ -283,11 +295,17 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, out a
 				message = qdrantError.Status.Error
 			}
 			if message != "" {
-				return fmt.Errorf("qdrant %s %s returned an error", method, path)
+				normalized := strings.ToLower(message)
+				return &responseError{
+					method:             method,
+					path:               path,
+					statusCode:         response.StatusCode,
+					collectionNotFound: strings.Contains(normalized, "collection") && (strings.Contains(normalized, "doesn't exist") || strings.Contains(normalized, "does not exist") || strings.Contains(normalized, "not found")),
+				}
 			}
 		}
 
-		return fmt.Errorf("qdrant %s %s returned status %d", method, path, response.StatusCode)
+		return &responseError{method: method, path: path, statusCode: response.StatusCode}
 	}
 
 	if out != nil && len(payload) > 0 {
@@ -357,14 +375,10 @@ func mapSearchResults(items []searchResultWire) []SearchResult {
 }
 
 func IsCollectionNotFoundError(err error) bool {
-	if err == nil {
-		return false
+	var qdrantError *responseError
+	if errors.As(err, &qdrantError) {
+		return qdrantError.collectionNotFound
 	}
 
-	message := strings.ToLower(err.Error())
-	if !strings.Contains(message, "collection") {
-		return false
-	}
-
-	return strings.Contains(message, "doesn't exist") || strings.Contains(message, "does not exist") || strings.Contains(message, "not found")
+	return false
 }

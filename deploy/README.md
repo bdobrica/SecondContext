@@ -22,6 +22,18 @@ Do not configure trusted proxy CIDRs when the API port is directly reachable by 
 
 The resolved address is used consistently for unauthenticated rate limiting and the structured HTTP log field `remote_ip`. `X-Real-IP`, `True-Client-IP`, and RFC 7239 `Forwarded` are not accepted.
 
+## Required verification
+
+Pull requests and pushes to `main` run `make verify`. The workflow provisions pinned Postgres 16.13 and Qdrant 1.15.5 services with readiness checks, applies migrations, and requires the verbose database-backed suite to complete without skipped tests. This makes the tenant-isolation boundary a required, visible test class rather than an optional local check.
+
+Run the same checks locally with Docker Compose v2:
+
+```bash
+make verify
+```
+
+Use `make test-unit` for the fast dependency-free lane or `make test-integration` for only the mandatory integration lane. An externally managed isolated database may be selected with `POSTGRES_DSN`; otherwise the integration target creates and removes its own Compose services and volumes.
+
 ## Database upgrades and recovery
 
 Back up Postgres before applying migrations. Outcome processing treats Postgres as canonical and Qdrant as a rebuildable index, so restore Postgres first and reconcile any non-completed outcome stages afterward. See [`docs/operations.md`](../docs/operations.md) for inspection queries and the idempotent retry procedure.

@@ -408,6 +408,20 @@ Core validation commands:
 - `curl -X PUT http://localhost:8080/debug/person/<person-id> -H 'Content-Type: application/json' -d '{"topic_name":"api_review","topic_aliases":["api"],"capacity":0.25,"confidence":0.9}'`
 - `curl http://localhost:8080/interactions/outcome -H 'Content-Type: application/json' -H 'Idempotency-Key: outcome-123' -d '{"raw_text":"Alex agreed to review the API section.","people":["Alex"],"topics":["api_review"]}'`
 
+### Tests and required verification
+
+`make test-unit` runs the fast suite with Go's `-short` flag and explicitly excludes dependency-backed tests. `make test-integration` is the mandatory, verbose integration lane: when `POSTGRES_DSN` is unset it starts the pinned Postgres and Qdrant versions in `docker-compose.integration.yml`, waits for their health checks, applies migrations, and runs every integration-capable package. A missing dependency, failed migration, unreachable service, or skipped test fails the target.
+
+Docker with Compose v2 is required for the self-contained integration command. To use an existing isolated Postgres database instead, export `POSTGRES_DSN`; the target will not manage that database. `make verify` runs formatting verification, `go vet`, unit tests, and the mandatory integration lane, matching the required GitHub Actions workflow.
+
+```bash
+make test-unit
+make test-integration
+make verify
+```
+
+Integration output is verbose so tenant-isolation regressions—including `TestAuthenticatedResponseCannotSelectForeignTenantContext`—are visible by name. The fast suite announces that integration tests are excluded; it must not be treated as the complete security validation.
+
 ### API resource limits
 
 JSON request bodies are limited to 1 MiB and must contain exactly one JSON value. Internal mutation endpoints reject unknown fields; the OpenAI-compatible `/v1/responses` endpoint accepts unknown fields for client compatibility. Within a response request, `input` is limited to 256 KiB of encoded JSON and `metadata` to 64 KiB.

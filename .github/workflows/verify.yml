@@ -1,0 +1,48 @@
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.13-alpine
+        env:
+          POSTGRES_USER: secondcontext
+          POSTGRES_PASSWORD: secondcontext
+          POSTGRES_DB: secondcontext_integration
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U secondcontext -d secondcontext_integration"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+      qdrant:
+        image: qdrant/qdrant:v1.15.5
+        ports:
+          - 6333:6333
+        options: >-
+          --health-cmd "bash -c ': >/dev/tcp/127.0.0.1/6333'"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      POSTGRES_DSN: postgres://secondcontext:secondcontext@127.0.0.1:5432/secondcontext_integration?sslmode=disable
+      QDRANT_URL: http://127.0.0.1:6333
+      GOCACHE: /tmp/secondcontext-go-cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Required verification
+        run: make verify
