@@ -2,6 +2,7 @@ package outcomes
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,6 +24,7 @@ type Service struct {
 	cfg  config.Config
 	pool *pgxpool.Pool
 	llm  llm.Client
+	fail func(string) error
 }
 
 type Error struct {
@@ -49,6 +51,7 @@ type CreateOutcomeParams struct {
 	Topics             []string
 	Metadata           map[string]any
 	UserExternalID     string
+	IdempotencyKey     string
 }
 
 type GraphEdgeInput struct {
@@ -87,6 +90,13 @@ func NewService(cfg config.Config, pool *pgxpool.Pool, client llm.Client) *Servi
 	return &Service{cfg: cfg, pool: pool, llm: client}
 }
 
+func (s *Service) inject(stage string) error {
+	if s.fail == nil {
+		return nil
+	}
+	return s.fail(stage)
+}
+
 func (s *Service) CreateOutcome(ctx context.Context, params CreateOutcomeParams) (Result, error) {
 	if s.pool == nil {
 		return Result{}, &Error{StatusCode: http.StatusInternalServerError, Message: "postgres is not configured", Type: "server_error", Code: "postgres_disabled"}
@@ -104,13 +114,71 @@ func (s *Service) CreateOutcome(ctx context.Context, params CreateOutcomeParams)
 	people := mergeStrings(params.People, contextPeople)
 	topics := mergeStrings(params.Topics, contextTopics)
 	predictedOutcome := predictedOutcomeFromPlan(scenarioPlan)
+	idempotencyKey, requestHash := outcomeIdentity(user.ID, params)
+	if strings.TrimSpace(params.IdempotencyKey) != "" {
+		idempotencyKey = strings.TrimSpace(params.IdempotencyKey)
+	}
+	outcomes := db.NewInteractionOutcomeRepository(s.pool)
+	outcome, existingErr := outcomes.GetByIdempotencyKey(ctx, user.ID, idempotencyKey)
+	if existingErr == nil && outcome.RequestHash != requestHash {
+		return Result{}, &Error{StatusCode: http.StatusConflict, Message: "idempotency key was already used for a different outcome", Type: "invalid_request_error", Code: "idempotency_conflict", Param: "idempotency_key"}
+	}
+	if existingErr != nil && !errors.Is(existingErr, pgx.ErrNoRows) {
+		return Result{}, existingErr
+	}
 
-	analysis, err := s.analyze(ctx, params.RawText, goal, predictedOutcome, people, topics, scenarioPlan)
-	if err != nil {
-		return Result{}, err
+	var analysis Analysis
+	if existingErr == nil {
+		analysis = analysisFromMetadata(outcome.Metadata)
+		if analysis.Summary == "" {
+			return Result{}, fmt.Errorf("stored outcome %s has no recoverable analysis", outcome.ID)
+		}
+	} else {
+		analysis, err = s.analyze(ctx, params.RawText, goal, predictedOutcome, people, topics, scenarioPlan)
+		if err != nil {
+			return Result{}, err
+		}
+		if err := s.inject("analysis_completed"); err != nil {
+			return Result{}, err
+		}
 	}
 	people = mergeStrings(people, analysis.People)
 	topics = mergeStrings(topics, analysis.Topics)
+
+	if existingErr != nil {
+		personID := resolveSinglePersonID(ctx, s.pool, user.ID, people)
+		topicID := resolveSingleTopicID(ctx, s.pool, user.ID, topics)
+		metadata := mergeMetadata(params.Metadata, map[string]any{
+			"assistant_message_id": assistantMessage.ID,
+			"analysis":             analysis,
+		})
+		if scenarioPlan != nil {
+			metadata["scenario_plan"] = scenarioPlan
+		}
+		tx, txErr := s.pool.Begin(ctx)
+		if txErr != nil {
+			return Result{}, txErr
+		}
+		outcome, err = db.NewInteractionOutcomeRepositoryWithDB(tx).Create(ctx, db.CreateInteractionOutcomeParams{
+			UserID: user.ID, SessionID: session.ID, MessageID: assistantMessage.ID, PersonID: personID, TopicID: topicID,
+			Goal: goal, PredictedOutcome: predictedOutcome, ActualOutcome: analysis.Summary, SuccessScore: analysis.SuccessScore,
+			PredictionError: analysis.PredictionError, Metadata: encodeMetadata(metadata), IdempotencyKey: idempotencyKey, RequestHash: requestHash,
+		})
+		if err != nil {
+			_ = tx.Rollback(ctx)
+			return Result{}, err
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return Result{}, err
+		}
+		if err = s.inject("outcome_inserted"); err != nil {
+			_ = outcomes.UpdateProcessing(ctx, outcome.ID, "failed", "outcome_inserted", err.Error(), "")
+			return Result{}, err
+		}
+		if outcome.RequestHash != requestHash {
+			return Result{}, &Error{StatusCode: http.StatusConflict, Message: "idempotency key was already used for a different outcome", Type: "invalid_request_error", Code: "idempotency_conflict", Param: "idempotency_key"}
+		}
+	}
 
 	memoryMetadata := mergeMetadata(params.Metadata, map[string]any{
 		"assistant_message_id": assistantMessage.ID,
@@ -120,7 +188,7 @@ func (s *Service) CreateOutcome(ctx context.Context, params CreateOutcomeParams)
 	if scenarioPlan != nil {
 		memoryMetadata["scenario_plan"] = scenarioPlan
 	}
-	memory, err := memsvc.NewService(s.cfg, s.pool, s.llm).Ingest(ctx, memsvc.IngestParams{
+	memory, err := memsvc.NewServiceWithFailureInjector(s.cfg, s.pool, s.llm, s.fail).Ingest(ctx, memsvc.IngestParams{
 		RawText:         params.RawText,
 		Summary:         analysis.Summary,
 		MemoryType:      "outcome",
@@ -133,6 +201,7 @@ func (s *Service) CreateOutcome(ctx context.Context, params CreateOutcomeParams)
 		BeliefImpact:    floatPointer(analysis.BeliefImpact),
 		Confidence:      floatPointer(analysis.Confidence),
 		Metadata:        memoryMetadata,
+		IdempotencyKey:  "outcome:" + outcome.ID,
 		RequestUser:     user.ExternalID,
 		Meta: memsvc.RequestMetadata{
 			SessionID:      session.ExternalID,
@@ -143,38 +212,25 @@ func (s *Service) CreateOutcome(ctx context.Context, params CreateOutcomeParams)
 		},
 	})
 	if err != nil {
+		_ = outcomes.UpdateProcessing(ctx, outcome.ID, "failed", "memory", err.Error(), "")
 		return Result{}, err
 	}
 
-	graphEdges, err := s.createGraphEdges(ctx, user.ID, analysis.GraphEdges, memory.ID)
+	if err := outcomes.UpdateProcessing(ctx, outcome.ID, "pending", "", "", memory.ID); err != nil {
+		return Result{}, err
+	}
+	graphEdges, err := s.createGraphEdges(ctx, user.ID, analysis.GraphEdges, memory.ID, outcome.ID)
 	if err != nil {
+		_ = outcomes.UpdateProcessing(ctx, outcome.ID, "failed", "graph_edges", err.Error(), memory.ID)
 		return Result{}, err
 	}
 
 	personID := resolveSinglePersonID(ctx, s.pool, user.ID, people)
 	topicID := resolveSingleTopicID(ctx, s.pool, user.ID, topics)
-	metadata := mergeMetadata(params.Metadata, map[string]any{
-		"assistant_message_id": assistantMessage.ID,
-		"outcome_memory_id":    memory.ID,
-		"graph_edges_created":  len(graphEdges),
-		"analysis":             analysis,
-	})
-	if scenarioPlan != nil {
-		metadata["scenario_plan"] = scenarioPlan
+	if err := outcomes.Complete(ctx, outcome.ID, memory.ID, personID, topicID, len(graphEdges)); err != nil {
+		return Result{}, err
 	}
-	outcome, err := db.NewInteractionOutcomeRepository(s.pool).Create(ctx, db.CreateInteractionOutcomeParams{
-		UserID:           user.ID,
-		SessionID:        session.ID,
-		MessageID:        assistantMessage.ID,
-		PersonID:         personID,
-		TopicID:          topicID,
-		Goal:             goal,
-		PredictedOutcome: predictedOutcome,
-		ActualOutcome:    analysis.Summary,
-		SuccessScore:     analysis.SuccessScore,
-		PredictionError:  analysis.PredictionError,
-		Metadata:         encodeMetadata(metadata),
-	})
+	outcome, err = outcomes.GetByID(ctx, outcome.ID)
 	if err != nil {
 		return Result{}, err
 	}
@@ -262,6 +318,37 @@ func parseAnalysis(raw string) (Analysis, error) {
 	return analysis, nil
 }
 
+func outcomeIdentity(userID string, params CreateOutcomeParams) (string, string) {
+	payload := struct {
+		UserID             string         `json:"user_id"`
+		SessionID          string         `json:"session_id"`
+		AssistantMessageID string         `json:"assistant_message_id"`
+		RawText            string         `json:"raw_text"`
+		Goal               string         `json:"goal"`
+		People             []string       `json:"people"`
+		Topics             []string       `json:"topics"`
+		Metadata           map[string]any `json:"metadata,omitempty"`
+	}{
+		UserID: userID, SessionID: strings.TrimSpace(params.SessionID), AssistantMessageID: strings.TrimSpace(params.AssistantMessageID),
+		RawText: strings.TrimSpace(params.RawText), Goal: strings.TrimSpace(params.Goal),
+		People: uniqueStrings(params.People), Topics: uniqueStrings(params.Topics), Metadata: params.Metadata,
+	}
+	encoded, _ := json.Marshal(payload)
+	sum := sha256.Sum256(encoded)
+	hash := fmt.Sprintf("%x", sum[:])
+	return "derived:" + hash, hash
+}
+
+func analysisFromMetadata(raw json.RawMessage) Analysis {
+	var payload struct {
+		Analysis Analysis `json:"analysis"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return Analysis{}
+	}
+	return payload.Analysis
+}
+
 func (s *Service) resolveContext(ctx context.Context, params CreateOutcomeParams) (models.User, models.Session, models.Message, *scenarios.Plan, string, []string, []string, error) {
 	users := db.NewUserRepository(s.pool)
 	sessions := db.NewSessionRepository(s.pool)
@@ -343,7 +430,7 @@ func (s *Service) resolveContext(ctx context.Context, params CreateOutcomeParams
 	return user, session, assistantMessage, plan, goal, people, topics, nil
 }
 
-func (s *Service) createGraphEdges(ctx context.Context, userID string, inputs []GraphEdgeInput, memoryID string) ([]models.GraphEdge, error) {
+func (s *Service) createGraphEdges(ctx context.Context, userID string, inputs []GraphEdgeInput, memoryID, outcomeID string) ([]models.GraphEdge, error) {
 	if len(inputs) == 0 {
 		return nil, nil
 	}
@@ -359,12 +446,15 @@ func (s *Service) createGraphEdges(ctx context.Context, userID string, inputs []
 			Relationship:      input.Relationship,
 			Confidence:        input.Confidence,
 			EvidenceMemoryIDs: []string{memoryID},
-			Metadata:          json.RawMessage(`{"source":"interaction.outcome"}`),
+			Metadata:          encodeMetadata(map[string]any{"source": "interaction.outcome", "outcome_id": outcomeID}),
 		})
 		if err != nil {
 			return nil, err
 		}
 		edges = append(edges, edge)
+		if err := s.inject(fmt.Sprintf("graph_edge_%d_created", len(edges))); err != nil {
+			return nil, err
+		}
 	}
 
 	return edges, nil

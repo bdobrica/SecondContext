@@ -627,7 +627,7 @@ The assistant should recommend a narrow, low-friction request to Alex.
 - [ ] Add better error messages.
 - [ ] Add schema validation everywhere.
 - [ ] Add integration tests.
-- [ ] Add backup/restore notes.
+- [x] Add backup/restore notes.
 - [ ] Add memory deletion.
 - [ ] Add person model editing.
 - [ ] Add belief editing.
@@ -637,6 +637,7 @@ The assistant should recommend a narrow, low-friction request to Alex.
   - [x] logs;
   - [x] metrics;
   - [ ] traces if needed.
+- [x] Make interaction-outcome retries idempotent and persist recoverable stage failures.
 
 ### Deliverables
 

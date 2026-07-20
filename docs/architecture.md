@@ -25,6 +25,14 @@ flowchart TD
     OAI --> Models[Responses, extraction, embeddings]
 ```
 
+## Outcome consistency
+
+Postgres is authoritative for an interaction outcome and its recovery state. Processing moves from analysis to a canonical `pending` outcome, then through memory creation, Qdrant indexing, person-model updates, belief updates, graph edges, and finally `completed`.
+
+The tenant-scoped idempotency key uniquely identifies the canonical outcome. Its memory uses the outcome ID as a stable key, Qdrant uses the memory ID as the point ID, and graph edges use an outcome-scoped identity. Each retry reads durable stage status, skips completed stages, and resumes pending or failed work. A key reused with a different request hash is rejected.
+
+Postgres writes that reserve the canonical outcome run in a transaction through a transaction-capable repository interface. Cross-system work cannot join that transaction, so its status and last error are persisted instead of being hidden or compensated destructively.
+
 ## Initial module responsibilities
 
 - `cmd/api`: process entrypoint and lifecycle.

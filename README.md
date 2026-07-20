@@ -309,6 +309,7 @@ This project now has a working Stage 13 baseline:
 - structured outcome analysis that stores actual outcomes, success scores, prediction errors, and extracted graph-edge updates;
 - outcome memories linked back to the originating assistant message so future retrieval can learn from real results;
 - follow-on person-model and belief updates triggered from stored outcome memories;
+- idempotent, recoverable outcome processing with durable stage status for Qdrant and derived updates;
 - debug endpoints to inspect and manually edit person-topic models;
 - `GET /debug/context` for inspecting stored context, rebuilt current context, people models, beliefs, latest-turn updates, and scenario metadata;
 - optional stateless-vs-memory comparison in `GET /debug/context`, with a minimal HTML debug view for interactive inspection;
@@ -405,6 +406,7 @@ Core validation commands:
 - `curl 'http://localhost:8080/debug/beliefs?topic_name=migration&user_external_id=dev-user'`
 - `curl http://localhost:8080/debug/person/<person-id>`
 - `curl -X PUT http://localhost:8080/debug/person/<person-id> -H 'Content-Type: application/json' -d '{"topic_name":"api_review","topic_aliases":["api"],"capacity":0.25,"confidence":0.9}'`
+- `curl http://localhost:8080/interactions/outcome -H 'Content-Type: application/json' -H 'Idempotency-Key: outcome-123' -d '{"raw_text":"Alex agreed to review the API section.","people":["Alex"],"topics":["api_review"]}'`
 
 ### API resource limits
 
@@ -413,6 +415,12 @@ JSON request bodies are limited to 1 MiB and must contain exactly one JSON value
 Memory and belief list endpoints accept `limit` values from 1 through 100. Memory search defaults to 10 results when `limit` is omitted and accepts explicit values from 1 through 50. Retrieval expands a request to at most 200 Qdrant candidates and 600 hybrid-prefetch candidates. Upstream OpenAI responses are limited to 8 MiB and Qdrant responses to 16 MiB; oversized responses fail with a bounded generic error rather than being included in API output.
 
 When authentication is enabled, include `-H 'Authorization: Bearer <token>'` on every endpoint except `/healthz`.
+
+### Outcome retries and recovery
+
+`POST /interactions/outcome` accepts an `Idempotency-Key` header or `idempotency_key` JSON field. Reusing a key with the same request resumes incomplete work and returns the same outcome and memory; reusing it for a different request returns HTTP 409 with `idempotency_conflict`. When no key is supplied, the server derives a stable key from the tenant and normalized request context.
+
+Postgres is the source of truth. It records the canonical outcome before Qdrant indexing, person-model updates, belief updates, and graph-edge completion. Failures remain visible as `failed` processing states, and retrying the original request reconciles them. Include Postgres in every backup; Qdrant can be rebuilt from canonical memory rows. See [`docs/operations.md`](docs/operations.md).
 
 The `/metrics` endpoint exposes request counts, request latency histograms, in-flight request count, upstream LLM request counts, upstream LLM latency histograms, and token counters.
 

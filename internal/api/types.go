@@ -270,6 +270,7 @@ type createInteractionOutcomeRequest struct {
 	Topics             []string       `json:"topics,omitempty"`
 	Metadata           map[string]any `json:"metadata,omitempty"`
 	User               string         `json:"user,omitempty"`
+	IdempotencyKey     string         `json:"idempotency_key,omitempty"`
 }
 
 type outcomeAnalysisGraphEdgeResponse struct {

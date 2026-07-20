@@ -29,6 +29,7 @@ func (s *Server) handleCreateInteractionOutcome(w http.ResponseWriter, r *http.R
 		Topics:             request.Topics,
 		Metadata:           request.Metadata,
 		UserExternalID:     metadata.UserExternalID,
+		IdempotencyKey:     firstNonEmpty(r.Header.Get("Idempotency-Key"), request.IdempotencyKey),
 	})
 	if err != nil {
 		s.writeOutcomeError(w, r, err)

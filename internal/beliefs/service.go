@@ -337,6 +337,11 @@ func resolveTopic(ctx context.Context, repo *db.TopicRepository, userID, observe
 }
 
 func mergeBeliefObservation(existing models.Belief, observation beliefObservation, memoryID string, now time.Time) models.Belief {
+	for _, evidenceID := range existing.EvidenceMemoryIDs {
+		if evidenceID == memoryID {
+			return existing
+		}
+	}
 	if strings.TrimSpace(existing.UserID) == "" {
 		return models.Belief{
 			ID:                existing.ID,

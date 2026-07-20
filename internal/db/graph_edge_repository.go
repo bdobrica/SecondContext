@@ -42,6 +42,20 @@ func (r *GraphEdgeRepository) Create(ctx context.Context, params CreateGraphEdge
 			metadata
 		)
 		VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8::uuid[], $9::jsonb)
+		ON CONFLICT (
+			user_id,
+			lower(source_kind),
+			lower(source_name),
+			lower(target_kind),
+			lower(target_name),
+			lower(relationship),
+			((metadata ->> 'outcome_id'))
+		) WHERE metadata ->> 'outcome_id' IS NOT NULL
+		DO UPDATE SET
+			confidence = EXCLUDED.confidence,
+			evidence_memory_ids = EXCLUDED.evidence_memory_ids,
+			metadata = EXCLUDED.metadata,
+			updated_at = now()
 		RETURNING id::text, user_id::text, source_kind, source_name, target_kind, target_name, relationship, confidence,
 			COALESCE(ARRAY(SELECT value::text FROM unnest(evidence_memory_ids) AS value), ARRAY[]::text[]), metadata, created_at, updated_at
 	`

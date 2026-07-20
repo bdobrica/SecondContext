@@ -534,6 +534,11 @@ func resolveTopicForUpdate(ctx context.Context, repo *db.TopicRepository, userID
 }
 
 func mergeObservation(existing models.PersonTopicModel, pair observationPair, memoryID string) models.PersonTopicModel {
+	for _, evidenceID := range extractEvidenceMemoryIDs(existing.Metadata) {
+		if evidenceID == memoryID {
+			return existing
+		}
+	}
 	currentCount := maxInt(existing.EvidenceCount, 0)
 	newCount := currentCount + 1
 	lastObservedAt := parseObservedAt(pair.LastObservedAt)

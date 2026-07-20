@@ -3,7 +3,9 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/bdobrica/SecondContext/internal/models"
@@ -32,6 +34,7 @@ type CreateMemoryItemParams struct {
 	Confidence      float64
 	ExpiresAt       *time.Time
 	Metadata        json.RawMessage
+	IdempotencyKey  string
 }
 
 func NewMemoryRepository(pool *pgxpool.Pool) *MemoryRepository {
@@ -56,7 +59,8 @@ func (r *MemoryRepository) Create(ctx context.Context, params CreateMemoryItemPa
 			belief_impact,
 			confidence,
 			expires_at,
-			metadata
+			metadata,
+			idempotency_key
 		)
 		VALUES (
 			$1::uuid,
@@ -74,8 +78,11 @@ func (r *MemoryRepository) Create(ctx context.Context, params CreateMemoryItemPa
 			$13,
 			$14,
 			$15,
-			$16::jsonb
+			$16::jsonb,
+			NULLIF($17, '')
 		)
+		ON CONFLICT (user_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO UPDATE
+		SET idempotency_key = EXCLUDED.idempotency_key
 		RETURNING id::text, user_id::text, COALESCE(session_id::text, ''), COALESCE(source_message_id::text, ''), COALESCE(qdrant_point_id, ''), memory_type, source, raw_text, summary, people, topics, importance, utility, belief_impact, confidence, expires_at, metadata, created_at, updated_at
 	`
 
@@ -98,6 +105,7 @@ func (r *MemoryRepository) Create(ctx context.Context, params CreateMemoryItemPa
 		params.Confidence,
 		params.ExpiresAt,
 		normalizeJSON(params.Metadata),
+		strings.TrimSpace(params.IdempotencyKey),
 	).Scan(
 		&memory.ID,
 		&memory.UserID,
@@ -122,6 +130,45 @@ func (r *MemoryRepository) Create(ctx context.Context, params CreateMemoryItemPa
 	memory.Metadata = scanJSON(metadata)
 
 	return memory, err
+}
+
+type MemoryProcessingState struct {
+	QdrantStatus      string
+	PersonModelStatus string
+	BeliefStatus      string
+	ProcessingError   string
+}
+
+func (r *MemoryRepository) GetProcessingState(ctx context.Context, memoryID string) (MemoryProcessingState, error) {
+	var state MemoryProcessingState
+	err := r.pool.QueryRow(ctx, `
+		SELECT qdrant_status, person_model_status, belief_status, COALESCE(processing_error, '')
+		FROM memory_items WHERE id = $1::uuid
+	`, memoryID).Scan(&state.QdrantStatus, &state.PersonModelStatus, &state.BeliefStatus, &state.ProcessingError)
+	return state, err
+}
+
+func (r *MemoryRepository) UpdateProcessingStage(ctx context.Context, memoryID, stage, status, processingError string) error {
+	var column string
+	switch stage {
+	case "qdrant":
+		column = "qdrant_status"
+	case "person_model":
+		column = "person_model_status"
+	case "belief":
+		column = "belief_status"
+	default:
+		return fmt.Errorf("unknown memory processing stage %q", stage)
+	}
+	query := fmt.Sprintf(`UPDATE memory_items SET %s = $2, processing_error = NULLIF($3, '') WHERE id = $1::uuid`, column)
+	tag, err := r.pool.Exec(ctx, query, memoryID, status, processingError)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *MemoryRepository) GetByID(ctx context.Context, memoryID string) (models.MemoryItem, error) {

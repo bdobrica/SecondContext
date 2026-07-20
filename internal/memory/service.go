@@ -24,6 +24,7 @@ type Service struct {
 	pool   *pgxpool.Pool
 	llm    llm.Client
 	qdrant *qdrant.Client
+	fail   func(string) error
 }
 
 type Error struct {
@@ -64,6 +65,7 @@ type IngestParams struct {
 	Confidence      *float64
 	ExpiresInDays   *int
 	Metadata        map[string]any
+	IdempotencyKey  string
 	RequestUser     string
 	Meta            RequestMetadata
 }
@@ -81,6 +83,19 @@ func NewService(cfg config.Config, pool *pgxpool.Pool, client llm.Client) *Servi
 	return &Service{cfg: cfg, pool: pool, llm: client, qdrant: qdrant.NewClient(cfg.Qdrant)}
 }
 
+func NewServiceWithFailureInjector(cfg config.Config, pool *pgxpool.Pool, client llm.Client, fail func(string) error) *Service {
+	service := NewService(cfg, pool, client)
+	service.fail = fail
+	return service
+}
+
+func (s *Service) inject(stage string) error {
+	if s.fail == nil {
+		return nil
+	}
+	return s.fail(stage)
+}
+
 func (s *Service) Ingest(ctx context.Context, params IngestParams) (Record, error) {
 	if s.pool == nil {
 		return Record{}, &Error{StatusCode: http.StatusInternalServerError, Message: "postgres is not configured", Type: "server_error", Code: "postgres_disabled"}
@@ -96,7 +111,6 @@ func (s *Service) Ingest(ctx context.Context, params IngestParams) (Record, erro
 	if err != nil {
 		return Record{}, err
 	}
-
 	summary := strings.TrimSpace(params.Summary)
 	if summary == "" {
 		summary = strings.TrimSpace(params.RawText)
@@ -127,6 +141,9 @@ func (s *Service) Ingest(ctx context.Context, params IngestParams) (Record, erro
 	if err != nil {
 		return Record{}, err
 	}
+	if err := s.inject("memory_created"); err != nil {
+		return Record{}, err
+	}
 
 	var expiresAt *time.Time
 	if params.ExpiresInDays != nil && *params.ExpiresInDays > 0 {
@@ -151,6 +168,7 @@ func (s *Service) Ingest(ctx context.Context, params IngestParams) (Record, erro
 		Confidence:      clampScore(params.Confidence),
 		ExpiresAt:       expiresAt,
 		Metadata:        metadataBytes,
+		IdempotencyKey:  strings.TrimSpace(params.IdempotencyKey),
 	})
 	if err != nil {
 		return Record{}, err
@@ -158,38 +176,74 @@ func (s *Service) Ingest(ctx context.Context, params IngestParams) (Record, erro
 
 	pointID := record.ID
 	sparseVector := retrieval.BuildSparseVector(record.Summary)
-
-	if err := s.qdrant.UpsertPoint(ctx, s.cfg.Qdrant.Collection, qdrant.Point{
-		ID:           pointID,
-		DenseVector:  embedding.Vector,
-		SparseVector: sparseVector,
-		Payload: map[string]any{
-			"memory_id":     record.ID,
-			"user_id":       record.UserID,
-			"summary":       record.Summary,
-			"type":          record.MemoryType,
-			"people":        record.People,
-			"topics":        record.Topics,
-			"importance":    record.Importance,
-			"utility":       record.Utility,
-			"belief_impact": record.BeliefImpact,
-			"confidence":    record.Confidence,
-			"expires_at":    expiresAtPayload(expiresAt),
-		},
-	}); err != nil {
-		_ = memories.Delete(ctx, record.ID)
-		return Record{}, &Error{StatusCode: http.StatusBadGateway, Message: "failed to index memory in qdrant", Type: "server_error", Code: "qdrant_upsert_failed"}
+	state, err := memories.GetProcessingState(ctx, record.ID)
+	if err != nil {
+		return Record{}, err
 	}
 
-	if err := memories.UpdateQdrantPointID(ctx, record.ID, pointID); err != nil {
-		_ = s.qdrant.DeletePoint(ctx, s.cfg.Qdrant.Collection, pointID)
-		_ = memories.Delete(ctx, record.ID)
-		return Record{}, err
+	if state.QdrantStatus != "completed" {
+		if err := s.qdrant.UpsertPoint(ctx, s.cfg.Qdrant.Collection, qdrant.Point{
+			ID:           pointID,
+			DenseVector:  embedding.Vector,
+			SparseVector: sparseVector,
+			Payload: map[string]any{
+				"memory_id":     record.ID,
+				"user_id":       record.UserID,
+				"summary":       record.Summary,
+				"type":          record.MemoryType,
+				"people":        record.People,
+				"topics":        record.Topics,
+				"importance":    record.Importance,
+				"utility":       record.Utility,
+				"belief_impact": record.BeliefImpact,
+				"confidence":    record.Confidence,
+				"expires_at":    expiresAtPayload(expiresAt),
+			},
+		}); err != nil {
+			_ = memories.UpdateProcessingStage(ctx, record.ID, "qdrant", "failed", err.Error())
+			return Record{}, &Error{StatusCode: http.StatusBadGateway, Message: "failed to index memory in qdrant", Type: "server_error", Code: "qdrant_upsert_failed"}
+		}
+		if err := s.inject("qdrant_upserted"); err != nil {
+			_ = memories.UpdateProcessingStage(ctx, record.ID, "qdrant", "failed", err.Error())
+			return Record{}, err
+		}
+
+		if err := memories.UpdateQdrantPointID(ctx, record.ID, pointID); err != nil {
+			_ = memories.UpdateProcessingStage(ctx, record.ID, "qdrant", "failed", err.Error())
+			return Record{}, err
+		}
+		if err := memories.UpdateProcessingStage(ctx, record.ID, "qdrant", "completed", ""); err != nil {
+			return Record{}, err
+		}
 	}
 	record.QdrantPointID = pointID
 
-	_ = modeling.NewService(s.cfg, s.pool, s.llm).ObserveMemory(ctx, record)
-	_ = beliefsvc.NewService(s.cfg, s.pool, s.llm).ObserveMemory(ctx, record)
+	if state.PersonModelStatus != "completed" {
+		if err := modeling.NewService(s.cfg, s.pool, s.llm).ObserveMemory(ctx, record); err != nil {
+			_ = memories.UpdateProcessingStage(ctx, record.ID, "person_model", "failed", err.Error())
+			return Record{}, &Error{StatusCode: http.StatusBadGateway, Message: "failed to update person model", Type: "server_error", Code: "person_model_update_failed"}
+		}
+		if err := s.inject("person_model_updated"); err != nil {
+			_ = memories.UpdateProcessingStage(ctx, record.ID, "person_model", "failed", err.Error())
+			return Record{}, err
+		}
+		if err := memories.UpdateProcessingStage(ctx, record.ID, "person_model", "completed", ""); err != nil {
+			return Record{}, err
+		}
+	}
+	if state.BeliefStatus != "completed" {
+		if err := beliefsvc.NewService(s.cfg, s.pool, s.llm).ObserveMemory(ctx, record); err != nil {
+			_ = memories.UpdateProcessingStage(ctx, record.ID, "belief", "failed", err.Error())
+			return Record{}, &Error{StatusCode: http.StatusBadGateway, Message: "failed to update beliefs", Type: "server_error", Code: "belief_update_failed"}
+		}
+		if err := s.inject("belief_updated"); err != nil {
+			_ = memories.UpdateProcessingStage(ctx, record.ID, "belief", "failed", err.Error())
+			return Record{}, err
+		}
+		if err := memories.UpdateProcessingStage(ctx, record.ID, "belief", "completed", ""); err != nil {
+			return Record{}, err
+		}
+	}
 
 	return record, nil
 }

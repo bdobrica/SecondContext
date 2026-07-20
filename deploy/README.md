@@ -21,3 +21,7 @@ Only an immediate socket peer in one of these networks may supply `X-Forwarded-F
 Do not configure trusted proxy CIDRs when the API port is directly reachable by clients. The repository's Docker Compose file publishes port 8080 directly and therefore explicitly leaves `HTTP_TRUSTED_PROXY_CIDRS` empty. Broad ranges such as `0.0.0.0/0`, `::/0`, a Docker host's client-facing network, or a cloud provider's complete address space allow untrusted callers to forge rate-limit and audit-log identities.
 
 The resolved address is used consistently for unauthenticated rate limiting and the structured HTTP log field `remote_ip`. `X-Real-IP`, `True-Client-IP`, and RFC 7239 `Forwarded` are not accepted.
+
+## Database upgrades and recovery
+
+Back up Postgres before applying migrations. Outcome processing treats Postgres as canonical and Qdrant as a rebuildable index, so restore Postgres first and reconcile any non-completed outcome stages afterward. See [`docs/operations.md`](../docs/operations.md) for inspection queries and the idempotent retry procedure.

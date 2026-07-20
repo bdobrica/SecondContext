@@ -122,6 +122,7 @@ func TestCreateInteractionOutcomeEndToEnd(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/interactions/outcome", bytes.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", requestUser+"-outcome")
 
 	server.Handler().ServeHTTP(recorder, request)
 
@@ -178,5 +179,31 @@ func TestCreateInteractionOutcomeEndToEnd(t *testing.T) {
 	}
 	if len(edges) == 0 {
 		t.Fatalf("expected graph edge records, got %#v", edges)
+	}
+
+	retryRecorder := httptest.NewRecorder()
+	retryRequest := httptest.NewRequest(http.MethodPost, "/interactions/outcome", bytes.NewReader(body))
+	retryRequest.Header.Set("Content-Type", "application/json")
+	retryRequest.Header.Set("Idempotency-Key", requestUser+"-outcome")
+	server.Handler().ServeHTTP(retryRecorder, retryRequest)
+	if retryRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected retry status %d body=%s", retryRecorder.Code, retryRecorder.Body.String())
+	}
+	var retryPayload createInteractionOutcomeResponse
+	if err := json.Unmarshal(retryRecorder.Body.Bytes(), &retryPayload); err != nil {
+		t.Fatalf("decode retry response: %v", err)
+	}
+	if retryPayload.Outcome.ID != payload.Outcome.ID || retryPayload.Memory.ID != payload.Memory.ID {
+		t.Fatalf("retry created duplicate state: first=%s/%s retry=%s/%s", payload.Outcome.ID, payload.Memory.ID, retryPayload.Outcome.ID, retryPayload.Memory.ID)
+	}
+
+	conflictBody := []byte(fmt.Sprintf(`{"raw_text":"A different outcome.","people":["Alex"],"topics":["api_review"],"user":"%s"}`, requestUser))
+	conflictRecorder := httptest.NewRecorder()
+	conflictRequest := httptest.NewRequest(http.MethodPost, "/interactions/outcome", bytes.NewReader(conflictBody))
+	conflictRequest.Header.Set("Content-Type", "application/json")
+	conflictRequest.Header.Set("Idempotency-Key", requestUser+"-outcome")
+	server.Handler().ServeHTTP(conflictRecorder, conflictRequest)
+	if conflictRecorder.Code != http.StatusConflict {
+		t.Fatalf("expected idempotency conflict, got %d body=%s", conflictRecorder.Code, conflictRecorder.Body.String())
 	}
 }

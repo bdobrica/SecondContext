@@ -118,6 +118,12 @@ type InteractionOutcome struct {
 	SuccessScore     float64
 	PredictionError  string
 	Metadata         json.RawMessage
+	IdempotencyKey   string
+	RequestHash      string
+	MemoryID         string
+	ProcessingStatus string
+	FailedStage      string
+	ProcessingError  string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
