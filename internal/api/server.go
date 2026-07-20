@@ -21,6 +21,7 @@ type Server struct {
 	dbPool *pgxpool.Pool
 	llm    llm.Client
 	auth   *requestAuthenticator
+	obs    *observability
 	rate   *requestRateLimiter
 }
 
@@ -37,12 +38,14 @@ func NewServer(cfg config.Config, logger *slog.Logger, dbPool *pgxpool.Pool) *Se
 }
 
 func NewServerWithClient(cfg config.Config, logger *slog.Logger, dbPool *pgxpool.Pool, client llm.Client) *Server {
+	obs := newObservability(cfg.App.Name, cfg.App.Env)
 	return &Server{
 		cfg:    cfg,
 		logger: logger,
 		dbPool: dbPool,
-		llm:    client,
+		llm:    newObservedLLMClient(client, logger, obs),
 		auth:   newRequestAuthenticator(cfg.Auth),
+		obs:    obs,
 		rate:   newRequestRateLimiter(cfg.HTTP.RateLimitRPM, time.Minute),
 	}
 }
@@ -53,14 +56,17 @@ func (s *Server) Handler() http.Handler {
 	router.Use(middleware.RealIP)
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Timeout(30 * time.Second))
-	router.Use(s.loggingMiddleware)
 	if s.auth != nil {
 		router.Use(s.auth.middleware(s))
 	}
 	if s.rate != nil {
 		router.Use(s.rate.middleware(s))
 	}
+	router.Use(s.loggingMiddleware)
 
+	if s.cfg.HTTP.MetricsEnabled {
+		router.Get(s.cfg.HTTP.MetricsPath, s.handleMetrics)
+	}
 	router.Get("/healthz", s.handleHealthz)
 	router.Get("/v1/models", s.handleListModels)
 	router.Post("/v1/responses", s.handleCreateResponse)

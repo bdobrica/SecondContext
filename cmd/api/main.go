@@ -26,7 +26,7 @@ func main() {
 	}
 
 	logger := newLogger(cfg)
-	logger.Info("starting service", "addr", cfg.HTTP.Addr, "postgres_enabled", cfg.Postgres.Enabled)
+	logger.Info("starting service", "addr", cfg.HTTP.Addr, "postgres_enabled", cfg.Postgres.Enabled, "metrics_enabled", cfg.HTTP.MetricsEnabled, "metrics_path", cfg.HTTP.MetricsPath)
 
 	dbPool, err := db.Open(ctx, cfg.Postgres)
 	if err != nil {
@@ -44,7 +44,7 @@ func main() {
 
 	serverErrors := make(chan error, 1)
 	go func() {
-		logger.Info("http server listening", "addr", cfg.HTTP.Addr)
+		logger.Info("http server listening", "addr", cfg.HTTP.Addr, "metrics_enabled", cfg.HTTP.MetricsEnabled, "metrics_path", cfg.HTTP.MetricsPath)
 		serverErrors <- httpServer.ListenAndServe()
 	}()
 

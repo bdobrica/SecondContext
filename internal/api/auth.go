@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/bdobrica/SecondContext/internal/config"
 	"github.com/bdobrica/SecondContext/internal/db"
@@ -62,6 +63,7 @@ func newRequestAuthenticator(cfg config.AuthConfig) *requestAuthenticator {
 func (a *requestAuthenticator) middleware(server *Server) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			startedAt := time.Now()
 			if shouldSkipAuthentication(r.URL.Path) {
 				next.ServeHTTP(w, r)
 				return
@@ -70,6 +72,7 @@ func (a *requestAuthenticator) middleware(server *Server) func(http.Handler) htt
 			token, errCode, message := bearerTokenFromRequest(r)
 			if strings.TrimSpace(token) == "" {
 				a.writeAuthenticationChallenge(w)
+				server.observeRejectedRequest(r, http.StatusUnauthorized, time.Since(startedAt), errCode)
 				server.writeAPIError(w, r, http.StatusUnauthorized, message, authErrorType, errCode, "")
 				return
 			}
@@ -77,6 +80,7 @@ func (a *requestAuthenticator) middleware(server *Server) func(http.Handler) htt
 			principal, ok := a.authenticate(token)
 			if !ok {
 				a.writeAuthenticationChallenge(w)
+				server.observeRejectedRequest(r, http.StatusUnauthorized, time.Since(startedAt), invalidAuthTokenErrorCode)
 				server.writeAPIError(w, r, http.StatusUnauthorized, "invalid bearer token", authErrorType, invalidAuthTokenErrorCode, "")
 				return
 			}

@@ -45,6 +45,7 @@ func newRequestRateLimiter(limit int, window time.Duration) *requestRateLimiter 
 func (rl *requestRateLimiter) middleware(server *Server) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			startedAt := time.Now()
 			if shouldSkipRateLimit(r.URL.Path) {
 				next.ServeHTTP(w, r)
 				return
@@ -53,6 +54,7 @@ func (rl *requestRateLimiter) middleware(server *Server) func(http.Handler) http
 			allowed, retryAfter := rl.allow(clientRateLimitKey(r), time.Now())
 			if !allowed {
 				w.Header().Set("Retry-After", strconv.FormatInt(int64(retryAfter.Round(time.Second)/time.Second), 10))
+				server.observeRejectedRequest(r, http.StatusTooManyRequests, time.Since(startedAt), rateLimitExceededErrorCode)
 				server.writeAPIError(
 					w,
 					r,

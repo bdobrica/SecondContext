@@ -634,8 +634,8 @@ The assistant should recommend a narrow, low-friction request to Alex.
 - [ ] Add prompt versioning.
 - [ ] Add model/provider configuration.
 - [ ] Add observability:
-  - [ ] logs;
-  - [ ] metrics;
+  - [x] logs;
+  - [x] metrics;
   - [ ] traces if needed.
 
 ### Deliverables

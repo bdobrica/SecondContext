@@ -377,6 +377,8 @@ go run ./cmd/api
 
 Authentication is optional by default. To require bearer tokens, set `AUTH_ENABLED=true` and configure `AUTH_BEARER_TOKENS` as a comma-separated list of `subject=token` pairs, for example `AUTH_BEARER_TOKENS=dev-user=change-me-token`. When authentication is enabled, the authenticated subject becomes the effective user scope for reads and writes, so request-level user selectors cannot escape into another user's data.
 
+The API now emits structured JSON logs on stdout for HTTP requests and upstream LLM calls. It also exposes Prometheus-style metrics on `/metrics` by default.
+
 Core validation commands:
 
 - `curl http://localhost:8080/healthz`
@@ -389,6 +391,7 @@ Core validation commands:
 - `curl http://localhost:8080/memory/extract -H 'Content-Type: application/json' -d '{"raw_text":"Alex prefers tightly scoped infrastructure review requests and usually wants the API section only."}'`
 - `curl http://localhost:8080/memory/search -H 'Content-Type: application/json' -d '{"query":"api scoped review request","goal":"pick the best review strategy for Alex","user_external_id":"dev-user","people":["Alex"],"confidence_threshold":0.5,"limit":5}'`
 - `curl 'http://localhost:8080/memory?user_external_id=dev-user'`
+- `curl http://localhost:8080/metrics`
 - `curl 'http://localhost:8080/debug/context?session_id=<session-id>&compare=true'`
 - `curl 'http://localhost:8080/debug/context?session_id=<session-id>&format=html'`
 - `curl 'http://localhost:8080/debug/beliefs?topic_name=migration&user_external_id=dev-user'`
@@ -396,6 +399,8 @@ Core validation commands:
 - `curl -X PUT http://localhost:8080/debug/person/<person-id> -H 'Content-Type: application/json' -d '{"topic_name":"api_review","topic_aliases":["api"],"capacity":0.25,"confidence":0.9}'`
 
 When authentication is enabled, include `-H 'Authorization: Bearer <token>'` on every endpoint except `/healthz`.
+
+The `/metrics` endpoint exposes request counts, request latency histograms, in-flight request count, upstream LLM request counts, upstream LLM latency histograms, and token counters.
 
 ## End-to-end demo
 
@@ -450,6 +455,9 @@ APP_NAME=salience-graph
 APP_ENV=development
 HTTP_ADDR=:8080
 HTTP_SHUTDOWN_TIMEOUT=10s
+HTTP_RATE_LIMIT_REQUESTS_PER_MINUTE=60
+HTTP_METRICS_ENABLED=true
+HTTP_METRICS_PATH=/metrics
 LOG_LEVEL=info
 
 POSTGRES_ENABLED=true
@@ -467,6 +475,7 @@ OPENAI_API_KEY=your_api_key_here
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_CHAT_MODEL=gpt-4.1-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_REQUEST_TIMEOUT=30s
 ```
 
 The public model alias exposed by the API is `context-agent-1`, which currently maps to `OPENAI_CHAT_MODEL` upstream.

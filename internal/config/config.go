@@ -47,6 +47,8 @@ type HTTPConfig struct {
 	Addr            string
 	ShutdownTimeout time.Duration
 	RateLimitRPM    int
+	MetricsEnabled  bool
+	MetricsPath     string
 }
 
 type LogConfig struct {
@@ -118,6 +120,11 @@ func Load() (Config, error) {
 	rateLimitRPM, err := parseInt("HTTP_RATE_LIMIT_REQUESTS_PER_MINUTE", 60)
 	if err != nil {
 		return Config{}, err
+	}
+
+	metricsPath := getEnv("HTTP_METRICS_PATH", "/metrics")
+	if !strings.HasPrefix(metricsPath, "/") {
+		return Config{}, fmt.Errorf("HTTP_METRICS_PATH must start with '/'")
 	}
 
 	postgresPort, err := parseInt("POSTGRES_PORT", 5432)
@@ -201,6 +208,8 @@ func Load() (Config, error) {
 			Addr:            getEnv("HTTP_ADDR", ":8080"),
 			ShutdownTimeout: shutdownTimeout,
 			RateLimitRPM:    rateLimitRPM,
+			MetricsEnabled:  getEnvBool("HTTP_METRICS_ENABLED", true),
+			MetricsPath:     metricsPath,
 		},
 		Log: LogConfig{Level: logLevel},
 		Postgres: PostgresConfig{
