@@ -348,7 +348,7 @@ func newFakeQdrantServer() *httptest.Server {
 				}
 				collections[collection][point.ID] = storedPoint{ID: point.ID, DenseVector: dense, SparseVector: sparse, Payload: point.Payload}
 			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]any{"status": "acknowledged"}, "time": 0.001})
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]any{"status": "completed"}, "time": 0.001})
 		case r.Method == http.MethodPost && len(parts) == 4 && parts[2] == "points" && parts[3] == "delete":
 			var payload struct {
 				Points []string `json:"points"`
@@ -357,7 +357,7 @@ func newFakeQdrantServer() *httptest.Server {
 			for _, id := range payload.Points {
 				delete(collections[collection], id)
 			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]any{"status": "acknowledged"}, "time": 0.001})
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]any{"status": "completed"}, "time": 0.001})
 		case r.Method == http.MethodPost && len(parts) == 4 && parts[2] == "points" && parts[3] == "search":
 			results := handleFakeSearch(r, collections[collection])
 			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": results, "time": 0.001})

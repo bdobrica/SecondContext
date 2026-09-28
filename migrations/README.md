@@ -16,3 +16,7 @@ Typical workflow:
 - `make migrate-down`
 
 Migration `000002` adds tenant-scoped idempotency constraints and durable processing state for outcomes and outcome memories. Its down migration discards that recovery history, so take a Postgres backup before rolling it back.
+
+Migration `000003_subject_purges` adds durable subject deletion fences. Its down
+migration removes the fences, so stop writers before rollback. It never restores
+deleted content. See [operations](../docs/operations.md).

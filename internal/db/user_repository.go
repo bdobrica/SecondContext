@@ -31,7 +31,8 @@ func (r *UserRepository) Ensure(ctx context.Context, params EnsureUserParams) (m
 func (r *UserRepository) ensureWithEmail(ctx context.Context, params EnsureUserParams, email string) (models.User, error) {
 	query := `
 		INSERT INTO users (external_id, email, display_name)
-		VALUES ($1, NULLIF($2, ''), $3)
+		SELECT $1, NULLIF($2, ''), $3
+ WHERE NOT EXISTS (SELECT 1 FROM subject_purges WHERE external_id = $1)
 		ON CONFLICT (external_id) DO UPDATE
 		SET email = COALESCE(EXCLUDED.email, users.email),
 			display_name = EXCLUDED.display_name,

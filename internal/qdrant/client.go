@@ -29,10 +29,11 @@ func (e *ResponseTooLargeError) Error() string {
 }
 
 type responseError struct {
-	method             string
-	path               string
-	statusCode         int
-	collectionNotFound bool
+	method                  string
+	path                    string
+	statusCode              int
+	collectionNotFound      bool
+	collectionAlreadyExists bool
 }
 
 func (e *responseError) Error() string {
@@ -111,7 +112,8 @@ func (c *Client) EnsureCollection(ctx context.Context, collection string, vector
 	}
 
 	err = c.do(ctx, http.MethodPut, "/collections/"+collection, body, nil)
-	if err != nil && strings.Contains(err.Error(), "already exists") {
+	var response *responseError
+	if errors.As(err, &response) && response.statusCode == 409 && response.collectionAlreadyExists {
 		return nil
 	}
 
@@ -137,7 +139,18 @@ func (c *Client) UpsertPoint(ctx context.Context, collection string, point Point
 		return err
 	}
 
-	return c.do(ctx, http.MethodPut, "/collections/"+collection+"/points", body, nil)
+	var result struct {
+		Result struct {
+			Status string `json:"status"`
+		} `json:"result"`
+	}
+	if err = c.do(ctx, http.MethodPut, "/collections/"+collection+"/points?wait=true", body, &result); err != nil {
+		return err
+	}
+	if result.Result.Status != "completed" {
+		return fmt.Errorf("index upsert incomplete")
+	}
+	return nil
 }
 
 func (c *Client) DeletePoint(ctx context.Context, collection, pointID string) error {
@@ -297,10 +310,11 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, out a
 			if message != "" {
 				normalized := strings.ToLower(message)
 				return &responseError{
-					method:             method,
-					path:               path,
-					statusCode:         response.StatusCode,
-					collectionNotFound: strings.Contains(normalized, "collection") && (strings.Contains(normalized, "doesn't exist") || strings.Contains(normalized, "does not exist") || strings.Contains(normalized, "not found")),
+					method:                  method,
+					path:                    path,
+					statusCode:              response.StatusCode,
+					collectionAlreadyExists: strings.Contains(normalized, "collection") && strings.Contains(normalized, "already exists"),
+					collectionNotFound:      strings.Contains(normalized, "collection") && (strings.Contains(normalized, "doesn't exist") || strings.Contains(normalized, "does not exist") || strings.Contains(normalized, "not found")),
 				}
 			}
 		}
@@ -381,4 +395,33 @@ func IsCollectionNotFoundError(err error) bool {
 	}
 
 	return false
+}
+
+// DeleteSubject removes every vector for this canonical user, including orphaned
+// derived points. wait=true plus completed acknowledgement precedes SQL deletion.
+func (c *Client) DeleteSubject(ctx context.Context, collection, userID string) error {
+	if userID == "" {
+		return fmt.Errorf("subject is required")
+	}
+	body, err := json.Marshal(map[string]any{"filter": map[string]any{"must": []any{map[string]any{"key": "user_id", "match": map[string]any{"value": userID}}}}})
+	if err != nil {
+		return err
+	}
+	var result struct {
+		Result struct {
+			Status string `json:"status"`
+		} `json:"result"`
+	}
+	err = c.do(ctx, http.MethodPost, "/collections/"+collection+"/points/delete?wait=true", body, &result)
+	if err != nil {
+		var response *responseError
+		if errors.As(err, &response) && response.statusCode == 404 && response.collectionNotFound {
+			return nil
+		}
+		return err
+	}
+	if result.Result.Status != "completed" {
+		return fmt.Errorf("subject index purge incomplete")
+	}
+	return nil
 }

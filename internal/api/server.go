@@ -65,6 +65,7 @@ func (s *Server) Handler() http.Handler {
 		router.Use(s.rate.middleware(s))
 	}
 	router.Use(s.loggingMiddleware)
+	router.Use(s.subjectFence)
 
 	if s.cfg.HTTP.MetricsEnabled {
 		router.Get(s.cfg.HTTP.MetricsPath, s.handleMetrics)
@@ -72,6 +73,7 @@ func (s *Server) Handler() http.Handler {
 	router.Get("/healthz", s.handleHealthz)
 	router.Get("/v1/models", s.handleListModels)
 	router.Post("/v1/responses", s.handleCreateResponse)
+	router.Post("/v1/subjects/purge", s.handlePurgeSubject)
 	router.Post("/memory/ingest", s.handleMemoryIngest)
 	router.Post("/memory/extract", s.handleMemoryExtract)
 	router.Post("/memory/search", s.handleMemorySearch)

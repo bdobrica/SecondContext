@@ -164,6 +164,6 @@ func newOutcomeQdrant(t *testing.T) *httptest.Server {
 			}
 			mu.Unlock()
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]any{"status": "acknowledged"}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]any{"status": "completed"}})
 	}))
 }

@@ -628,7 +628,8 @@ The assistant should recommend a narrow, low-friction request to Alex.
 - [ ] Add schema validation everywhere.
 - [x] Add mandatory, visible integration tests with pinned dependency services and CI enforcement.
 - [x] Add backup/restore notes.
-- [ ] Add memory deletion.
+- [x] Add authenticated, scoped subject purge with durable retry/fencing and vector cleanup.
+- [x] Add restricted namespace service credentials for multi-user applications.
 - [ ] Add person model editing.
 - [ ] Add belief editing.
 - [ ] Add prompt versioning.

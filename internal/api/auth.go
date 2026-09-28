@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -28,7 +29,8 @@ const (
 type authContextKey struct{}
 
 type authPrincipal struct {
-	Subject string
+	Subject       string
+	ServicePrefix string
 }
 
 type requestScopeError struct {
@@ -48,8 +50,9 @@ func (e *requestScopeError) Error() string {
 }
 
 type requestAuthenticator struct {
-	realm  string
-	tokens []config.AuthTokenConfig
+	realm         string
+	tokens        []config.AuthTokenConfig
+	serviceTokens []config.AuthTokenConfig
 }
 
 func newRequestAuthenticator(cfg config.AuthConfig) *requestAuthenticator {
@@ -57,7 +60,7 @@ func newRequestAuthenticator(cfg config.AuthConfig) *requestAuthenticator {
 		return nil
 	}
 
-	return &requestAuthenticator{realm: strings.TrimSpace(cfg.Realm), tokens: append([]config.AuthTokenConfig(nil), cfg.Tokens...)}
+	return &requestAuthenticator{realm: strings.TrimSpace(cfg.Realm), tokens: append([]config.AuthTokenConfig(nil), cfg.Tokens...), serviceTokens: append([]config.AuthTokenConfig(nil), cfg.ServiceTokens...)}
 }
 
 func (a *requestAuthenticator) middleware(server *Server) func(http.Handler) http.Handler {
@@ -85,12 +88,31 @@ func (a *requestAuthenticator) middleware(server *Server) func(http.Handler) htt
 				return
 			}
 
+			if principal.ServicePrefix != "" {
+				subject := r.Header.Get("X-SecondContext-Subject")
+				suffix := strings.TrimPrefix(subject, principal.ServicePrefix)
+				valid := strings.HasPrefix(subject, principal.ServicePrefix) && regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`).MatchString(suffix)
+				allowed := r.Method == http.MethodPost && (r.URL.Path == "/v1/responses" || r.URL.Path == "/memory/ingest" || r.URL.Path == "/v1/subjects/purge")
+				if !valid || !allowed || len(r.Header.Values("X-SecondContext-Subject")) != 1 {
+					server.writeAPIError(w, r, http.StatusForbidden, "service scope not permitted", authorizationErrorType, "service_scope_denied", "")
+					return
+				}
+				principal.Subject = subject
+			} else if r.Header.Get("X-SecondContext-Subject") != "" && r.Header.Get("X-SecondContext-Subject") != principal.Subject {
+				server.writeAPIError(w, r, http.StatusForbidden, "delegation not permitted", authorizationErrorType, "service_scope_denied", "")
+				return
+			}
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), authContextKey{}, principal)))
 		})
 	}
 }
 
 func (a *requestAuthenticator) authenticate(token string) (authPrincipal, bool) {
+	for _, candidate := range a.serviceTokens {
+		if subtle.ConstantTimeCompare([]byte(token), []byte(candidate.Token)) == 1 && regexp.MustCompile(`^[a-z][a-z0-9_-]{0,31}:$`).MatchString(candidate.Subject) {
+			return authPrincipal{Subject: candidate.Subject, ServicePrefix: candidate.Subject}, true
+		}
+	}
 	for _, candidate := range a.tokens {
 		if subtle.ConstantTimeCompare([]byte(token), []byte(candidate.Token)) != 1 {
 			continue

@@ -378,6 +378,12 @@ go run ./cmd/api
 
 Authentication is optional by default. To require bearer tokens, set `AUTH_ENABLED=true` and configure `AUTH_BEARER_TOKENS` as a comma-separated list of `subject=token` pairs, for example `AUTH_BEARER_TOKENS=dev-user=change-me-token`. Every entry must contain a non-empty subject and token; bare tokens, empty entries, duplicate subjects, and duplicate token values make startup fail. Token values may contain `=`, because only the first `=` separates the subject. Configuration errors identify an entry position without printing its token.
 
+Trusted multi-user applications can configure separate `AUTH_SERVICE_TOKENS` with
+reserved namespaces. The [service context and purge contract](docs/contracts/service-context-v1.md)
+describes the required subject header, limited routes and retryable subject deletion.
+Existing user tokens remain subject-bound. Apply migration 000003 and coordinate
+all API instances before enabling purge; see [operations](docs/operations.md).
+
 When authentication is enabled, the authenticated subject is resolved once as the effective user scope before any read or write. A top-level `user`, `user_external_id` field, or `metadata.user_external_id` may be omitted or match that subject; a conflicting value is rejected with HTTP 400 and the stable error code `identity_conflict`.
 
 Boolean environment settings (`AUTH_ENABLED`, `HTTP_METRICS_ENABLED`, and `POSTGRES_ENABLED`) accept the forms supported by Go's `strconv.ParseBool`: `1`, `t`, `T`, `TRUE`, `true`, `True`, `0`, `f`, `F`, `FALSE`, `false`, and `False`. An unset or blank value uses the documented default. Any other non-empty value fails startup instead of silently selecting a fallback.

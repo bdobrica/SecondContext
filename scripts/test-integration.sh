@@ -21,7 +21,8 @@ if [ -z "${POSTGRES_DSN:-}" ]; then
 	started_services=1
 	docker compose -p "$project_name" -f "$compose_file" up -d --wait
 	POSTGRES_DSN="postgres://secondcontext:secondcontext@127.0.0.1:${INTEGRATION_POSTGRES_PORT:-55432}/secondcontext_integration?sslmode=disable"
-	export POSTGRES_DSN
+	QDRANT_URL="http://127.0.0.1:${INTEGRATION_QDRANT_PORT:-56333}"
+	export POSTGRES_DSN QDRANT_URL
 else
 	echo "==> using caller-supplied POSTGRES_DSN"
 fi

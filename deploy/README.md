@@ -37,3 +37,8 @@ Use `make test-unit` for the fast dependency-free lane or `make test-integration
 ## Database upgrades and recovery
 
 Back up Postgres before applying migrations. Outcome processing treats Postgres as canonical and Qdrant as a rebuildable index, so restore Postgres first and reconcile any non-completed outcome stages afterward. See [`docs/operations.md`](../docs/operations.md) for inspection queries and the idempotent retry procedure.
+
+For multi-user service clients and deletion, apply migration 000003 and use the
+[service authentication and purge contract](../docs/contracts/service-context-v1.md).
+Coordinate all API instances and budget the additional subject-lock connections as
+described in [operations](../docs/operations.md).

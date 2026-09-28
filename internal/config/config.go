@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -28,9 +29,10 @@ type AppConfig struct {
 }
 
 type AuthConfig struct {
-	Enabled bool
-	Realm   string
-	Tokens  []AuthTokenConfig
+	Enabled       bool
+	Realm         string
+	Tokens        []AuthTokenConfig
+	ServiceTokens []AuthTokenConfig
 }
 
 type AuthTokenConfig struct {
@@ -129,8 +131,15 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	if authEnabled && len(authTokens) == 0 {
-		return Config{}, fmt.Errorf("AUTH_ENABLED requires at least one AUTH_BEARER_TOKENS entry")
+	serviceTokens, err := parseServiceTokens(os.Getenv("AUTH_SERVICE_TOKENS"), authTokens)
+	if err != nil {
+		return Config{}, err
+	}
+	if len(serviceTokens) > 0 && !authEnabled {
+		return Config{}, fmt.Errorf("AUTH_SERVICE_TOKENS requires AUTH_ENABLED")
+	}
+	if authEnabled && len(authTokens)+len(serviceTokens) == 0 {
+		return Config{}, fmt.Errorf("AUTH_ENABLED requires bearer or service tokens")
 	}
 
 	rateLimitRPM, err := parseInt("HTTP_RATE_LIMIT_REQUESTS_PER_MINUTE", 60)
@@ -216,9 +225,10 @@ func Load() (Config, error) {
 			Env:  getEnv("APP_ENV", "development"),
 		},
 		Auth: AuthConfig{
-			Enabled: authEnabled,
-			Realm:   getEnv("AUTH_REALM", "second-context"),
-			Tokens:  authTokens,
+			Enabled:       authEnabled,
+			Realm:         getEnv("AUTH_REALM", "second-context"),
+			Tokens:        authTokens,
+			ServiceTokens: serviceTokens,
 		},
 		Dev: DevConfig{
 			UserExternalID: getEnv("DEV_USER_EXTERNAL_ID", "dev-user"),
@@ -446,4 +456,23 @@ func normalizeIPPrefix(prefix netip.Prefix) netip.Prefix {
 		return prefix.Masked()
 	}
 	return netip.PrefixFrom(address.Unmap(), prefix.Bits()-96).Masked()
+}
+
+// Service namespaces reserve their subjects; ordinary credentials cannot alias them.
+func parseServiceTokens(value string, users []AuthTokenConfig) ([]AuthTokenConfig, error) {
+	services, err := parseAuthTokens(value)
+	if err != nil {
+		return nil, fmt.Errorf("invalid AUTH_SERVICE_TOKENS configuration")
+	}
+	for _, service := range services {
+		if !regexp.MustCompile(`^[a-z][a-z0-9_-]{0,31}:$`).MatchString(service.Subject) {
+			return nil, fmt.Errorf("AUTH_SERVICE_TOKENS requires a namespace ending in colon")
+		}
+		for _, user := range users {
+			if user.Token == service.Token || strings.HasPrefix(user.Subject, service.Subject) {
+				return nil, fmt.Errorf("AUTH_SERVICE_TOKENS conflicts with user credentials")
+			}
+		}
+	}
+	return services, nil
 }
