@@ -1,0 +1,5 @@
+Production deployments require two approvers.
+The on-call engineer performs the rollout.
+
+
+Rollback requires the previous image tag.

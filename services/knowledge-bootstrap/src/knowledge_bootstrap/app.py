@@ -1,12 +1,14 @@
+import asyncio
 import hmac
 import logging
 import time
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
+from threading import Event, Thread
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header, Query, Request
+from fastapi import Depends, FastAPI, File, Form, Header, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -17,8 +19,10 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from knowledge_bootstrap.config import Settings
 from knowledge_bootstrap.database import make_engine, make_sessions
+from knowledge_bootstrap.ingestion import run_worker
 from knowledge_bootstrap.logging import configure_logging
 from knowledge_bootstrap.models import SCHEMA_REVISION, Chunk, Document, IngestionJob, Source
+from knowledge_bootstrap.parsers import ParseError, normalize_input
 from knowledge_bootstrap.schemas import (
     ChunkView,
     DocumentView,
@@ -26,6 +30,7 @@ from knowledge_bootstrap.schemas import (
     SourceAccepted,
     SourceCreate,
     SourceView,
+    TextFormat,
 )
 from knowledge_bootstrap.service import ServiceError, create_source, get_owned, refresh_source
 
@@ -105,10 +110,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        stop = Event()
+        worker = Thread(target=run_worker, args=(app.state.sessions, settings, stop), daemon=True)
+        if settings.text_worker_enabled:
+            worker.start()
         logger.info("service started")
-        yield
-        engine.dispose()
-        logger.info("service stopped")
+        try:
+            yield
+        finally:
+            stop.set()
+            if settings.text_worker_enabled:
+                await asyncio.to_thread(worker.join)
+            engine.dispose()
+            logger.info("service stopped")
 
     app = FastAPI(title="Knowledge Bootstrap", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings
@@ -138,6 +152,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             {"error": {"code": exc.code, "detail": exc.detail}},
             status_code=exc.status_code,
             headers=headers,
+        )
+
+    @app.exception_handler(ParseError)
+    async def input_error(request: Request, exc: ParseError):
+        return JSONResponse(
+            {"error": {"code": exc.code, "detail": exc.detail}},
+            status_code=413 if exc.code == "input_too_large" else 422,
         )
 
     @app.exception_handler(RequestValidationError)
@@ -200,6 +221,35 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ):
         if idempotency_key is not None and not idempotency_key.strip():
             raise ServiceError("invalid_request", "Idempotency-Key must not be blank", 422)
+        if payload.text is not None:
+            payload.text = normalize_input(payload.text, settings)
+        source, job = create_source(session, owner, payload, idempotency_key)
+        return {"source": source, "job": job}
+
+    @app.post("/v1/sources/upload", response_model=SourceAccepted, status_code=202)
+    def upload_text(
+        owner: Owner,
+        session: Database,
+        file: Annotated[UploadFile, File()],
+        name: Annotated[str, Form(min_length=1, max_length=500)] = "Untitled",
+        format: Annotated[TextFormat, Form()] = "auto",
+        idempotency_key: Annotated[str | None, Header(min_length=1, max_length=128)] = None,
+    ):
+        if not name.strip() or (idempotency_key is not None and not idempotency_key.strip()):
+            raise ServiceError("invalid_request", "Name and Idempotency-Key must not be blank", 422)
+        filename = file.filename or "upload.txt"
+        if len(filename) > 8192 or "\x00" in filename:
+            raise ServiceError("invalid_request", "Invalid original filename", 422)
+        text = normalize_input(file.file.read(settings.max_input_bytes + 1), settings)
+        # Detect from content only. MIME/extension are untrusted provenance, never parser selectors.
+        payload = SourceCreate(
+            kind="file",
+            name=name,
+            source_uri=filename,
+            content_type=(file.content_type or "application/octet-stream")[:200],
+            format=format,
+            text=text,
+        )
         source, job = create_source(session, owner, payload, idempotency_key)
         return {"source": source, "job": job}
 

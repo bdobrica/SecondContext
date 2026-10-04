@@ -1,6 +1,6 @@
 # Knowledge Bootstrap Service — TODO
 
-Status: K1 implemented; remaining milestones proposed
+Status: K1 and K2 implemented; remaining milestones proposed
 
 Track: Standalone / parallel to SecondContext
 
@@ -38,8 +38,8 @@ flowchart LR
 Implemented in [`services/knowledge-bootstrap`](services/knowledge-bootstrap/README.md) using
 FastAPI, SQLAlchemy, and Alembic. The service is an optional Compose profile, shares the
 existing Postgres deployment through a separate database, and does not change SecondContext
-startup. K1 persists pending jobs; ingestion workers and the Jinja2 UI remain in later
-milestones.
+startup. K1 persists pending jobs; K2 now processes textual inputs. The Jinja2 UI remains
+in a later milestone.
 
 ### Project foundation
 
@@ -100,68 +100,74 @@ milestones.
 
 ## K2 — Text and structured ingestion
 
+Implemented in the optional service: pasted JSON requests and `/v1/sources/upload` feed a
+bounded polling worker. TXT/Markdown/JSON/YAML produce canonical documents with semantic
+blocks, heading ancestry or JSON Pointer paths in metadata. Parsed jobs pause at `chunking`
+with one processed document; actual chunks, indexing and `ready` completion belong to K5.
+No new database migration, LLM, Qdrant connection or SecondContext dependency is required.
+
 ### Pasted text
 
-- [ ] Implement pasted-text source creation.
-- [ ] Support optional source name/title.
-- [ ] Support `format: auto`.
-- [ ] Allow explicit format override.
-- [ ] Enforce maximum input bytes.
-- [ ] Normalize line endings/encoding safely.
+- [x] Implement pasted-text source creation.
+- [x] Support optional source name/title.
+- [x] Support `format: auto`.
+- [x] Allow explicit format override.
+- [x] Enforce maximum input bytes.
+- [x] Normalize line endings/encoding safely.
 
 ### Plain text
 
-- [ ] Parse TXT as paragraph-oriented text.
-- [ ] Preserve meaningful blank-line boundaries.
-- [ ] Reject binary/obviously invalid text input.
+- [x] Parse TXT as paragraph-oriented text.
+- [x] Preserve meaningful blank-line boundaries.
+- [x] Reject binary/obviously invalid text input.
 
 ### Markdown
 
-- [ ] Preserve heading hierarchy.
-- [ ] Preserve paragraphs.
-- [ ] Preserve lists where useful.
-- [ ] Preserve fenced code blocks as semantic blocks.
-- [ ] Avoid unnecessary Markdown-to-prose LLM conversion.
+- [x] Preserve heading hierarchy.
+- [x] Preserve paragraphs.
+- [x] Preserve lists where useful.
+- [x] Preserve fenced code blocks as semantic blocks.
+- [x] Avoid unnecessary Markdown-to-prose LLM conversion.
 
 ### JSON
 
-- [ ] Parse deterministically.
-- [ ] Reject invalid JSON with stable error codes.
-- [ ] Bound total bytes.
-- [ ] Bound nesting depth.
-- [ ] Normalize to stable readable text.
-- [ ] Preserve structural paths as metadata where useful.
+- [x] Parse deterministically.
+- [x] Reject invalid JSON with stable error codes.
+- [x] Bound total bytes.
+- [x] Bound nesting depth.
+- [x] Normalize to stable readable text.
+- [x] Preserve structural paths as metadata where useful.
 
 ### YAML
 
-- [ ] Parse with safe YAML settings.
-- [ ] Reject unsafe/custom object construction.
-- [ ] Bound aliases/expansion/nesting.
-- [ ] Normalize to stable readable text.
-- [ ] Preserve structural paths where useful.
+- [x] Parse with safe YAML settings.
+- [x] Reject unsafe/custom object construction.
+- [x] Bound aliases/expansion/nesting.
+- [x] Normalize to stable readable text.
+- [x] Preserve structural paths where useful.
 
 ### Format detection
 
-- [ ] Detect likely Markdown/JSON/YAML/plain text for pasted content.
-- [ ] Record detected format.
-- [ ] Allow explicit user override.
-- [ ] Add ambiguous-format fixtures.
+- [x] Detect likely Markdown/JSON/YAML/plain text for pasted content.
+- [x] Record detected format.
+- [x] Allow explicit user override.
+- [x] Add ambiguous-format fixtures.
 
 ### Tests
 
-- [ ] TXT fixtures.
-- [ ] Markdown fixtures.
-- [ ] JSON fixtures.
-- [ ] YAML fixtures.
-- [ ] Malformed structured data tests.
-- [ ] Deep-nesting/resource-abuse tests.
-- [ ] Deterministic normalization tests.
+- [x] TXT fixtures.
+- [x] Markdown fixtures.
+- [x] JSON fixtures.
+- [x] YAML fixtures.
+- [x] Malformed structured data tests.
+- [x] Deep-nesting/resource-abuse tests.
+- [x] Deterministic normalization tests.
 
 ### K2 exit criteria
 
-- [ ] Pasted and uploaded text formats produce canonical documents.
-- [ ] Structured formats remain faithful to original structure.
-- [ ] No LLM is required for normalization.
+- [x] Pasted and uploaded text formats produce canonical documents.
+- [x] Structured formats remain faithful to original structure.
+- [x] No LLM is required for normalization.
 
 ---
 
@@ -662,7 +668,7 @@ Begin only after retrieval quality is proven.
 ## Suggested implementation order
 
 1. [x] K1 — Core service and data model.
-2. [ ] K2 — Text / Markdown / JSON / YAML ingestion.
+2. [x] K2 — Text / Markdown / JSON / YAML ingestion.
 3. [ ] K5 foundation — canonical document/chunk model and stable hashing.
 4. [ ] K3 — PDF / DOCX.
 5. [ ] K4 — safe website ingestion.

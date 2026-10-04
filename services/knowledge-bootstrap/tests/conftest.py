@@ -28,6 +28,7 @@ def settings():
     return Settings(
         database_url="postgresql+psycopg://unused:unused@localhost:1/knowledge_bootstrap_test",
         auth_tokens={"owner-a": "test-owner-a-token-123", "owner-b": "test-owner-b-token-456"},
+        text_worker_enabled=False,
     )
 
 
@@ -70,6 +71,7 @@ def db_settings(migrated_url):
             f"owner-a-{unique}": "test-owner-a-token-123",
             f"owner-b-{unique}": "test-owner-b-token-456",
         },
+        text_worker_enabled=False,
     )
 
 

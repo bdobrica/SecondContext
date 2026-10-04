@@ -11,7 +11,16 @@ class JsonFormatter(logging.Formatter):
             "service": "knowledge-bootstrap",
             "message": record.getMessage(),
         }
-        for field in ("method", "path", "status", "duration_ms", "error_type"):
+        for field in (
+            "method",
+            "path",
+            "status",
+            "duration_ms",
+            "error_type",
+            "job_id",
+            "error_code",
+            "format",
+        ):
             if hasattr(record, field):
                 entry[field] = getattr(record, field)
         # Deliberately exclude exception messages, request bodies, credentials, and query strings.

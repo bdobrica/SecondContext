@@ -8,19 +8,20 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from knowledge_bootstrap.models import SourceKind, Stage
 
 Format = Literal["html", "pdf", "docx", "markdown", "json", "yaml", "text"]
+TextFormat = Literal["auto", "markdown", "json", "yaml", "text"]
 
 
 class SourceCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: SourceKind
-    name: str = Field(min_length=1, max_length=500)
+    name: str = Field(default="Untitled", min_length=1, max_length=500)
     source_uri: str | None = Field(default=None, max_length=8192)
     content_type: str | None = Field(default=None, max_length=200)
-    format: Format | None = None
+    format: Format | Literal["auto"] | None = None
     config_json: dict[str, Any] = Field(default_factory=dict)
     metadata_json: dict[str, Any] = Field(default_factory=dict)
-    text: str | None = Field(default=None, max_length=1_048_576)
+    text: str | None = Field(default=None, max_length=8_388_608)
 
     @field_validator("name")
     @classmethod
@@ -39,8 +40,10 @@ class SourceCreate(BaseModel):
                 raise ValueError("URL credentials are not supported")
         if self.kind == SourceKind.FILE and not (self.source_uri or "").strip():
             raise ValueError("file sources require an original filename in source_uri")
-        if self.kind != SourceKind.TEXT and self.text is not None:
-            raise ValueError("text is only supported for text sources")
+        if self.kind == SourceKind.URL and self.text is not None:
+            raise ValueError("text is not supported for URL sources")
+        if self.text is not None and self.format in {"html", "pdf", "docx"}:
+            raise ValueError("textual input supports text, markdown, json and yaml only")
         if self.text is not None and (not self.text.strip() or "\x00" in self.text):
             raise ValueError("text must be nonblank and contain no NUL bytes")
         return self

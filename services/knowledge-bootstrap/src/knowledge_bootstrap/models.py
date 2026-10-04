@@ -74,7 +74,7 @@ class Source(CanonicalRow, Base):
     status: Mapped[str] = mapped_column(String(16), default=Stage.PENDING)
     config_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
-    # Durable pasted input. File bytes/storage and actual parsing belong to K2/K3.
+    # Durable decoded textual input; binary file storage belongs to K3.
     input_text: Mapped[str | None] = mapped_column(Text)
     content_hash: Mapped[str | None] = mapped_column(String(64))
     request_key: Mapped[str | None] = mapped_column(String(128))

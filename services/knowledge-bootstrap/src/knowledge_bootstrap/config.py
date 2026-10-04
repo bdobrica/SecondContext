@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     database_pool_size: int = Field(default=5, ge=1, le=50)
     database_timeout_seconds: int = Field(default=5, ge=1, le=60)
     max_request_bytes: int = Field(default=1_048_576, ge=1024, le=16_777_216)
+    max_input_bytes: int = Field(default=524_288, ge=1, le=8_388_608)
+    max_normalized_bytes: int = Field(default=2_097_152, ge=1, le=16_777_216)
+    max_parse_depth: int = Field(default=32, ge=1, le=64)
+    max_parse_nodes: int = Field(default=10_000, ge=1, le=100_000)
+    max_yaml_aliases: int = Field(default=32, ge=0, le=100)
+    text_worker_enabled: bool = True
+    worker_poll_seconds: float = Field(default=1, ge=0.05, le=60)
     # Future search projection; intentionally not connected or needed in K1.
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: SecretStr = SecretStr("")

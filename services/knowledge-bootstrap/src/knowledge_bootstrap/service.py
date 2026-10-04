@@ -62,7 +62,7 @@ def create_source(
                 name=payload.name,
                 source_uri=payload.source_uri,
                 content_type=payload.content_type,
-                format=payload.format,
+                format=None if payload.format == "auto" else payload.format,
                 config_json=payload.config_json,
                 metadata_json=payload.metadata_json,
                 input_text=payload.text,
