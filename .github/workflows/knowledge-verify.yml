@@ -1,0 +1,49 @@
+name: verify-knowledge
+
+on:
+  pull_request:
+    paths:
+      - 'services/knowledge-bootstrap/**'
+      - 'docker-compose.knowledge.yml'
+      - '.github/workflows/knowledge-verify.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'services/knowledge-bootstrap/**'
+      - 'docker-compose.knowledge.yml'
+      - '.github/workflows/knowledge-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/knowledge-bootstrap
+    services:
+      postgres:
+        image: postgres:16.13-alpine
+        env:
+          POSTGRES_USER: knowledge
+          POSTGRES_PASSWORD: knowledge-test-only
+          POSTGRES_DB: knowledge_bootstrap_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U knowledge -d knowledge_bootstrap_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      KNOWLEDGE_TEST_DATABASE_URL: postgresql+psycopg://knowledge:knowledge-test-only@127.0.0.1:5432/knowledge_bootstrap_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.19'
+          enable-cache: true
+          cache-dependency-glob: services/knowledge-bootstrap/uv.lock
+      - run: uv sync --locked
+      - run: make check test-integration

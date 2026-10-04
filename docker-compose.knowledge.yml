@@ -1,0 +1,33 @@
+# Optional add-on to docker-compose.yml. The normal SecondContext stack is unchanged.
+services:
+  knowledge-migrate:
+    profiles: [knowledge]
+    image: secondcontext-knowledge-bootstrap:local
+    build:
+      context: ./services/knowledge-bootstrap
+    env_file:
+      - ./services/knowledge-bootstrap/.env
+    command: ["/app/.venv/bin/alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  knowledge:
+    profiles: [knowledge]
+    image: secondcontext-knowledge-bootstrap:local
+    build:
+      context: ./services/knowledge-bootstrap
+    env_file:
+      - ./services/knowledge-bootstrap/.env
+    depends_on:
+      knowledge-migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${KNOWLEDGE_HTTP_PORT:-8090}:8090"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/app/.venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/readyz', timeout=6)"]
+      interval: 10s
+      timeout: 7s
+      retries: 6
+      start_period: 10s

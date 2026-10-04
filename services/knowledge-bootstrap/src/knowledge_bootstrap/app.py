@@ -1,0 +1,276 @@
+import hmac
+import logging
+import time
+from collections.abc import Iterator
+from contextlib import asynccontextmanager
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import Depends, FastAPI, Header, Query, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select, text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+from starlette.types import ASGIApp, Receive, Scope, Send
+
+from knowledge_bootstrap.config import Settings
+from knowledge_bootstrap.database import make_engine, make_sessions
+from knowledge_bootstrap.logging import configure_logging
+from knowledge_bootstrap.models import SCHEMA_REVISION, Chunk, Document, IngestionJob, Source
+from knowledge_bootstrap.schemas import (
+    ChunkView,
+    DocumentView,
+    JobView,
+    SourceAccepted,
+    SourceCreate,
+    SourceView,
+)
+from knowledge_bootstrap.service import ServiceError, create_source, get_owned, refresh_source
+
+bearer = HTTPBearer(auto_error=False)
+
+
+class BodyLimit:
+    """Bound actual received bytes, including requests without Content-Length."""
+
+    def __init__(self, app: ASGIApp, max_bytes: int):
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        body = bytearray()
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                return
+            body.extend(message.get("body", b""))
+            if len(body) > self.max_bytes:
+                response = JSONResponse(
+                    {
+                        "error": {
+                            "code": "request_too_large",
+                            "detail": "Request body exceeds limit",
+                        }
+                    },
+                    status_code=413,
+                )
+                await response(scope, receive, send)
+                return
+            if not message.get("more_body", False):
+                break
+        delivered = False
+
+        async def replay():
+            nonlocal delivered
+            if not delivered:
+                delivered = True
+                return {"type": "http.request", "body": bytes(body), "more_body": False}
+            return await receive()
+
+        await self.app(scope, replay, send)
+
+
+def session_for(request: Request) -> Iterator[Session]:
+    with request.app.state.sessions() as session:
+        yield session
+
+
+def owner_for(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+) -> str:
+    if credentials is not None:
+        supplied = credentials.credentials.encode()
+        for owner, token in request.app.state.settings.auth_tokens.items():
+            if hmac.compare_digest(supplied, token.get_secret_value().encode()):
+                return owner
+    raise ServiceError("unauthorized", "A valid bearer token is required", 401)
+
+
+Owner = Annotated[str, Depends(owner_for)]
+Database = Annotated[Session, Depends(session_for)]
+Limit = Annotated[int, Query(ge=1, le=100)]
+Offset = Annotated[int, Query(ge=0, le=1_000_000)]
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or Settings()
+    logger = configure_logging(settings.log_level)
+    engine = make_engine(settings)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        logger.info("service started")
+        yield
+        engine.dispose()
+        logger.info("service stopped")
+
+    app = FastAPI(title="Knowledge Bootstrap", version="0.1.0", lifespan=lifespan)
+    app.state.settings = settings
+    app.state.sessions = make_sessions(engine)
+    app.state.engine = engine
+    app.add_middleware(BodyLimit, max_bytes=settings.max_request_bytes)
+
+    @app.middleware("http")
+    async def log_request(request: Request, call_next):
+        start = time.monotonic()
+        response = await call_next(request)
+        logger.info(
+            "request completed",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "duration_ms": round((time.monotonic() - start) * 1000, 2),
+            },
+        )
+        return response
+
+    @app.exception_handler(ServiceError)
+    async def service_error(request: Request, exc: ServiceError):
+        headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None
+        return JSONResponse(
+            {"error": {"code": exc.code, "detail": exc.detail}},
+            status_code=exc.status_code,
+            headers=headers,
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, exc: RequestValidationError):
+        # FastAPI's default includes the offending input, which can contain raw source content.
+        return JSONResponse(
+            {
+                "error": {
+                    "code": "invalid_request",
+                    "detail": "Request validation failed",
+                    "fields": [
+                        {"location": list(error["loc"]), "message": error["msg"]}
+                        for error in exc.errors()
+                    ],
+                }
+            },
+            status_code=422,
+        )
+
+    @app.exception_handler(SQLAlchemyError)
+    async def database_error(request: Request, exc: SQLAlchemyError):
+        logger.error("database operation failed", extra={"error_type": type(exc).__name__})
+        return JSONResponse(
+            {"error": {"code": "database_unavailable", "detail": "Database operation failed"}},
+            status_code=503,
+        )
+
+    @app.get("/healthz")
+    def health():
+        return {"status": "ok", "service": "knowledge-bootstrap"}
+
+    @app.get("/readyz")
+    def ready(session: Database):
+        try:
+            version = session.scalar(text("SELECT version_num FROM alembic_version"))
+            if version != SCHEMA_REVISION:
+                raise ServiceError(
+                    "schema_not_ready", "Apply the knowledge service migrations", 503
+                )
+            # Check connectivity and the canonical tables as well as the revision marker.
+            session.execute(
+                text(
+                    "SELECT 1 FROM knowledge_sources, knowledge_documents, "
+                    "knowledge_chunks, knowledge_ingestion_jobs LIMIT 0"
+                )
+            )
+        except SQLAlchemyError:
+            return JSONResponse(
+                {"status": "not_ready", "detail": "Postgres unavailable or migrations not applied"},
+                status_code=503,
+            )
+        return {"status": "ready", "postgres": "ok"}
+
+    @app.post("/v1/sources", response_model=SourceAccepted, status_code=202)
+    def add_source(
+        payload: SourceCreate,
+        owner: Owner,
+        session: Database,
+        idempotency_key: Annotated[str | None, Header(min_length=1, max_length=128)] = None,
+    ):
+        if idempotency_key is not None and not idempotency_key.strip():
+            raise ServiceError("invalid_request", "Idempotency-Key must not be blank", 422)
+        source, job = create_source(session, owner, payload, idempotency_key)
+        return {"source": source, "job": job}
+
+    @app.get("/v1/sources", response_model=list[SourceView])
+    def list_sources(owner: Owner, session: Database, limit: Limit = 50, offset: Offset = 0):
+        return session.scalars(
+            select(Source)
+            .where(Source.owner_id == owner)
+            .order_by(Source.created_at.desc(), Source.id)
+            .offset(offset)
+            .limit(limit)
+        ).all()
+
+    @app.get("/v1/sources/{source_id}", response_model=SourceView)
+    def show_source(source_id: UUID, owner: Owner, session: Database):
+        return get_owned(session, Source, owner, source_id)
+
+    @app.post("/v1/sources/{source_id}/refresh", response_model=SourceAccepted, status_code=202)
+    def refresh(source_id: UUID, owner: Owner, session: Database):
+        source, job = refresh_source(session, owner, source_id)
+        return {"source": source, "job": job}
+
+    @app.get("/v1/sources/{source_id}/jobs", response_model=list[JobView])
+    def list_jobs(
+        source_id: UUID, owner: Owner, session: Database, limit: Limit = 50, offset: Offset = 0
+    ):
+        get_owned(session, Source, owner, source_id)
+        return session.scalars(
+            select(IngestionJob)
+            .where(IngestionJob.owner_id == owner, IngestionJob.source_id == source_id)
+            .order_by(IngestionJob.created_at.desc(), IngestionJob.id)
+            .offset(offset)
+            .limit(limit)
+        ).all()
+
+    @app.get("/v1/jobs/{job_id}", response_model=JobView)
+    def show_job(job_id: UUID, owner: Owner, session: Database):
+        return get_owned(session, IngestionJob, owner, job_id)
+
+    @app.get("/v1/sources/{source_id}/documents", response_model=list[DocumentView])
+    def list_documents(
+        source_id: UUID, owner: Owner, session: Database, limit: Limit = 50, offset: Offset = 0
+    ):
+        get_owned(session, Source, owner, source_id)
+        return session.scalars(
+            select(Document)
+            .where(Document.owner_id == owner, Document.source_id == source_id)
+            .order_by(Document.created_at, Document.id)
+            .offset(offset)
+            .limit(limit)
+        ).all()
+
+    @app.get("/v1/documents/{document_id}", response_model=DocumentView)
+    def show_document(document_id: UUID, owner: Owner, session: Database):
+        return get_owned(session, Document, owner, document_id)
+
+    @app.get("/v1/documents/{document_id}/chunks", response_model=list[ChunkView])
+    def list_chunks(
+        document_id: UUID, owner: Owner, session: Database, limit: Limit = 50, offset: Offset = 0
+    ):
+        get_owned(session, Document, owner, document_id)
+        return session.scalars(
+            select(Chunk)
+            .where(Chunk.owner_id == owner, Chunk.document_id == document_id)
+            .order_by(Chunk.ordinal)
+            .offset(offset)
+            .limit(limit)
+        ).all()
+
+    return app
+
+
+# Factory mode keeps configuration validation explicit and makes tests independent of env files.
+logging.getLogger("knowledge_bootstrap").addHandler(logging.NullHandler())
