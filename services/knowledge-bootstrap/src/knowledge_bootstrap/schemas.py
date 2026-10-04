@@ -9,6 +9,7 @@ from knowledge_bootstrap.models import SourceKind, Stage
 
 Format = Literal["html", "pdf", "docx", "markdown", "json", "yaml", "text"]
 TextFormat = Literal["auto", "markdown", "json", "yaml", "text"]
+UploadFormat = TextFormat | Literal["pdf", "docx"]
 
 
 class SourceCreate(BaseModel):

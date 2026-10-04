@@ -17,6 +17,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from knowledge_bootstrap.binary import MIME_TYPES as BINARY_MIME_TYPES
+from knowledge_bootstrap.binary import select_upload_format
 from knowledge_bootstrap.config import Settings
 from knowledge_bootstrap.database import make_engine, make_sessions
 from knowledge_bootstrap.ingestion import run_worker
@@ -30,7 +32,7 @@ from knowledge_bootstrap.schemas import (
     SourceAccepted,
     SourceCreate,
     SourceView,
-    TextFormat,
+    UploadFormat,
 )
 from knowledge_bootstrap.service import ServiceError, create_source, get_owned, refresh_source
 
@@ -227,12 +229,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"source": source, "job": job}
 
     @app.post("/v1/sources/upload", response_model=SourceAccepted, status_code=202)
-    def upload_text(
+    def upload_file(
         owner: Owner,
         session: Database,
         file: Annotated[UploadFile, File()],
         name: Annotated[str, Form(min_length=1, max_length=500)] = "Untitled",
-        format: Annotated[TextFormat, Form()] = "auto",
+        format: Annotated[UploadFormat, Form()] = "auto",
         idempotency_key: Annotated[str | None, Header(min_length=1, max_length=128)] = None,
     ):
         if not name.strip() or (idempotency_key is not None and not idempotency_key.strip()):
@@ -240,17 +242,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         filename = file.filename or "upload.txt"
         if len(filename) > 8192 or "\x00" in filename:
             raise ServiceError("invalid_request", "Invalid original filename", 422)
-        text = normalize_input(file.file.read(settings.max_input_bytes + 1), settings)
-        # Detect from content only. MIME/extension are untrusted provenance, never parser selectors.
+        data = file.file.read(max(settings.max_input_bytes, settings.max_file_bytes) + 1)
+        selected = select_upload_format(data, filename, file.content_type, format)
+        binary = selected in BINARY_MIME_TYPES
+        if binary and len(data) > settings.max_file_bytes:
+            raise ParseError("input_too_large", "File exceeds the upload byte limit")
+        text = None if binary else normalize_input(data, settings)
         payload = SourceCreate(
             kind="file",
             name=name,
             source_uri=filename,
             content_type=(file.content_type or "application/octet-stream")[:200],
-            format=format,
+            format=selected,
             text=text,
         )
-        source, job = create_source(session, owner, payload, idempotency_key)
+        source, job = create_source(
+            session, owner, payload, idempotency_key, input_bytes=data if binary else None
+        )
         return {"source": source, "job": job}
 
     @app.get("/v1/sources", response_model=list[SourceView])

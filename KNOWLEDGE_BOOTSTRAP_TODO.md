@@ -1,6 +1,6 @@
 # Knowledge Bootstrap Service — TODO
 
-Status: K1 and K2 implemented; remaining milestones proposed
+Status: K1, K2 and K3 implemented; remaining milestones proposed
 
 Track: Standalone / parallel to SecondContext
 
@@ -173,44 +173,52 @@ No new database migration, LLM, Qdrant connection or SecondContext dependency is
 
 ## K3 — PDF and DOCX parsing
 
+Implemented through `/v1/sources/upload` with content signatures and consistent PDF/DOCX
+format hints. Bounded original bytes remain in Postgres for retry/refresh. A disposable parser
+process enforces wall time, CPU, memory and output limits; PDFs retain page provenance and
+DOCX retains heading ancestry, paragraphs, lists and readable tables. Scanned/near-empty PDFs
+fail explicitly with `pdf_text_unavailable`; OCR remains deferred. Migration
+`0002_source_bytes` extends only the optional service database. Parsed jobs still pause at
+`chunking` for K5.
+
 ### PDF
 
-- [ ] Implement digital-text PDF extraction.
-- [ ] Preserve page numbers/ranges.
-- [ ] Preserve paragraph boundaries where possible.
-- [ ] Detect empty/near-empty extraction.
-- [ ] Return an explicit unsupported/scanned indication rather than silently indexing empty text.
-- [ ] Enforce PDF byte limits.
-- [ ] Enforce parser timeout.
-- [ ] Enforce decompression/object/resource limits where library support permits.
-- [ ] Add malformed/corrupt PDF tests.
-- [ ] Add representative multi-page fixtures.
+- [x] Implement digital-text PDF extraction.
+- [x] Preserve page numbers/ranges.
+- [x] Preserve paragraph boundaries where possible.
+- [x] Detect empty/near-empty extraction.
+- [x] Return an explicit unsupported/scanned indication rather than silently indexing empty text.
+- [x] Enforce PDF byte limits.
+- [x] Enforce parser timeout.
+- [x] Enforce decompression/object/resource limits where library support permits.
+- [x] Add malformed/corrupt PDF tests.
+- [x] Add representative multi-page fixtures.
 
 ### DOCX
 
-- [ ] Extract headings.
-- [ ] Extract paragraphs.
-- [ ] Extract lists.
-- [ ] Extract tables into readable deterministic text.
-- [ ] Preserve section hierarchy.
-- [ ] Enforce upload byte limits.
-- [ ] Defend against ZIP bombs/oversized decompression.
-- [ ] Add malformed DOCX tests.
-- [ ] Add representative fixture coverage.
+- [x] Extract headings.
+- [x] Extract paragraphs.
+- [x] Extract lists.
+- [x] Extract tables into readable deterministic text.
+- [x] Preserve section hierarchy.
+- [x] Enforce upload byte limits.
+- [x] Defend against ZIP bombs/oversized decompression.
+- [x] Add malformed DOCX tests.
+- [x] Add representative fixture coverage.
 
 ### File upload API
 
-- [ ] Add multipart upload to `POST /v1/sources` or a dedicated upload route.
-- [ ] Detect/validate MIME type and extension without trusting either blindly.
-- [ ] Preserve original filename as metadata only.
-- [ ] Define temporary-file cleanup behavior.
-- [ ] Define whether original bytes are stored or discarded after parsing.
+- [x] Add multipart upload to `POST /v1/sources` or a dedicated upload route.
+- [x] Detect/validate MIME type and extension without trusting either blindly.
+- [x] Preserve original filename as metadata only.
+- [x] Define temporary-file cleanup behavior.
+- [x] Define whether original bytes are stored or discarded after parsing.
 
 ### K3 exit criteria
 
-- [ ] PDF and DOCX produce canonical documents with useful provenance.
-- [ ] Scanned PDFs fail clearly instead of producing misleading empty knowledge.
-- [ ] Resource-abuse tests cover large/malformed containers.
+- [x] PDF and DOCX produce canonical documents with useful provenance.
+- [x] Scanned PDFs fail clearly instead of producing misleading empty knowledge.
+- [x] Resource-abuse tests cover large/malformed containers.
 
 ---
 
@@ -670,7 +678,7 @@ Begin only after retrieval quality is proven.
 1. [x] K1 — Core service and data model.
 2. [x] K2 — Text / Markdown / JSON / YAML ingestion.
 3. [ ] K5 foundation — canonical document/chunk model and stable hashing.
-4. [ ] K3 — PDF / DOCX.
+4. [x] K3 — PDF / DOCX.
 5. [ ] K4 — safe website ingestion.
 6. [ ] K5 completion — dense/sparse indexing and recovery.
 7. [ ] K6 — hybrid retrieval API.

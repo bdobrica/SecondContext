@@ -47,10 +47,24 @@ def _creation_replay(session: Session, owner: str, key: str, fingerprint: str):
 
 
 def create_source(
-    session: Session, owner: str, payload: SourceCreate, key: str | None = None
+    session: Session,
+    owner: str,
+    payload: SourceCreate,
+    key: str | None = None,
+    *,
+    input_bytes: bytes | None = None,
 ) -> tuple[Source, IngestionJob]:
+    if input_bytes is not None and (
+        payload.kind != SourceKind.FILE
+        or payload.format not in {"pdf", "docx"}
+        or payload.text is not None
+    ):
+        raise ValueError("Binary input requires a PDF/DOCX file source without text")
+    identity = payload.model_dump(mode="json")
+    if input_bytes is not None:
+        identity["input_bytes_hash"] = hashlib.sha256(input_bytes).hexdigest()
     fingerprint = hashlib.sha256(
-        json.dumps(payload.model_dump(mode="json"), sort_keys=True, separators=(",", ":")).encode()
+        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
     try:
         with session.begin():
@@ -66,8 +80,13 @@ def create_source(
                 config_json=payload.config_json,
                 metadata_json=payload.metadata_json,
                 input_text=payload.text,
+                input_bytes=input_bytes,
                 content_hash=(
-                    hashlib.sha256(payload.text.encode()).hexdigest() if payload.text else None
+                    hashlib.sha256(input_bytes).hexdigest()
+                    if input_bytes is not None
+                    else hashlib.sha256(payload.text.encode()).hexdigest()
+                    if payload.text
+                    else None
                 ),
                 request_key=key,
                 request_hash=fingerprint if key else None,

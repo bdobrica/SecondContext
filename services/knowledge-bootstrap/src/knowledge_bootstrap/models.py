@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -38,7 +39,7 @@ class Stage(StrEnum):
 TERMINAL = {Stage.READY, Stage.FAILED}
 STAGE_CHECK = "status IN ('pending','fetching','parsing','chunking','indexing','ready','failed')"
 FORMAT_CHECK = "format IS NULL OR format IN ('html','pdf','docx','markdown','json','yaml','text')"
-SCHEMA_REVISION = "0001_knowledge_core"
+SCHEMA_REVISION = "0002_source_bytes"
 
 
 class Base(DeclarativeBase):
@@ -63,6 +64,12 @@ class Source(CanonicalRow, Base):
         CheckConstraint("kind IN ('url','file','text')", name="ck_sources_kind"),
         CheckConstraint(STAGE_CHECK, name="ck_sources_status"),
         CheckConstraint(FORMAT_CHECK, name="ck_sources_format"),
+        CheckConstraint(
+            "input_bytes IS NULL OR (kind = 'file' AND format IS NOT NULL "
+            "AND format IN ('pdf','docx') "
+            "AND input_text IS NULL)",
+            name="ck_sources_binary_input",
+        ),
         Index("ix_sources_owner_created", "owner_id", "created_at", "id"),
     )
 
@@ -74,8 +81,9 @@ class Source(CanonicalRow, Base):
     status: Mapped[str] = mapped_column(String(16), default=Stage.PENDING)
     config_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
-    # Durable decoded textual input; binary file storage belongs to K3.
+    # Original inputs stay durable for parsing/retries; never included in API views.
     input_text: Mapped[str | None] = mapped_column(Text)
+    input_bytes: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
     content_hash: Mapped[str | None] = mapped_column(String(64))
     request_key: Mapped[str | None] = mapped_column(String(128))
     request_hash: Mapped[str | None] = mapped_column(String(64))

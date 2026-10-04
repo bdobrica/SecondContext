@@ -302,3 +302,62 @@ def test_migration_upgrade_downgrade_and_model_parity(sessions):
         assert inspect(connection).get_table_names(schema=schema) == ["alembic_version"]
         command.upgrade(config, "head")
         connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
+
+
+def test_binary_migration_preserves_text_and_enforces_input_invariants(sessions):
+    schema = "binary_migration_test_" + uuid4().hex
+    engine = sessions.kw["bind"]
+    with engine.begin() as connection:
+        connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+        connection.execute(text(f'SET LOCAL search_path TO "{schema}"'))
+        config = Config(str(ROOT / "alembic.ini"))
+        config.attributes["connection"] = connection
+        command.upgrade(config, "0001_knowledge_core")
+        source_id = uuid4()
+        connection.execute(
+            text(
+                "INSERT INTO knowledge_sources (id, owner_id, kind, name, input_text, status) "
+                "VALUES (:id, 'existing-owner', 'text', 'Existing source', "
+                "'Keep this text', 'pending')"
+            ),
+            {"id": source_id},
+        )
+        command.upgrade(config, "head")
+        assert connection.execute(
+            text("SELECT input_text, input_bytes FROM knowledge_sources WHERE id = :id"),
+            {"id": source_id},
+        ).one() == ("Keep this text", None)
+        insert = text(
+            "INSERT INTO knowledge_sources "
+            "(id, owner_id, kind, name, format, input_text, input_bytes, status) "
+            "VALUES (:id, 'owner', :kind, 'Upload', :format, :text, :bytes, 'pending')"
+        )
+        for kind, fmt, input_text in [
+            ("file", None, None),
+            ("file", "text", None),
+            ("text", "pdf", None),
+            ("file", "pdf", "text"),
+        ]:
+            with pytest.raises(IntegrityError), connection.begin_nested():
+                connection.execute(
+                    insert,
+                    {
+                        "id": uuid4(),
+                        "kind": kind,
+                        "format": fmt,
+                        "text": input_text,
+                        "bytes": b"binary",
+                    },
+                )
+        connection.execute(
+            insert,
+            {"id": uuid4(), "kind": "file", "format": "pdf", "text": None, "bytes": b"binary"},
+        )
+        command.downgrade(config, "0001_knowledge_core")
+        assert (
+            connection.scalar(
+                text("SELECT input_text FROM knowledge_sources WHERE id = :id"), {"id": source_id}
+            )
+            == "Keep this text"
+        )
+        connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))

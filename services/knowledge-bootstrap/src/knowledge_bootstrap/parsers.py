@@ -28,6 +28,8 @@ class Block:
     heading_path: list[str] = field(default_factory=list)
     level: int | None = None
     path: str | None = None  # JSON Pointer; the empty string represents the root.
+    page_start: int | None = None
+    page_end: int | None = None
 
 
 @dataclass
@@ -36,13 +38,18 @@ class ParsedDocument:
     text: str
     blocks: list[Block]
     title: str | None = None
+    extra_metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def content_hash(self) -> str:
         return hashlib.sha256(self.text.encode()).hexdigest()
 
     def metadata(self) -> dict[str, Any]:
-        return {"parser_version": 1, "blocks": [asdict(block) for block in self.blocks]}
+        return {
+            "parser_version": 1,
+            **self.extra_metadata,
+            "blocks": [asdict(block) for block in self.blocks],
+        }
 
 
 def normalize_input(value: str | bytes, settings: Settings, *, allow_blank: bool = False) -> str:
@@ -307,7 +314,13 @@ def parse_text(value: str | bytes, fmt: str | None, settings: Settings) -> Parse
         raise ParseError(
             "unsupported_format", "Supported text formats are text, markdown, json and yaml"
         )
-    # Bound both readable content and the actual JSONB representation, including path repetition.
+    return validate_document(document, settings)
+
+
+def validate_document(document: ParsedDocument, settings: Settings) -> ParsedDocument:
+    """Shared output bound, including repeated ancestry and page provenance in JSONB."""
+    if len(document.blocks) > settings.max_parse_nodes:
+        raise ParseError("structure_too_large", "Document exceeds the block limit")
     size = len(document.text.encode()) + len(
         json.dumps(document.metadata(), ensure_ascii=False).encode()
     )

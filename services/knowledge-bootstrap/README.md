@@ -7,8 +7,9 @@ dependencies, migrations, database and authentication; it imports no SecondConte
 K1 provides source registration, durable ingestion jobs, canonical models and inspection APIs.
 K2 adds pasted and uploaded TXT, Markdown, JSON and YAML ingestion. A small in-process worker
 polls durable jobs and writes canonical documents without an LLM. Swagger at `/docs` is
-available now. Chunking, indexing, search, binary-file/website parsing and the Jinja2 management
-UI belong to later milestones.
+available now. K3 adds digital PDF and DOCX uploads, with page/section provenance and bounded
+parser subprocesses. Chunking, indexing, search, website parsing and the Jinja2 management UI
+belong to later milestones.
 
 **Parsed inputs stop at `chunking`, with one processed document and zero chunks.** This means
 parsing succeeded and the canonical document is inspectable; it does not mean the source is
@@ -72,8 +73,11 @@ timeouts, request size and log level are configurable. `/healthz` reports proces
 `/readyz` verifies database access, the expected migration revision and the canonical tables.
 Migrations run explicitly rather than competing across API processes on startup.
 
-Qdrant configuration reserves a dedicated `knowledge_chunks` collection. K1/K2 neither connect
-to Qdrant nor needs embeddings/LLM credentials. Canonical data lives entirely in Postgres.
+Qdrant configuration reserves a dedicated `knowledge_chunks` collection. K1–K3 do not connect
+to Qdrant or need embeddings/LLM credentials. Canonical data lives entirely in Postgres.
+K3's additive `0002_source_bytes` migration stores original PDF/DOCX bytes on file sources;
+apply migrations before starting the updated service. Existing text/document/job rows survive
+the upgrade. Downgrading to K2 drops retained binary inputs.
 
 ## Ownership and API
 
@@ -101,7 +105,7 @@ Creation returns HTTP `202` with `{ "source": {...}, "job": {...} }`. `name` is 
 
 The JSON route also accepts URL/file registrations without content for subsequent milestones.
 URL registrations require an HTTP/HTTPS `source_uri`, file registrations require an original
-filename, and neither is fetched by K2. Jobs without stored textual input remain pending.
+filename, and neither is fetched. Jobs without stored text or binary input remain pending.
 
 Upload text using the dedicated multipart route, with optional `name` and `format` form fields:
 
@@ -113,15 +117,39 @@ curl http://localhost:8090/v1/sources/upload \
 ```
 
 Poll `/v1/jobs/{id}` and inspect `/v1/sources/{id}/documents`. The worker processes pasted
-and uploaded content identically. It selects parsers from content/explicit override rather than
-trusting MIME or extension. Filenames are preserved only as provenance; they never become
-filesystem paths. UTF-8 decoded input is retained on the source for retries; original byte
-encoding is discarded. Multipart temporary files are closed/removed by the request lifecycle.
+and uploaded text identically. It selects text parsers from content/explicit override rather
+than trusting MIME or extension. Filenames are preserved only as provenance; they never become
+filesystem paths. UTF-8 decoded input is retained on the source for retries; its original byte
+encoding is discarded. Multipart spooled files are closed/removed by the request lifecycle.
+
+Upload a PDF or DOCX on the same route (omit `format`, or explicitly use `pdf`/`docx`):
+
+```bash
+curl http://localhost:8090/v1/sources/upload \
+  -H "Authorization: Bearer $KNOWLEDGE_TOKEN" \
+  -H 'Idempotency-Key: uploaded-handbook-v1' \
+  -F 'file=@handbook.pdf' -F 'name=Engineering handbook'
+```
+
+PDF magic bytes select PDF; ZIP signatures select a DOCX candidate, whose package is validated
+in the parser process. A recognized `.pdf`/`.docx` suffix, matching binary MIME or explicit
+binary format must agree with the bytes; conflicts return `422 file_type_mismatch`. Generic,
+missing or text MIME/suffixes do not select a binary parser. Thus renaming a ZIP to `.docx`
+does not make an arbitrary archive ingestible. ZIP/malformed PDF candidates are accepted
+durably, then fail with a stable job error when parsing detects the problem.
+
+Original PDF/DOCX bytes are stored in the source's private Postgres `BYTEA` column, retained
+after success/failure for refresh and crash recovery. Their SHA-256 is the source hash; the
+document hash covers normalized text. Bytes are omitted from all API views and logs. Binary
+idempotency includes their hash. No object storage, persistent filesystem paths or download
+endpoint is required. Temporary parser directories use generated names with private access;
+they are removed on completion, exception or timeout. An abrupt service/container kill can
+leave temporary files until the container's temporary filesystem is removed.
 
 | Endpoint | Purpose |
 | --- | --- |
 | `POST /v1/sources` | Create source and pending job atomically |
-| `POST /v1/sources/upload` | Upload one bounded UTF-8 text file |
+| `POST /v1/sources/upload` | Upload one bounded text, PDF or DOCX file |
 | `GET /v1/sources` | List this owner's sources |
 | `GET /v1/sources/{id}` | Inspect source |
 | `POST /v1/sources/{id}/refresh` | Reuse active job, or queue a fresh attempt |
@@ -144,7 +172,7 @@ refresh requests. Source/job state changes commit together.
 
 ## Parsing contract and limits
 
-Input must be valid UTF-8; a leading BOM is removed, CRLF/CR are normalized to LF, and binary
+Text input must be valid UTF-8; a leading BOM is removed, CRLF/CR are normalized to LF, and binary
 control characters are rejected. Paragraph boundaries remain in plain text. Markdown retains
 heading ancestry, paragraphs, lists, quotes and fenced/indented code blocks. Code content is
 never interpreted as document headings or executed.
@@ -153,7 +181,8 @@ JSON/YAML normalize to the same readable, sorted, indented JSON representation. 
 their types, arrays retain their order, and empty containers/strings remain present. Duplicate
 mapping keys are rejected to prevent silent data loss. Blocks carry escaped JSON Pointer paths
 (e.g. `/deployment/commands/0`) in `metadata_json.blocks`. Each block contains `type`, `text`,
-`heading_path`, optional `level`, and optional `path`; the empty pointer denotes the root.
+`heading_path`, optional `level`/`path`, and optional `page_start`/`page_end`; the empty pointer
+denotes the root.
 Documents use a stable source-based URI and SHA-256 of their normalized text.
 
 YAML uses a restricted SafeLoader with PyYAML's YAML 1.1 scalar rules. Dates remain strings.
@@ -169,23 +198,72 @@ format override for ambiguous YAML, JSON scalars or literal Markdown-looking pro
 
 | Setting | Default | Bounds |
 | --- | --- | --- |
-| `KNOWLEDGE_MAX_REQUEST_BYTES` | 1 MiB | Whole received HTTP body, including multipart/JSON overhead |
+| `KNOWLEDGE_MAX_REQUEST_BYTES` | 10 MiB | Whole received HTTP body, including multipart/JSON overhead |
 | `KNOWLEDGE_MAX_INPUT_BYTES` | 512 KiB | UTF-8 input before normalization |
+| `KNOWLEDGE_MAX_FILE_BYTES` | 8 MiB | Original PDF/DOCX bytes |
 | `KNOWLEDGE_MAX_NORMALIZED_BYTES` | 2 MiB | Canonical text plus semantic-block metadata |
-| `KNOWLEDGE_MAX_PARSE_DEPTH` | 32 | JSON/YAML nesting, including expanded aliases |
+| `KNOWLEDGE_MAX_PARSE_DEPTH` | 32 | JSON/YAML aliases, PDF page trees, DOCX XML/styles/tables |
 | `KNOWLEDGE_MAX_PARSE_NODES` | 10,000 | Structured/expanded nodes, Markdown tokens or text blocks |
 | `KNOWLEDGE_MAX_YAML_ALIASES` | 32 | YAML alias occurrences |
+| `KNOWLEDGE_PARSER_TIMEOUT_SECONDS` | 15 seconds | Binary parser wall time, including startup; CPU capped too |
+| `KNOWLEDGE_PARSER_MEMORY_BYTES` | 512 MiB | Binary parser address space |
+| `KNOWLEDGE_MAX_PDF_PAGES` | 500 | PDF page count |
+| `KNOWLEDGE_MIN_PDF_TEXT_CHARS` | 20 | Minimum alphanumeric characters; see below |
+| `KNOWLEDGE_MAX_PDF_STREAM_BYTES` | 8 MiB | Declared/decoded PDF stream sizes where library supports limits |
+| `KNOWLEDGE_MAX_DOCUMENT_OBJECTS` | 50,000 | PDF cross-reference/page-tree entries or total DOCX XML elements |
+| `KNOWLEDGE_MAX_ARCHIVE_MEMBERS` | 512 | DOCX ZIP members |
+| `KNOWLEDGE_MAX_DECOMPRESSED_BYTES` | 32 MiB | Total PDF page-content bytes or DOCX expanded ZIP bytes |
+| `KNOWLEDGE_MAX_COMPRESSION_RATIO` | 200 | DOCX maximum expanded/compressed ratio per member |
+
+If an existing deployment pins `KNOWLEDGE_MAX_REQUEST_BYTES` to 1 MiB, raise it to allow larger
+file uploads; this bound includes multipart overhead. Text's 512 KiB limit stays independent.
 
 Oversized requests/inputs return `413`; invalid encoding/text returns `422`. Accepted malformed
 structured content becomes a durable `failed` job with codes such as `invalid_json`,
 `invalid_yaml`, `nesting_too_deep`, `structure_too_large`, `yaml_alias_limit`,
 `yaml_recursive_alias`, or `normalized_too_large`. Errors never include parser excerpts.
 
+PDF uses pypdf's strict reader and layout text extraction. Vertical gaps become paragraph
+boundaries where the document layout permits; every block has a one-based physical page range.
+`metadata_json.page_count` includes blank pages and `pages_with_low_text` lists pages below
+the configured minimum. A document below the minimum overall, or with all pages below it,
+fails as `pdf_text_unavailable` with an explicit unsupported/scanned/OCR indication. Mixed
+documents retain available digital text and expose low-text pages; no OCR or image interpretation
+runs. Lower the minimum for legitimate tiny PDFs. Complex columns, fonts and visual layouts
+can affect reading order; this MVP does not infer PDF headings or reconstruct PDF tables.
+Encrypted PDFs fail as `pdf_encrypted`; corrupt files fail as `invalid_pdf`.
+
+DOCX uses python-docx after validating all ZIP members and XML/relationship parts. It keeps
+body paragraphs/tables in document order, heading ancestry (including inherited outline
+levels), hyperlink text, list indentation and readable table rows. Bullets use `-`; ordered
+lists use deterministic decimal ordinals per numbering ID/level, rather than Word's exact
+rendered numbering/restart formats. Table cells are separated by ` | `, cell paragraph breaks
+by ` / `; nested tables retain readable text, merged cells emit their text once. DOCX layout
+pagination is unavailable, so page fields remain null. Headers/footers, text boxes, comments,
+tracked-change-only text and image content are outside this body-text MVP.
+
+ZIP expansion/member/ratio limits apply before loading the document; actual reads are also
+bounded and CRC-checked. XML DTD/entities/external entity references, duplicate or traversal
+member paths, encrypted archives and macro documents are rejected. External hyperlink targets
+are never fetched. Empty DOCX files fail as `docx_text_unavailable`; malformed/unsafe packages
+fail as `invalid_docx`. PDF/DOCX resource bounds produce `pdf_resource_limit` or
+`docx_resource_limit`; process timeout/OOM/crash produces `parser_timeout` or
+`parser_resource_limit`. All are durable failed attempts at the parsing stage.
+
+Binary parsers execute in a fresh process with wall/CPU time, address-space, output-file and
+file-descriptor limits on Linux/POSIX. The child gets parsing settings and a minimal environment
+without database/authentication credentials. Standard output/error are discarded to avoid
+third-party parser excerpts. Timeout kills and reaps the child, removes temporary files and
+lets the worker continue with the next job. Resource caps bound library operations that cannot
+be checked in advance. Other platforms return `parser_unavailable` for binary jobs; text
+ingestion still works. The supported Docker image runs on Linux.
+
 ## Worker and recovery
 
 The API starts one polling thread by default. `KNOWLEDGE_TEXT_WORKER_ENABLED=false` disables
-it; `KNOWLEDGE_WORKER_POLL_SECONDS` defaults to 1 second. A worker claims only stored textual
-input belonging to configured owners, in `pending`/`parsing`, with at most one found/processed
+it (the existing setting controls text and binary jobs); `KNOWLEDGE_WORKER_POLL_SECONDS`
+defaults to 1 second. A worker claims stored text or PDF/DOCX input belonging to configured
+owners, in `pending`/`parsing`, with at most one found/processed
 document and zero chunks. URL and metadata-only registrations are left for later workers.
 
 Workers lock sources before jobs and use `SKIP LOCKED`, so multiple API processes can share
@@ -228,7 +306,7 @@ uv run --env-file .env knowledge-bootstrap transition-job JOB_UUID failed --owne
 ```
 
 The operator CLI permits an empty job to reach `ready` for testing the lifecycle; this does
-not create documents/chunks. Normal K2 ingestion deliberately stops at `chunking`.
+not create documents/chunks. Normal K2/K3 ingestion deliberately stops at `chunking`.
 Job retention currently follows source retention: the schema cascades sources to their
 documents, chunks and jobs. Public deletion and projection cleanup are later lifecycle work.
 
@@ -254,4 +332,7 @@ Tests cover source/job atomicity, legal transitions, monotonic progress, failure
 idempotency under concurrent requests, owner access, database provenance constraints and
 migration/model parity. K2 adds parser fixtures, ambiguous detection, hostile structured-input
 bounds, uploads, canonical provenance, worker concurrency, transaction rollback and restart
-recovery tests.
+recovery tests. K3 adds synthetic multi-page/image-only PDFs and a DOCX handbook, with a
+fixture generator. Coverage includes page/heading/list/table fidelity, binary persistence and
+refresh, malformed files, compressed stream/ZIP expansion abuse, XML entities, parser timeout,
+crash cleanup, rollback and worker restart. Fixtures contain no third-party document content.

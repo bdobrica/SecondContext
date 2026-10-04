@@ -1,13 +1,15 @@
-"""Durable K2 worker: canonical parsing only; K5 will consume chunking jobs."""
+"""Durable local-input worker: K5 will consume canonical chunking jobs."""
 
 import hashlib
 import logging
 from threading import Event
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
+from knowledge_bootstrap.binary import MIME_TYPES as BINARY_MIME_TYPES
+from knowledge_bootstrap.binary import parse_binary
 from knowledge_bootstrap.config import Settings
 from knowledge_bootstrap.models import Document, IngestionJob, Source, SourceKind, Stage
 from knowledge_bootstrap.parsers import ParseError, detect_format, normalize_input, parse_text
@@ -21,6 +23,7 @@ MIME_TYPES = {
     "markdown": "text/markdown",
     "json": "application/json",
     "yaml": "application/yaml",
+    **BINARY_MIME_TYPES,
 }
 
 
@@ -40,7 +43,7 @@ def process_next(sessions: sessionmaker, settings: Settings) -> bool:
             )
             .where(
                 Source.kind.in_((SourceKind.TEXT, SourceKind.FILE)),
-                Source.input_text.is_not(None),
+                or_(Source.input_text.is_not(None), Source.input_bytes.is_not(None)),
                 IngestionJob.status.in_(PARSE_STATES),
                 IngestionJob.documents_found <= 1,
                 IngestionJob.documents_processed <= 1,
@@ -67,9 +70,12 @@ def process_next(sessions: sessionmaker, settings: Settings) -> bool:
             return False
         apply_transition(source, job, JobTransition(status=Stage.PARSING, documents_found=1))
         try:
-            text = normalize_input(source.input_text, settings)
-            source.format = source.format or detect_format(text)
-            parsed = parse_text(text, source.format, settings)
+            if source.input_bytes is not None:
+                parsed = parse_binary(source.input_bytes, source.format, settings)
+            else:
+                text = normalize_input(source.input_text, settings)
+                source.format = source.format or detect_format(text)
+                parsed = parse_text(text, source.format, settings)
         except ParseError as exc:
             apply_transition(
                 source,
@@ -77,7 +83,7 @@ def process_next(sessions: sessionmaker, settings: Settings) -> bool:
                 JobTransition(status=Stage.FAILED, error_code=exc.code, error_detail=exc.detail),
             )
             logger.info(
-                "text parsing failed", extra={"job_id": str(job.id), "error_code": exc.code}
+                "document parsing failed", extra={"job_id": str(job.id), "error_code": exc.code}
             )
         else:
             # The source UUID is the stable document URI; filenames are metadata, never paths.
@@ -97,7 +103,7 @@ def process_next(sessions: sessionmaker, settings: Settings) -> bool:
             )
             document.format = parsed.format
             document.mime_type = MIME_TYPES[parsed.format]
-            document.raw_content_or_ref = uri  # Original decoded text remains on the source.
+            document.raw_content_or_ref = uri  # Original text/bytes remain on the source.
             document.text_content = parsed.text
             document.content_hash = parsed.content_hash
             document.metadata_json = {
@@ -106,13 +112,15 @@ def process_next(sessions: sessionmaker, settings: Settings) -> bool:
                 "declared_content_type": source.content_type,
             }
             source.format = parsed.format
-            source.content_hash = hashlib.sha256(source.input_text.encode()).hexdigest()
+            source.content_hash = hashlib.sha256(
+                source.input_bytes if source.input_bytes is not None else source.input_text.encode()
+            ).hexdigest()
             apply_transition(
                 source,
                 job,
                 JobTransition(status=Stage.CHUNKING, documents_found=1, documents_processed=1),
             )
-            logger.info("text parsed", extra={"job_id": str(job.id), "format": parsed.format})
+            logger.info("document parsed", extra={"job_id": str(job.id), "format": parsed.format})
         session.flush()
     return True
 
@@ -124,7 +132,9 @@ def run_worker(sessions: sessionmaker, settings: Settings, stop: Event) -> None:
                 continue
         except SQLAlchemyError as exc:
             # The transaction rolled back. Retry durably on the next poll, without logging input.
-            logger.error("text worker database failure", extra={"error_type": type(exc).__name__})
+            logger.error(
+                "ingestion worker database failure", extra={"error_type": type(exc).__name__}
+            )
         except Exception as exc:
-            logger.error("text worker failure", extra={"error_type": type(exc).__name__})
+            logger.error("ingestion worker failure", extra={"error_type": type(exc).__name__})
         stop.wait(settings.worker_poll_seconds)

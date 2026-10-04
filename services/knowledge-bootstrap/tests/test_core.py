@@ -174,5 +174,6 @@ def test_liveness_auth_and_bounded_body_without_postgres(settings):
             == 413
         )
         # A streamed body without a Content-Length receives the same limit.
-        streamed = client.post("/v1/sources", content=iter([b"x" * 600_000, b"x" * 600_000]))
+        part_size = settings.max_request_bytes // 2 + 1
+        streamed = client.post("/v1/sources", content=iter([b"x" * part_size, b"x" * part_size]))
         assert streamed.status_code == 413
