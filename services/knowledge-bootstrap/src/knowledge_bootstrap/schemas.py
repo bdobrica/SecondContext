@@ -1,11 +1,12 @@
 from datetime import datetime
 from typing import Any, Literal, Self
-from urllib.parse import urlsplit
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from knowledge_bootstrap.models import SourceKind, Stage
+from knowledge_bootstrap.parsers import ParseError
+from knowledge_bootstrap.web_urls import CrawlConfig, normalize_url
 
 Format = Literal["html", "pdf", "docx", "markdown", "json", "yaml", "text"]
 TextFormat = Literal["auto", "markdown", "json", "yaml", "text"]
@@ -34,11 +35,13 @@ class SourceCreate(BaseModel):
     @model_validator(mode="after")
     def validate_origin(self) -> Self:
         if self.kind == SourceKind.URL:
-            url = urlsplit(self.source_uri or "")
-            if url.scheme not in {"http", "https"} or not url.hostname:
-                raise ValueError("URL sources require an HTTP/HTTPS source_uri")
-            if url.username or url.password:
-                raise ValueError("URL credentials are not supported")
+            try:
+                normalize_url(self.source_uri or "")
+            except ParseError as exc:
+                raise ValueError(exc.detail) from None
+            if self.format not in {None, "auto", "html"}:
+                raise ValueError("URL sources support HTML only")
+            self.config_json = CrawlConfig.model_validate(self.config_json).model_dump()
         if self.kind == SourceKind.FILE and not (self.source_uri or "").strip():
             raise ValueError("file sources require an original filename in source_uri")
         if self.kind == SourceKind.URL and self.text is not None:

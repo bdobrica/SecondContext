@@ -1,4 +1,4 @@
-"""Durable local-input worker: K5 will consume canonical chunking jobs."""
+"""Durable ingestion worker: K5 will consume canonical chunking jobs."""
 
 import hashlib
 import logging
@@ -15,9 +15,11 @@ from knowledge_bootstrap.models import Document, IngestionJob, Source, SourceKin
 from knowledge_bootstrap.parsers import ParseError, detect_format, normalize_input, parse_text
 from knowledge_bootstrap.schemas import JobTransition
 from knowledge_bootstrap.service import apply_transition
+from knowledge_bootstrap.web import ingest_website
 
 logger = logging.getLogger("knowledge_bootstrap")
 PARSE_STATES = (Stage.PENDING, Stage.PARSING)
+WEB_STATES = (Stage.PENDING, Stage.FETCHING)
 MIME_TYPES = {
     "text": "text/plain",
     "markdown": "text/markdown",
@@ -32,7 +34,9 @@ def process_next(sessions: sessionmaker, settings: Settings) -> bool:
 
     Source locks precede job locks, matching refresh/transition. SKIP LOCKED allows
     multiple API processes to poll without duplicate parsing or a separate queue.
-    Only bounded local work runs inside this transaction; no network calls.
+    Local parsing and website crawling run in bounded disposable processes. URL
+    work holds the source lock for at most the configured crawl time plus startup.
+    Network/DB crashes leave the original pending job claimable on restart.
     """
     with sessions.begin() as session:
         source = session.scalar(
@@ -42,11 +46,17 @@ def process_next(sessions: sessionmaker, settings: Settings) -> bool:
                 (IngestionJob.source_id == Source.id) & (IngestionJob.owner_id == Source.owner_id),
             )
             .where(
-                Source.kind.in_((SourceKind.TEXT, SourceKind.FILE)),
-                or_(Source.input_text.is_not(None), Source.input_bytes.is_not(None)),
-                IngestionJob.status.in_(PARSE_STATES),
-                IngestionJob.documents_found <= 1,
-                IngestionJob.documents_processed <= 1,
+                or_(
+                    (Source.kind.in_((SourceKind.TEXT, SourceKind.FILE)))
+                    & (or_(Source.input_text.is_not(None), Source.input_bytes.is_not(None)))
+                    & (IngestionJob.status.in_(PARSE_STATES))
+                    & (IngestionJob.documents_found <= 1)
+                    & (IngestionJob.documents_processed <= 1),
+                    (Source.kind == SourceKind.URL)
+                    & (IngestionJob.status.in_(WEB_STATES))
+                    & (IngestionJob.documents_found == 0)
+                    & (IngestionJob.documents_processed == 0),
+                ),
                 IngestionJob.chunks_created == 0,
                 Source.owner_id.in_(settings.auth_tokens),
             )
@@ -61,13 +71,19 @@ def process_next(sessions: sessionmaker, settings: Settings) -> bool:
             .where(
                 IngestionJob.source_id == source.id,
                 IngestionJob.owner_id == source.owner_id,
-                IngestionJob.status.in_(PARSE_STATES),
+                IngestionJob.status.in_(
+                    WEB_STATES if source.kind == SourceKind.URL else PARSE_STATES
+                ),
             )
             .with_for_update()
         )
         # A waiting source lock can observe a job completed by an operator.
         if job is None:
             return False
+        if source.kind == SourceKind.URL:
+            process_website(session, source, job, settings)
+            session.flush()
+            return True
         apply_transition(source, job, JobTransition(status=Stage.PARSING, documents_found=1))
         try:
             if source.input_bytes is not None:
@@ -123,6 +139,68 @@ def process_next(sessions: sessionmaker, settings: Settings) -> bool:
             logger.info("document parsed", extra={"job_id": str(job.id), "format": parsed.format})
         session.flush()
     return True
+
+
+def process_website(session, source: Source, job: IngestionJob, settings: Settings) -> None:
+    apply_transition(source, job, JobTransition(status=Stage.FETCHING))
+    try:
+        result = ingest_website(source.source_uri, source.config_json, settings)
+    except ParseError as exc:
+        apply_transition(
+            source,
+            job,
+            JobTransition(status=Stage.FAILED, error_code=exc.code, error_detail=exc.detail),
+        )
+        logger.info(
+            "website ingestion failed", extra={"job_id": str(job.id), "error_code": exc.code}
+        )
+        return
+    apply_transition(
+        source, job, JobTransition(status=Stage.PARSING, documents_found=len(result.documents))
+    )
+    for parsed in result.documents:
+        # The observed final URL is authoritative; an HTML canonical hint is metadata.
+        uri = parsed.extra_metadata["final_url"]
+        document = session.scalar(
+            select(Document).where(
+                Document.owner_id == source.owner_id,
+                Document.source_id == source.id,
+                Document.uri == uri,
+            )
+        )
+        if document is None:
+            document = Document(owner_id=source.owner_id, source_id=source.id, uri=uri)
+            session.add(document)
+        document.title = parsed.title or source.name
+        document.format = "html"
+        document.mime_type = parsed.extra_metadata["content_type"].split(";", 1)[0].strip().lower()
+        document.raw_content_or_ref = uri  # Refetchable; raw HTML is deliberately not retained.
+        document.text_content = parsed.text
+        document.content_hash = parsed.content_hash
+        document.metadata_json = {**parsed.metadata(), "source_uri": source.source_uri}
+    source.format = "html"
+    source.content_type = result.documents[0].extra_metadata["content_type"]
+    source.content_hash = hashlib.sha256(
+        "\n".join(
+            sorted(
+                doc.extra_metadata["final_url"] + " " + doc.content_hash for doc in result.documents
+            )
+        ).encode()
+    ).hexdigest()
+    source.metadata_json = {**source.metadata_json, "crawl": result.metadata}
+    apply_transition(
+        source,
+        job,
+        JobTransition(
+            status=Stage.CHUNKING,
+            documents_found=len(result.documents),
+            documents_processed=len(result.documents),
+        ),
+    )
+    logger.info(
+        "website parsed",
+        extra={"job_id": str(job.id), "documents_processed": len(result.documents)},
+    )
 
 
 def run_worker(sessions: sessionmaker, settings: Settings, stop: Event) -> None:

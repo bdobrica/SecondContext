@@ -8,10 +8,11 @@ K1 provides source registration, durable ingestion jobs, canonical models and in
 K2 adds pasted and uploaded TXT, Markdown, JSON and YAML ingestion. A small in-process worker
 polls durable jobs and writes canonical documents without an LLM. Swagger at `/docs` is
 available now. K3 adds digital PDF and DOCX uploads, with page/section provenance and bounded
-parser subprocesses. Chunking, indexing, search, website parsing and the Jinja2 management UI
-belong to later milestones.
+parser subprocesses. K4 adds public static websites with SSRF-resistant fetching and bounded
+page/path/host crawling. Chunking, indexing, search and the Jinja2 management UI belong to
+later milestones.
 
-**Parsed inputs stop at `chunking`, with one processed document and zero chunks.** This means
+**Parsed inputs stop at `chunking`, with processed documents and zero chunks.** This means
 parsing succeeded and the canonical document is inspectable; it does not mean the source is
 indexed/searchable. K5 will consume this stage. `ready` remains reserved for the full pipeline.
 
@@ -258,16 +259,120 @@ lets the worker continue with the next job. Resource caps bound library operatio
 be checked in advance. Other platforms return `parser_unavailable` for binary jobs; text
 ingestion still works. The supported Docker image runs on Linux.
 
+## Website ingestion (K4)
+
+Create a durable URL source through the same authenticated API:
+
+```bash
+curl http://localhost:8090/v1/sources \
+  -H "Authorization: Bearer $KNOWLEDGE_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: public-handbook' \
+  -d '{"kind":"url","source_uri":"https://docs.example.com/docs","name":"Public handbook","config_json":{"scope":"path","max_pages":10,"max_depth":2}}'
+```
+
+Omit `config_json` for one page (`scope: page`, `max_pages: 1`, `max_depth: 0`).
+`path` includes the seed path and descendants at a slash boundary on the exact hostname;
+`/docs` includes `/docs/setup`, but excludes `/docs-other`. `host` includes other paths on
+that exact hostname. Both crawl modes default to 10 pages and depth 2. Subdomains and
+registrable-domain crawling are excluded. HTTP/HTTPS transitions on that host are allowed;
+redirects in crawl modes must remain inside scope. Single-page mode follows public redirects
+across hosts, while checking the destination's robots policy before requesting it.
+Only absent/`auto`/`html` format hints are accepted. Unknown crawl options, non-integer bounds
+and bounds above the server limits are rejected before creating a source/job.
+
+URL identity lowercases scheme/IDNA hostname, removes default ports and fragments, normalizes
+unreserved percent escapes and dot segments, and preserves meaningful repeated slashes.
+Query strings retain their original order and duplicate parameters; distinct queries are
+separate targets. Tracking parameters are not guessed or removed. The original source URL
+stays on the source. Links resolve against the observed final URL; `<base>` does not change
+fetch scope. Encoded traversal and ambiguous path parameters are excluded in path mode.
+
+Documents use the observed normalized final URL as their stable URI. Metadata includes
+requested URL, final URL, HTML `rel=canonical` hint (or final URL), retrieval timestamp, status,
+content type, response SHA-256, crawl depth, useful links and semantic blocks. Canonical hints
+remain metadata and never authorize another fetch or merge documents. HTML extraction prefers
+`main`/`role=main`, then `article`, then the body; removes navigation, headers, footers, scripts,
+forms and visibly hidden elements; and retains headings, paragraphs, lists, preformatted code
+and readable tables. Text and source snapshot hashes are deterministic. Raw HTML is discarded;
+refresh/recovery refetches the URL. Only static HTML/XHTML is supported. Fewer than 40
+alphanumeric characters produces `html_text_unavailable`, explaining that JavaScript rendering
+or the content may be unsupported. No browser, script execution, LLM or remote asset loading
+is involved. Extraction is a conservative DOM heuristic, so unusual layouts can retain chrome
+or lose content; CSS-driven visibility and exact visual reading order are not reproduced.
+
+The network policy applies to pages, robots requests, links and every redirect:
+
+- Only HTTP port 80 and HTTPS port 443; no URL credentials, private-network override, proxies,
+  cookies, custom headers or inherited authentication. `HTTP_PROXY`/`HTTPS_PROXY` are ignored.
+- Resolve both A and AAAA within the request deadline. Reject the entire answer set if any
+  address is non-public, loopback, private, link-local, multicast, unspecified, reserved or
+  a known metadata/platform address. IPv4-mapped and IPv6 translation/tunnel destinations
+  are also denied. DNS search suffixes and host-file aliases are not used.
+- Connect directly to a validated numeric address and verify the connected peer. HTTPS uses
+  the original hostname for SNI and certificate verification. No second hostname lookup occurs
+  during connection. Each redirect is resolved and checked again.
+- A total request deadline covers DNS, connections, redirects and reads. Slow trickling headers
+  and bodies cannot continually reset it. HTTP header limits also come from the standard client.
+  Request `Accept-Encoding: identity`; compressed responses are rejected rather than decompressed.
+  Declared and streamed body bytes are bounded. HTTP errors fail without reading their bodies.
+
+Crawls run breadth first with one outstanding request. `max_pages` counts page attempts,
+including failed pages and redirect aliases; robots requests and individual redirect hops have
+separate bounded work and remain subject to the total crawl deadline. Links are normalized and
+deduplicated before scheduling. Robots are fetched once per origin per crawl through the same
+safe transport, including for single pages. User agent: `SecondContextKnowledge/0.1`.
+The locked Protego parser handles wildcard rules, matching user-agent groups and longest-rule
+allow/disallow precedence. `404`/`410` means no robots policy; successful UTF-8 `text/plain`
+is parsed. Other statuses, timeouts, invalid encodings, oversized or unsupported responses deny access.
+Robots rules apply before every page and redirect. Delay is at least 1 second between requests
+to a hostname, including robots/redirects, or the larger robots `Crawl-delay` / `Request-rate`.
+Required delays exceeding the remaining budget fail rather than being ignored. Sitemaps,
+visit-time schedules, retries, domain expansion and parallel fetching are deferred.
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `KNOWLEDGE_WEB_REQUEST_TIMEOUT_SECONDS` | 10 | Absolute per-fetch budget, including redirect chain and policy checks |
+| `KNOWLEDGE_WEB_CRAWL_TIMEOUT_SECONDS` | 120 | Whole crawl budget; parent allows another 5 seconds for startup |
+| `KNOWLEDGE_WEB_MAX_RESPONSE_BYTES` | 2 MiB | Per HTML or robots response |
+| `KNOWLEDGE_WEB_MAX_REDIRECTS` | 5 | Per fetch chain |
+| `KNOWLEDGE_WEB_MAX_PAGES` | 20 | Maximum source page-attempt limit |
+| `KNOWLEDGE_WEB_MAX_DEPTH` | 3 | Maximum source depth, with seed at 0 |
+| `KNOWLEDGE_WEB_MAX_LINKS` | 1000 | Links retained/scheduled per HTML page |
+| `KNOWLEDGE_WEB_MAX_OUTPUT_BYTES` | 8 MiB | Total normalized crawl output |
+| `KNOWLEDGE_WEB_CRAWL_DELAY_SECONDS` | 1 | Minimum request interval per hostname |
+| `KNOWLEDGE_WEB_MIN_TEXT_CHARS` | 40 | Minimum extracted alphanumeric characters |
+
+HTML also uses the shared normalized-byte, node and depth limits. The frontier is bounded by
+`min(web_max_pages * web_max_links, 5000)`. A disposable crawler process enforces wall time,
+CPU, memory, output-file and descriptor limits using the K3 memory setting; no DB/auth settings
+or ambient credentials cross that boundary. Timeout kills/reaps the child and cleans private
+input/result files. No raw page files are written. As with binary parsing, abrupt container
+termination can leave temporary files until the container is removed. Linux/POSIX is required.
+The optional Compose service gets 130 seconds to shut down, covering the default crawl bound;
+if increasing that bound, increase its stop grace period as well.
+
+Seed failure produces a durable failed job. Failed linked pages are skipped with URL/error code
+in source `metadata_json.crawl`; a total timeout/output/resource failure aborts the attempt.
+Successful work commits all documents and counters atomically, pauses at `chunking`, and reports
+page/frontier limits when reached. Refresh reuses documents by final URL. While awaiting K5,
+refresh returns the active job; after a failed/completed job it creates another attempt.
+Removal of old pages/chunks/index projections during refresh belongs to K8: existing documents
+that were not fetched successfully in a later crawl are currently retained. Multiple deployed
+worker processes can each run one crawl; concurrency/delay coordination across replicas is
+outside this MVP. No schema migration or Qdrant connection is needed for K4.
+
 ## Worker and recovery
 
 The API starts one polling thread by default. `KNOWLEDGE_TEXT_WORKER_ENABLED=false` disables
-it (the existing setting controls text and binary jobs); `KNOWLEDGE_WORKER_POLL_SECONDS`
+it (the existing setting controls text, binary and URL jobs); `KNOWLEDGE_WORKER_POLL_SECONDS`
 defaults to 1 second. A worker claims stored text or PDF/DOCX input belonging to configured
 owners, in `pending`/`parsing`, with at most one found/processed
-document and zero chunks. URL and metadata-only registrations are left for later workers.
+document and zero chunks. It also claims URL jobs in `pending`/`fetching` with zero counters.
+Metadata-only text/file registrations remain pending until they have an input.
 
 Workers lock sources before jobs and use `SKIP LOCKED`, so multiple API processes can share
-Postgres safely. Parsing and document/progress persistence happen in one bounded transaction;
+Postgres safely. Parsing/crawling and document/progress persistence happen in one bounded transaction;
 a crash or database failure rolls back the claim and retries on a later poll/restart. Parser
 failures commit a failed attempt. Refresh retries failed jobs using retained input, and upserts
 the same canonical document rather than duplicating it. While a parsed job awaits K5 at
@@ -306,7 +411,7 @@ uv run --env-file .env knowledge-bootstrap transition-job JOB_UUID failed --owne
 ```
 
 The operator CLI permits an empty job to reach `ready` for testing the lifecycle; this does
-not create documents/chunks. Normal K2/K3 ingestion deliberately stops at `chunking`.
+not create documents/chunks. Normal K2–K4 ingestion deliberately stops at `chunking`.
 Job retention currently follows source retention: the schema cascades sources to their
 documents, chunks and jobs. Public deletion and projection cleanup are later lifecycle work.
 
@@ -336,3 +441,9 @@ recovery tests. K3 adds synthetic multi-page/image-only PDFs and a DOCX handbook
 fixture generator. Coverage includes page/heading/list/table fidelity, binary persistence and
 refresh, malformed files, compressed stream/ZIP expansion abuse, XML entities, parser timeout,
 crash cleanup, rollback and worker restart. Fixtures contain no third-party document content.
+
+K4 tests include forbidden address families, mixed DNS answers, pinned peers/TLS hostnames,
+redirect and robots safety, wildcard robots rules, real slow HTTP headers/bodies, declared and
+streamed byte limits, crawl scope/depth/attempt/frontier bounds, canonical provenance, owner
+isolation, idempotency, failed-job retry, atomic rollback and child cleanup. The local HTTP
+fixture changes transport only inside tests; production exposes no private-network bypass.

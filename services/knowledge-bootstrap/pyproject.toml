@@ -6,8 +6,11 @@ requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.16,<2",
     "defusedxml>=0.7.1,<1",
+    "dnspython>=2.8,<3",
     "fastapi>=0.115,<1",
+    "lxml>=6.1,<7",
     "markdown-it-py>=3,<5",
+    "protego>=0.6.2,<1",
     "psycopg[binary]>=3.2,<4",
     "pydantic-settings>=2.9,<3",
     "pypdf>=6.19,<7",

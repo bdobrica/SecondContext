@@ -32,6 +32,16 @@ class Settings(BaseSettings):
     max_yaml_aliases: int = Field(default=32, ge=0, le=100)
     text_worker_enabled: bool = True
     worker_poll_seconds: float = Field(default=1, ge=0.05, le=60)
+    web_request_timeout_seconds: float = Field(default=10, ge=0.1, le=60)
+    web_crawl_timeout_seconds: float = Field(default=120, ge=1, le=600)
+    web_max_response_bytes: int = Field(default=2_097_152, ge=1, le=8_388_608)
+    web_max_redirects: int = Field(default=5, ge=0, le=10)
+    web_max_pages: int = Field(default=20, ge=1, le=50)
+    web_max_depth: int = Field(default=3, ge=0, le=5)
+    web_max_links: int = Field(default=1000, ge=1, le=5000)
+    web_max_output_bytes: int = Field(default=8_388_608, ge=1024, le=33_554_432)
+    web_crawl_delay_seconds: float = Field(default=1, ge=0.1, le=30)
+    web_min_text_chars: int = Field(default=40, ge=1, le=1000)
     # Future search projection; intentionally not connected or needed in K1.
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: SecretStr = SecretStr("")

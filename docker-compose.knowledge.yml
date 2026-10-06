@@ -25,6 +25,7 @@ services:
     ports:
       - "127.0.0.1:${KNOWLEDGE_HTTP_PORT:-8090}:8090"
     restart: unless-stopped
+    stop_grace_period: 130s
     healthcheck:
       test: ["CMD", "/app/.venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/readyz', timeout=6)"]
       interval: 10s

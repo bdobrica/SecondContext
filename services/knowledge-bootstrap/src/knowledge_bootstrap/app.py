@@ -223,6 +223,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ):
         if idempotency_key is not None and not idempotency_key.strip():
             raise ServiceError("invalid_request", "Idempotency-Key must not be blank", 422)
+        if payload.kind == "url" and (
+            payload.config_json["max_pages"] > settings.web_max_pages
+            or payload.config_json["max_depth"] > settings.web_max_depth
+        ):
+            raise ServiceError(
+                "crawl_limit_exceeded", "Source crawl options exceed server limits", 422
+            )
         if payload.text is not None:
             payload.text = normalize_input(payload.text, settings)
         source, job = create_source(session, owner, payload, idempotency_key)

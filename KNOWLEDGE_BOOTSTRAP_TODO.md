@@ -1,6 +1,6 @@
 # Knowledge Bootstrap Service — TODO
 
-Status: K1, K2 and K3 implemented; remaining milestones proposed
+Status: K1–K4 implemented; remaining milestones proposed
 
 Track: Standalone / parallel to SecondContext
 
@@ -224,73 +224,84 @@ fail explicitly with `pdf_text_unavailable`; OCR remains deferred. Migration
 
 ## K4 — Website ingestion and crawler safety
 
+Implemented in the optional service: authenticated URL JSON registration feeds a bounded
+static HTML crawler with `page`, same-path and exact-host scopes. Direct connections pin
+validated public DNS addresses and verify peers/TLS hostnames; robots requests and every
+redirect use the same safety boundary. Robots wildcard/allow rules, conservative pacing,
+page attempts, depth, links/frontier, response/output bytes, time and process resources are
+bounded and tested. Canonical pages retain title, requested/final/canonical URL provenance,
+retrieval/status/content type, hashes and semantic blocks. Low-text/JavaScript-only content
+fails explicitly. No browser, database migration, Qdrant connection or Go dependency is
+introduced. Host scope excludes subdomains; registrable-domain expansion remains deferred.
+Parsed jobs still pause at `chunking` for K5; stale-page removal on refresh belongs to K8.
+
 ### Single-page ingestion first
 
-- [ ] Implement HTTP/HTTPS URL source creation.
-- [ ] Fetch a single static page before implementing crawling.
-- [ ] Extract main page content.
-- [ ] Preserve page title.
-- [ ] Preserve requested URL.
-- [ ] Preserve canonical/final URL.
-- [ ] Preserve retrieved timestamp.
-- [ ] Preserve HTTP status and content type.
-- [ ] Compute content hash.
+- [x] Implement HTTP/HTTPS URL source creation.
+- [x] Fetch a single static page before implementing crawling.
+- [x] Extract main page content.
+- [x] Preserve page title.
+- [x] Preserve requested URL.
+- [x] Preserve canonical/final URL.
+- [x] Preserve retrieved timestamp.
+- [x] Preserve HTTP status and content type.
+- [x] Compute content hash.
 
 ### SSRF controls
 
-- [ ] Permit only HTTP/HTTPS.
-- [ ] Resolve hostname before connection.
-- [ ] Reject loopback addresses.
-- [ ] Reject RFC1918/private ranges.
-- [ ] Reject link-local ranges.
-- [ ] Reject multicast/unspecified ranges where applicable.
-- [ ] Reject cloud metadata targets.
-- [ ] Reject hostnames resolving to forbidden addresses.
-- [ ] Revalidate every redirect target.
-- [ ] Add DNS-rebinding-resistant connection validation appropriate to the HTTP stack.
-- [ ] Bound redirect count.
-- [ ] Bound request timeout.
-- [ ] Bound response bytes.
-- [ ] Restrict accepted content types.
+- [x] Permit only HTTP/HTTPS.
+- [x] Resolve hostname before connection.
+- [x] Reject loopback addresses.
+- [x] Reject RFC1918/private ranges.
+- [x] Reject link-local ranges.
+- [x] Reject multicast/unspecified ranges where applicable.
+- [x] Reject cloud metadata targets.
+- [x] Reject hostnames resolving to forbidden addresses.
+- [x] Revalidate every redirect target.
+- [x] Add DNS-rebinding-resistant connection validation appropriate to the HTTP stack.
+- [x] Bound redirect count.
+- [x] Bound request timeout.
+- [x] Bound response bytes.
+- [x] Restrict accepted content types.
 
 ### Bounded crawler
 
-- [ ] Add crawl scope `page`.
-- [ ] Add crawl scope `path`.
-- [ ] Add crawl scope `host`/`domain` only after `path` is reliable.
-- [ ] Add max pages.
-- [ ] Add max depth.
-- [ ] Bound concurrent fetches.
-- [ ] Normalize URLs.
-- [ ] Deduplicate crawl targets.
-- [ ] Strip fragments.
-- [ ] Decide query-string normalization policy.
-- [ ] Add conservative crawl delay/concurrency behavior.
-- [ ] Define/document robots.txt policy before broad crawling.
+- [x] Add crawl scope `page`.
+- [x] Add crawl scope `path`.
+- [x] Add crawl scope `host`/`domain` only after `path` is reliable.
+- [x] Add max pages.
+- [x] Add max depth.
+- [x] Bound concurrent fetches.
+- [x] Normalize URLs.
+- [x] Deduplicate crawl targets.
+- [x] Strip fragments.
+- [x] Decide query-string normalization policy.
+- [x] Add conservative crawl delay/concurrency behavior.
+- [x] Define/document robots.txt policy before broad crawling.
 
 ### Unsupported rendering
 
-- [ ] Do not add a headless browser in the first implementation.
-- [ ] Detect low/empty extracted content.
-- [ ] Surface a clear "requires JavaScript or unsupported content" state where appropriate.
+- [x] Do not add a headless browser in the first implementation.
+- [x] Detect low/empty extracted content.
+- [x] Surface a clear "requires JavaScript or unsupported content" state where appropriate.
 
 ### Tests
 
-- [ ] SSRF private-target tests.
-- [ ] Redirect-to-private-target tests.
-- [ ] Hostname-resolves-private tests.
-- [ ] Timeout tests.
-- [ ] Oversized response tests.
-- [ ] Redirect loop tests.
-- [ ] Crawl page/depth bound tests.
-- [ ] Duplicate URL tests.
-- [ ] Unsupported content-type tests.
+- [x] SSRF private-target tests.
+- [x] Redirect-to-private-target tests.
+- [x] Hostname-resolves-private tests.
+- [x] Timeout tests.
+- [x] Oversized response tests.
+- [x] Redirect loop tests.
+- [x] Crawl page/depth bound tests.
+- [x] Duplicate URL tests.
+- [x] Unsupported content-type tests.
 
 ### K4 exit criteria
 
-- [ ] Static public pages ingest safely.
-- [ ] Redirects and crawl targets cannot bypass network restrictions.
-- [ ] Crawl scope and resource bounds are demonstrably enforced.
+- [x] Static public pages ingest safely.
+- [x] Redirects and crawl targets cannot bypass network restrictions.
+- [x] Crawl scope and resource bounds are demonstrably enforced.
 
 ---
 
