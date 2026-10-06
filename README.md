@@ -98,10 +98,10 @@ The system observes user input or manually ingested notes, extracts structured m
 The optional [Knowledge Bootstrap service](services/knowledge-bootstrap/README.md) adds a
 standalone FastAPI reference-knowledge track. It uses a separate database on Postgres and can
 be started with the opt-in `knowledge` Compose profile. SecondContext runs independently of
-this Python service. K1–K5 provide durable jobs, pasted/uploaded TXT, Markdown, JSON, YAML,
+this Python service. K1–K6 provide durable jobs, pasted/uploaded TXT, Markdown, JSON, YAML,
 PDF and DOCX parsing, bounded static website ingestion, structure-aware canonical chunks,
-dense/sparse Qdrant indexing and projection recovery/rebuild tools. Retrieval and the UI follow
-in K6/K7.
+dense/sparse Qdrant indexing, projection recovery/rebuild tools, and owner-scoped hybrid
+retrieval through `POST /v1/search`. The management UI follows in K7.
 
 - **Language:** Go
 - **API:** OpenAI-compatible `/v1/responses` endpoint

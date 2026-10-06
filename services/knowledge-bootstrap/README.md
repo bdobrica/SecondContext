@@ -10,7 +10,8 @@ polls durable jobs and writes canonical documents without an LLM. Swagger at `/d
 available now. K3 adds digital PDF and DOCX uploads, with page/section provenance and bounded
 parser subprocesses. K4 adds public static websites with SSRF-resistant fetching and bounded
 page/path/host crawling. K5 adds structure-aware chunks and dense/sparse Qdrant indexing,
-with projection-only retry and rebuild tools. Search and the Jinja2 UI remain K6/K7.
+with projection-only retry and rebuild tools. K6 adds filtered hybrid retrieval with canonical
+evidence and score debugging. The Jinja2 management UI remains K7.
 
 **Jobs now reach `ready` after canonical chunks and acknowledged index writes.** Configure
 an embedding endpoint and the dedicated Qdrant collection below. Setting
@@ -499,8 +500,8 @@ output dimension. Returned dimensions must match `KNOWLEDGE_EMBEDDING_DIMENSIONS
 Qdrant holds named `dense` (Cosine) and `sparse` vectors. Sparse encoding is deterministic
 Unicode case-folded lexical log-TF with 32-bit SHA-256 token hashes; Qdrant's `idf` modifier
 supplies corpus weights. It needs no learned sparse model or downloaded vocabulary. Hash
-collisions are possible, and this baseline has no stemming/semantic expansion. K6 must use
-this same function for queries and evaluate retrieval quality. Payloads retain owner/source/
+collisions are possible, and this baseline has no stemming/semantic expansion. K6 uses
+this same function for queries and includes a small retrieval benchmark. Payloads retain owner/source/
 document/chunk IDs, title/URI/canonical URL, heading/page/format/hash and projection generation;
 canonical text stays in Postgres. Keyword indexes support owner/source/document filtering.
 
@@ -536,8 +537,8 @@ All current points upsert by canonical chunk UUID with `wait=true`; only after a
 an owner/source/generation filter remove obsolete points. A backend failure commits a durable
 `failed` attempt at stage `indexing`, with chunks and counters intact. A database failure after
 external success leaves the old indexing job retryable, and repeating its upserts/deletion is
-idempotent. Projection batches are not atomically visible across stores; K6 must validate
-returned IDs/hashes against canonical rows and source readiness.
+idempotent. Projection batches are not atomically visible across stores; K6 validates
+returned IDs/hashes, generation and recipe against canonical rows and source readiness.
 
 Retry indexing without refetching, reparsing or rechunking:
 
@@ -578,3 +579,129 @@ and rebuilding a deleted test collection:
 export KNOWLEDGE_TEST_QDRANT_URL=http://localhost:6333
 uv run pytest --require-postgres --require-qdrant
 ```
+
+## K6: hybrid retrieval API
+
+Search canonical reference evidence without database or Qdrant access:
+
+```bash
+curl http://localhost:8090/v1/search \
+  -H "Authorization: Bearer $KNOWLEDGE_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"How do we roll back a failed production deployment?","limit":5,"debug":true,"filters":{"source_ids":[],"document_ids":[],"formats":[]}}'
+```
+
+The credential selects the owner; caller-supplied owner fields are rejected. `query` must be
+nonblank, contain no NUL, and fit both 2,048 characters and 1,024 `cl100k_base` tokens.
+`limit` defaults to 5, with a configurable server maximum of 20 (absolute maximum 100).
+Filter lists use OR within a field and AND across fields. Empty lists impose no restriction.
+`source_ids` and `document_ids` each accept at most 100 UUIDs. `formats` accepts `html`,
+`pdf`, `docx`, `markdown`, `json`, `yaml`, and `text`. Unknown filters are rejected.
+`tags: []` reserves the extension; nonempty tags fail validation until tagging is implemented.
+A filter referring to another owner's resource yields no evidence from that resource.
+
+Responses contain `results`, each with canonical `chunk_id`, `document_id`, `source_id`,
+`score`, `text`, `title`, `heading_path`, `uri`, `source_uri` and `format`. `page_start` and
+`page_end` appear when present. `uri` identifies the parsed document; `source_uri` identifies
+the original upload/reference when supplied. Null optional fields are omitted. With
+`debug: true`, `score_components` reports dense/sparse ranks and raw scores, normalized
+fusion, title/heading and numeric-identifier term overlap, relevance and the applied diversity
+multiplier.
+
+The default `mode: "hybrid"` embeds the query with the pinned K5 embedding model and encodes
+lexical terms with the same Unicode/log-TF sparse recipe used for documents. Qdrant returns
+both named-vector candidate lists through its
+[batch query API](https://api.qdrant.tech/v-1-15-x/api-reference/search/query-batch-points).
+`mode: "dense"` and `mode: "sparse"` isolate either path for diagnosis/evaluation. Sparse-only
+search makes no embedding request; a punctuation-only sparse query returns no results.
+
+Ranking uses equal-weight reciprocal rank fusion with `k=60`, normalized against the
+requested modes. The inexpensive knowledge reranker combines 82% fusion, 12% title term
+coverage and 6% heading term coverage. When query terms contain numeric identifiers
+(e.g. `429`, `INC-742`, `ZQ-91`), 10 percentage points move from fusion to exact coverage
+of those terms in the chunk/title. This keeps generic titles from outranking specific
+status/error/worker references. Terms are case-folded Unicode words. The score is a
+ranking heuristic in [0,1], **not a confidence probability**, and raw dense/sparse scores
+are not directly comparable. There is no recency decay or freshness penalty. Configured
+source-priority controls and optional freshness weighting remain future extensions; this
+version does not assign implicit priority from arbitrary source metadata.
+
+Selection greedily discounts repeated documents/sections by
+`1 / (1 + 0.25 * document_count + 0.5 * section_count)`. This promotes alternative sections
+and documents while allowing several useful passages from a single handbook. Evidence with
+at least 85% Jaccard similarity of case-folded word 5-grams is deduplicated across documents;
+short passages deduplicate by their whole normalized word sequence. Final scores include
+the diversity multiplier. Ties resolve by canonical chunk UUID.
+
+Postgres supplies evidence and provenance. Each candidate must match the authenticated
+owner, source/document IDs, chunk hash and the source's committed projection generation,
+collection and recipe, and the source must currently be `ready`. Backend payload text/title/
+URI is never evidence. Missing, orphaned, stale, partially indexed or cross-owner points
+are excluded. Canonical reads use one joined snapshot after backend retrieval; a refresh
+committed before that read hides the previous projection. A later refresh/deletion can still
+invalidate an already delivered response, as with any read API. There are no search-time
+writes, collection creation or index repairs, and existing ready evidence remains searchable
+when ingestion indexing is disabled.
+
+`KNOWLEDGE_SEARCH_CANDIDATE_LIMIT` defaults to 100 per mode, capped at 200 and required to
+cover `KNOWLEDGE_SEARCH_MAX_LIMIT`. Bounded overfetch precedes canonical validation and
+selection; stale points or deduplication can yield fewer results than requested. The service
+does not scan beyond this budget or claim that every matching passage is considered.
+`KNOWLEDGE_SEARCH_TIMEOUT_SECONDS` defaults to 20, capped at 60, and bounds backend elapsed
+time; the existing HTTP operation timeout and response-byte ceiling also apply. As for
+indexing, an in-flight socket operation can finish its remaining operation timeout before
+an elapsed-budget failure is observed. Database statements retain their configured timeout.
+Canonical hydration excludes original source input, full document text and unrelated metadata.
+
+An owner with no ready sources in the configured collection receives an empty result list
+without backend requests. When ready evidence exists, missing/incompatible manifests produce
+`503 index_configuration_mismatch`. Backend failures, missing collections or invalid responses
+produce sanitized `503 search_unavailable`; backend timeouts produce `503 search_timeout`.
+Hybrid requests fail explicitly if either required backend path fails. Invalid requests return
+`422`; a limit over the server setting returns `search_limit_exceeded` and excess query tokens
+return `query_too_large`. Authentication uses the existing `401` contract. No backend secrets,
+request URLs or response bodies enter these errors.
+
+### Small retrieval benchmark
+
+[`benchmarks/corpus.json`](benchmarks/corpus.json) contains 16 one-section reference documents
+and ten labeled queries: paraphrased rollback, exact worker/incident codes, mixed intents,
+authentication, backup retention, scanned PDFs and Unicode lexical encoding.
+[`benchmarks/results.json`](benchmarks/results.json) records the 2026-10-06 live run through
+`POST /v1/search` with real `text-embedding-3-small` 1,536-dimensional embeddings and Qdrant
+1.15.5. Results identify fixture keys rather than runtime UUIDs or credentials.
+
+| Mode | Mean precision@3 | Mean precision@1 |
+| --- | --- | --- |
+| Dense | 0.4333 | 1.0000 |
+| Sparse | 0.4000 | 0.8000 |
+| Hybrid | 0.4333 | 0.9000 |
+
+Hybrid recovered release rollback for `Undo faulty software push`, which has no lexical
+word overlap with the corpus and yielded no sparse-only evidence. Dense and hybrid recovered
+every labeled relevant document in the top three on this small corpus. Dense-only had better
+top-one precision; hybrid remains a baseline rather than a claim of universal improvement.
+Several queries have only one labeled relevant document, so their maximum
+precision@3 is 1/3; precision always divides by the requested `k`, including short responses.
+These measurements are a smoke baseline, not a general retrieval-quality guarantee. Sparse
+IDF statistics apply to the whole collection, and tied backend candidates can change order
+when fixture UUIDs or other indexed data change.
+
+To repeat against your own ingested copy, upload each document as Markdown using its title
+as the first heading and save a JSON object mapping corpus `key` to the accepted source UUID.
+Wait for all jobs to become ready, then run from this package directory:
+
+```bash
+KNOWLEDGE_TOKEN="$KNOWLEDGE_TOKEN" .venv/bin/python benchmarks/evaluate.py \
+  --url http://localhost:8090 --sources /tmp/benchmark-source-map.json \
+  --output /tmp/benchmark-results.json --k 3
+```
+
+The evaluator filters every request to that corpus, checks provenance fields and canonical
+titles, and reports each mode's precision and per-query improvements. It uses HTTP only,
+never creates/deletes sources, and requires no database credentials. K6 adds no migrations
+or dependencies; existing K5 indexes can serve searches immediately. Benchmark fixtures in
+the recorded live run were removed together with their owner-scoped Qdrant points. Paid
+embeddings are excluded from CI: regression tests use deterministic candidate/embedding
+fixtures, while required integration tests exercise real PostgreSQL and Qdrant through the
+API, including all three modes, filters, stale points and provenance.

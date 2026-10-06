@@ -46,9 +46,11 @@ def index_recipe(settings: Settings) -> dict:
 
 
 class SearchIndex(AbstractContextManager):
-    def __init__(self, settings: Settings, *, transport=None):
+    def __init__(self, settings: Settings, *, transport=None, timeout_seconds=None):
         self.settings = settings
-        self.deadline = time.monotonic() + settings.index_source_timeout_seconds
+        self.deadline = time.monotonic() + (
+            settings.index_source_timeout_seconds if timeout_seconds is None else timeout_seconds
+        )
         self.client = httpx.Client(transport=transport, trust_env=False, follow_redirects=False)
         self.collection_path = settings.qdrant_url + "/collections/" + settings.qdrant_collection
 
@@ -196,6 +198,51 @@ class SearchIndex(AbstractContextManager):
 
     def delete_filter(self, filter):
         self.mutate("POST", "/points/delete", {"filter": filter})
+
+    def query(self, vectors: dict, filter: dict, limit: int) -> dict[str, list[dict]]:
+        """Read named vectors in one bounded request; never create or modify an index."""
+        if not vectors:
+            return {}
+        result = self.request(
+            "POST",
+            self.collection_path + "/points/query/batch",
+            {
+                "searches": [
+                    {
+                        "query": vector,
+                        "using": name,
+                        "filter": filter,
+                        "limit": limit,
+                        "with_payload": True,
+                        "with_vector": False,
+                    }
+                    for name, vector in vectors.items()
+                ]
+            },
+        )
+        try:
+            batches = result["result"]
+            if not isinstance(batches, list) or len(batches) != len(vectors):
+                raise ValueError
+            output = {}
+            for name, batch in zip(vectors, batches, strict=True):
+                points = batch["points"]
+                if not isinstance(points, list) or len(points) > limit:
+                    raise ValueError
+                for point in points:
+                    if (
+                        not isinstance(point.get("id"), str)
+                        or not isinstance(point.get("payload"), dict)
+                        or type(point.get("score")) not in (int, float)
+                        or not math.isfinite(point["score"])
+                    ):
+                        raise ValueError
+                output[name] = points
+            return output
+        except (KeyError, TypeError, ValueError, AttributeError, OverflowError):
+            raise IndexError(
+                "search_invalid", "Search backend returned invalid candidates"
+            ) from None
 
 
 def owned_filter(owner: str, source_id=None):

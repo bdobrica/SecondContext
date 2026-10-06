@@ -1,6 +1,6 @@
 # Knowledge Bootstrap Service — TODO
 
-Status: K1–K5 implemented; remaining milestones proposed
+Status: K1–K6 implemented; remaining milestones proposed
 
 Track: Standalone / parallel to SecondContext
 
@@ -317,7 +317,7 @@ Durable index failures can retry through `/v1/sources/{id}/reindex` without repa
 owner-scoped rebuild/reconciliation commands replay Postgres chunks and remove stale/orphan
 points. Migration `0003_chunk_metadata` adds chunk metadata and pins projection recipes.
 Jobs now complete at `ready`; indexing can be disabled to pause with inspectable chunks.
-Search/UI and absent website-page deletion remain K6/K7/K8.
+K6 now provides hybrid search. The UI and absent website-page deletion remain K7/K8.
 
 ### Canonical document model
 
@@ -385,61 +385,72 @@ Search/UI and absent website-page deletion remain K6/K7/K8.
 
 ## K6 — Hybrid retrieval API
 
+Implemented in the optional service: authenticated `POST /v1/search` supports source/document/
+format filters, bounded limits and dense-only/sparse-only diagnosis. Dense embeddings and the
+K5 lexical recipe feed reciprocal-rank fusion, title/heading and numeric-identifier reranking,
+near-duplicate removal and document/section diversification. Returned text/provenance comes
+from canonical Postgres rows; owner, IDs, hash, ready state, generation, collection and recipe
+are verified before evidence is returned. Debug responses explain score components.
+There are no search-time writes or memory recency decay. Tags are reserved and nonempty tag
+filters are rejected. Source-priority settings and optional freshness remain extensions;
+this milestone does not introduce them. The HTTP-only benchmark and recorded live results
+are in `services/knowledge-bootstrap/benchmarks`. The Jinja2 UI remains K7.
+
 ### `/v1/search`
 
-- [ ] Implement `POST /v1/search`.
-- [ ] Require non-empty query.
-- [ ] Support `limit` with server-side maximum.
-- [ ] Support owner/tenant isolation.
-- [ ] Support source filters.
-- [ ] Support document filters.
-- [ ] Support format/type filters where useful.
-- [ ] Reserve tags/filter extension cleanly even if tags ship later.
+- [x] Implement `POST /v1/search`.
+- [x] Require non-empty query.
+- [x] Support `limit` with server-side maximum.
+- [x] Support owner/tenant isolation.
+- [x] Support source filters.
+- [x] Support document filters.
+- [x] Support format/type filters where useful.
+- [x] Reserve tags/filter extension cleanly even if tags ship later.
 
 ### Retrieval
 
-- [ ] Implement dense retrieval.
-- [ ] Implement sparse/lexical retrieval.
-- [ ] Implement result fusion.
-- [ ] Implement knowledge-specific reranking.
-- [ ] Do not use episodic-memory recency decay.
-- [ ] Consider semantic relevance.
-- [ ] Consider lexical relevance.
-- [ ] Consider title/heading relevance.
-- [ ] Consider configured source priority when added.
-- [ ] Use freshness only weakly/optionally.
-- [ ] Diversify results so one section/document cannot consume all slots.
-- [ ] Deduplicate near-identical chunks.
+- [x] Implement dense retrieval.
+- [x] Implement sparse/lexical retrieval.
+- [x] Implement result fusion.
+- [x] Implement knowledge-specific reranking.
+- [x] Do not use episodic-memory recency decay.
+- [x] Consider semantic relevance.
+- [x] Consider lexical relevance.
+- [x] Consider title/heading relevance.
+- [x] Consider configured source priority when added.
+- [x] Use freshness only weakly/optionally.
+- [x] Diversify results so one section/document cannot consume all slots.
+- [x] Deduplicate near-identical chunks.
 
 ### Result contract
 
-- [ ] Return `chunk_id`.
-- [ ] Return `document_id`.
-- [ ] Return `source_id`.
-- [ ] Return final score.
-- [ ] Return text.
-- [ ] Return title.
-- [ ] Return section/heading path.
-- [ ] Return page/range when available.
-- [ ] Return URI/source reference.
-- [ ] Return format.
-- [ ] Return score components in debug mode where feasible.
+- [x] Return `chunk_id`.
+- [x] Return `document_id`.
+- [x] Return `source_id`.
+- [x] Return final score.
+- [x] Return text.
+- [x] Return title.
+- [x] Return section/heading path.
+- [x] Return page/range when available.
+- [x] Return URI/source reference.
+- [x] Return format.
+- [x] Return score components in debug mode where feasible.
 
 ### Evaluation
 
-- [ ] Create small retrieval benchmark corpus.
-- [ ] Create representative queries.
-- [ ] Measure dense-only precision@k.
-- [ ] Measure sparse-only precision@k.
-- [ ] Measure hybrid precision@k.
-- [ ] Check provenance correctness.
-- [ ] Add regression tests for known hard queries.
+- [x] Create small retrieval benchmark corpus.
+- [x] Create representative queries.
+- [x] Measure dense-only precision@k.
+- [x] Measure sparse-only precision@k.
+- [x] Measure hybrid precision@k.
+- [x] Check provenance correctness.
+- [x] Add regression tests for known hard queries.
 
 ### K6 exit criteria
 
-- [ ] `/v1/search` is useful to an external consumer with no database access.
-- [ ] Returned evidence is traceable to canonical sources.
-- [ ] Hybrid retrieval demonstrably improves at least some benchmark cases over single-mode retrieval.
+- [x] `/v1/search` is useful to an external consumer with no database access.
+- [x] Returned evidence is traceable to canonical sources.
+- [x] Hybrid retrieval demonstrably improves at least some benchmark cases over single-mode retrieval.
 
 ---
 
@@ -704,7 +715,7 @@ Begin only after retrieval quality is proven.
 4. [x] K3 — PDF / DOCX.
 5. [x] K4 — safe website ingestion.
 6. [x] K5 completion — dense/sparse indexing and recovery.
-7. [ ] K6 — hybrid retrieval API.
+7. [x] K6 — hybrid retrieval API.
 8. [ ] K7 — management and test-retrieval UI.
 9. [ ] K8 — lifecycle, recovery, hardening, and evaluation.
 10. [ ] K9 — SecondContext adapter.

@@ -1,0 +1,160 @@
+{
+  "version": 1,
+  "documents": [
+    {
+      "key": "release_rollback",
+      "title": "Production release recovery",
+      "text": "If a new release causes errors, stop the rollout and redeploy the previous known-good artifact. Restore the previous container image tag, wait for health checks, and verify the error rate returns to normal. Keep the database migration backward compatible."
+    },
+    {
+      "key": "database_restore",
+      "title": "Database disaster recovery",
+      "text": "Restore the latest verified PostgreSQL backup into a new database. Replay archived WAL to the recovery timestamp. Run consistency checks before switching application connections. This procedure recovers deleted records; it does not revert an application release."
+    },
+    {
+      "key": "safe_rollout",
+      "title": "Safe production rollout",
+      "text": "Deploy the release to a small canary, check health and errors, then expand gradually. Take a backup before applying schema migrations. Stop expansion when health checks fail and call the incident lead."
+    },
+    {
+      "key": "retry_zq91",
+      "title": "Worker configuration ZQ-91",
+      "text": "For queue worker ZQ-91, the retry ceiling is 7 attempts. Set retry_limit: 7 in worker.yaml. Poison messages go to the dead-letter queue once this ceiling is reached. The dedicated worker ignores the global default."
+    },
+    {
+      "key": "retry_zq92",
+      "title": "Worker configuration ZQ-92",
+      "text": "For queue worker ZQ-92, the retry ceiling is 2 attempts. Set retry_limit: 2 in worker.yaml. This worker processes urgent notifications and sends failed deliveries to its own dead-letter queue."
+    },
+    {
+      "key": "retry_general",
+      "title": "Retry policy defaults",
+      "text": "The standard queue retry ceiling is 3 attempts with exponential backoff. Set retry_limit: 3 and backoff_seconds: 30. Some dedicated workers override the global policy. Do not retry invalid payloads indefinitely."
+    },
+    {
+      "key": "cedar_incident",
+      "title": "Cedar incident INC-742",
+      "text": "INC-742 is the Cedar queue acknowledgement incident. Work around delayed acknowledgements by disabling consumer prefetch and restarting the acknowledgement sidecar. Do not increase the retry limit. The incident is resolved when pending acknowledgements drain."
+    },
+    {
+      "key": "cedar_garden",
+      "title": "Cedar maintenance guide",
+      "text": "Cedar trees need well drained soil and watering during dry spells. Delayed growth can follow root stress. Remove dead branches in late winter and keep mulch away from the trunk."
+    },
+    {
+      "key": "cedar_latency",
+      "title": "Cedar queue latency tuning",
+      "text": "To reduce Cedar queue latency under normal load, increase consumer prefetch and add consumers. Use the throughput dashboard to verify improvements. This tuning guide does not cover the acknowledgement sidecar incident."
+    },
+    {
+      "key": "token_rotate",
+      "title": "Service token rotation",
+      "text": "Generate a new service credential, deploy it to all consumers, verify requests authenticate with the new token, then revoke the old token. Store the secret in the secret manager and never write it to application logs."
+    },
+    {
+      "key": "unauthorized",
+      "title": "HTTP authentication failures",
+      "text": "A 401 response means the bearer credential is missing, revoked or invalid. Supply Authorization: Bearer followed by the service token. A 403 indicates an authenticated caller lacks the required permission."
+    },
+    {
+      "key": "rate_limit",
+      "title": "HTTP rate limiting",
+      "text": "A 429 response signals a request quota exceeded. Respect Retry-After, use exponential backoff and reduce concurrency. Refreshing a service token does not raise the quota."
+    },
+    {
+      "key": "feature_revert",
+      "title": "Feature flag recovery",
+      "text": "Turn off the feature flag when a new feature fails. This stops new feature traffic without changing the deployed container image. Keep the flag disabled until the fix is verified."
+    },
+    {
+      "key": "backup_policy",
+      "title": "Backup retention policy",
+      "text": "Retain daily database snapshots for 30 days and monthly snapshots for one year. Test restoration every week. Encrypt backups and store a separate copy outside the primary region."
+    },
+    {
+      "key": "parser_limits",
+      "title": "Document import limits",
+      "text": "Digital PDFs preserve page ranges and Word documents preserve section headings. Scanned PDFs require OCR and cannot be imported by the current parser. Each upload is limited to eight mebibytes."
+    },
+    {
+      "key": "sparse_recipe",
+      "title": "Lexical vector recipe",
+      "text": "Sparse retrieval case-folds Unicode words, hashes tokens with SHA-256, and applies logarithmic term frequency. Qdrant applies inverse document frequency. The same recipe must encode queries and stored evidence."
+    }
+  ],
+  "queries": [
+    {
+      "key": "rollback_paraphrase",
+      "query": "The latest container is broken. How can I put the working version back?",
+      "relevant": [
+        "release_rollback"
+      ]
+    },
+    {
+      "key": "worker_exact",
+      "query": "What is the ZQ-91 retry ceiling?",
+      "relevant": [
+        "retry_zq91"
+      ]
+    },
+    {
+      "key": "incident_exact",
+      "query": "INC-742 delayed acknowledgements workaround",
+      "relevant": [
+        "cedar_incident"
+      ]
+    },
+    {
+      "key": "mixed_recovery",
+      "query": "ZQ-91 retry ceiling and how to back out a failed production release",
+      "relevant": [
+        "retry_zq91",
+        "release_rollback"
+      ]
+    },
+    {
+      "key": "mixed_auth",
+      "query": "How to replace a leaked credential and resolve a 401 response?",
+      "relevant": [
+        "token_rotate",
+        "unauthorized"
+      ]
+    },
+    {
+      "key": "mixed_restore",
+      "query": "How do we recover accidentally deleted rows and how long are daily snapshots kept?",
+      "relevant": [
+        "database_restore",
+        "backup_policy"
+      ]
+    },
+    {
+      "key": "rate_code",
+      "query": "429 Retry-After",
+      "relevant": [
+        "rate_limit"
+      ]
+    },
+    {
+      "key": "scanned_pdf",
+      "query": "Can the importer read a scanned PDF and where do page numbers come from?",
+      "relevant": [
+        "parser_limits"
+      ]
+    },
+    {
+      "key": "lexical_unicode",
+      "query": "How are Unicode query words converted into sparse vectors?",
+      "relevant": [
+        "sparse_recipe"
+      ]
+    },
+    {
+      "key": "rollback_no_lexical_overlap",
+      "query": "Undo faulty software push",
+      "relevant": [
+        "release_rollback"
+      ]
+    }
+  ]
+}

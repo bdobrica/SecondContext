@@ -1,0 +1,367 @@
+{
+  "corpus_version": 1,
+  "k": 3,
+  "means": {
+    "dense": {
+      "precision_at_k": 0.4333333333333333,
+      "precision_at_1": 1.0
+    },
+    "sparse": {
+      "precision_at_k": 0.4,
+      "precision_at_1": 0.8
+    },
+    "hybrid": {
+      "precision_at_k": 0.4333333333333333,
+      "precision_at_1": 0.9
+    }
+  },
+  "hybrid_improvements": {
+    "dense": [],
+    "sparse": [
+      "rollback_no_lexical_overlap"
+    ]
+  },
+  "queries": [
+    {
+      "key": "rollback_paraphrase",
+      "query": "The latest container is broken. How can I put the working version back?",
+      "relevant": [
+        "release_rollback"
+      ],
+      "dense": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "release_rollback",
+          "feature_revert",
+          "database_restore"
+        ]
+      },
+      "sparse": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 0.0,
+        "retrieved": [
+          "feature_revert",
+          "database_restore",
+          "release_rollback"
+        ]
+      },
+      "hybrid": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 0.0,
+        "retrieved": [
+          "feature_revert",
+          "release_rollback",
+          "database_restore"
+        ]
+      }
+    },
+    {
+      "key": "worker_exact",
+      "query": "What is the ZQ-91 retry ceiling?",
+      "relevant": [
+        "retry_zq91"
+      ],
+      "dense": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "retry_zq91",
+          "retry_zq92",
+          "retry_general"
+        ]
+      },
+      "sparse": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "retry_zq91",
+          "retry_zq92",
+          "retry_general"
+        ]
+      },
+      "hybrid": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "retry_zq91",
+          "retry_zq92",
+          "retry_general"
+        ]
+      }
+    },
+    {
+      "key": "incident_exact",
+      "query": "INC-742 delayed acknowledgements workaround",
+      "relevant": [
+        "cedar_incident"
+      ],
+      "dense": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "cedar_incident",
+          "cedar_latency",
+          "rate_limit"
+        ]
+      },
+      "sparse": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "cedar_incident",
+          "cedar_garden"
+        ]
+      },
+      "hybrid": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "cedar_incident",
+          "cedar_garden",
+          "cedar_latency"
+        ]
+      }
+    },
+    {
+      "key": "mixed_recovery",
+      "query": "ZQ-91 retry ceiling and how to back out a failed production release",
+      "relevant": [
+        "retry_zq91",
+        "release_rollback"
+      ],
+      "dense": {
+        "precision_at_k": 0.6666666666666666,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "retry_zq91",
+          "release_rollback",
+          "retry_zq92"
+        ]
+      },
+      "sparse": {
+        "precision_at_k": 0.6666666666666666,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "retry_zq91",
+          "release_rollback",
+          "retry_zq92"
+        ]
+      },
+      "hybrid": {
+        "precision_at_k": 0.6666666666666666,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "retry_zq91",
+          "release_rollback",
+          "retry_zq92"
+        ]
+      }
+    },
+    {
+      "key": "mixed_auth",
+      "query": "How to replace a leaked credential and resolve a 401 response?",
+      "relevant": [
+        "token_rotate",
+        "unauthorized"
+      ],
+      "dense": {
+        "precision_at_k": 0.6666666666666666,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "unauthorized",
+          "token_rotate",
+          "rate_limit"
+        ]
+      },
+      "sparse": {
+        "precision_at_k": 0.6666666666666666,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "unauthorized",
+          "token_rotate",
+          "rate_limit"
+        ]
+      },
+      "hybrid": {
+        "precision_at_k": 0.6666666666666666,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "unauthorized",
+          "token_rotate",
+          "rate_limit"
+        ]
+      }
+    },
+    {
+      "key": "mixed_restore",
+      "query": "How do we recover accidentally deleted rows and how long are daily snapshots kept?",
+      "relevant": [
+        "database_restore",
+        "backup_policy"
+      ],
+      "dense": {
+        "precision_at_k": 0.6666666666666666,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "backup_policy",
+          "database_restore",
+          "release_rollback"
+        ]
+      },
+      "sparse": {
+        "precision_at_k": 0.6666666666666666,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "backup_policy",
+          "database_restore",
+          "cedar_incident"
+        ]
+      },
+      "hybrid": {
+        "precision_at_k": 0.6666666666666666,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "backup_policy",
+          "database_restore",
+          "cedar_incident"
+        ]
+      }
+    },
+    {
+      "key": "rate_code",
+      "query": "429 Retry-After",
+      "relevant": [
+        "rate_limit"
+      ],
+      "dense": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "rate_limit",
+          "retry_general",
+          "cedar_incident"
+        ]
+      },
+      "sparse": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "rate_limit",
+          "retry_general",
+          "retry_zq92"
+        ]
+      },
+      "hybrid": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "rate_limit",
+          "retry_general",
+          "cedar_incident"
+        ]
+      }
+    },
+    {
+      "key": "scanned_pdf",
+      "query": "Can the importer read a scanned PDF and where do page numbers come from?",
+      "relevant": [
+        "parser_limits"
+      ],
+      "dense": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "parser_limits",
+          "sparse_recipe",
+          "cedar_incident"
+        ]
+      },
+      "sparse": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "parser_limits",
+          "cedar_garden",
+          "cedar_incident"
+        ]
+      },
+      "hybrid": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "parser_limits",
+          "cedar_incident",
+          "retry_general"
+        ]
+      }
+    },
+    {
+      "key": "lexical_unicode",
+      "query": "How are Unicode query words converted into sparse vectors?",
+      "relevant": [
+        "sparse_recipe"
+      ],
+      "dense": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "sparse_recipe",
+          "parser_limits",
+          "token_rotate"
+        ]
+      },
+      "sparse": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "sparse_recipe",
+          "database_restore"
+        ]
+      },
+      "hybrid": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "sparse_recipe",
+          "database_restore",
+          "parser_limits"
+        ]
+      }
+    },
+    {
+      "key": "rollback_no_lexical_overlap",
+      "query": "Undo faulty software push",
+      "relevant": [
+        "release_rollback"
+      ],
+      "dense": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "release_rollback",
+          "feature_revert",
+          "database_restore"
+        ]
+      },
+      "sparse": {
+        "precision_at_k": 0.0,
+        "precision_at_1": 0.0,
+        "retrieved": []
+      },
+      "hybrid": {
+        "precision_at_k": 0.3333333333333333,
+        "precision_at_1": 1.0,
+        "retrieved": [
+          "release_rollback",
+          "feature_revert",
+          "database_restore"
+        ]
+      }
+    }
+  ],
+  "run_date_utc": "2026-10-06T05:15:15.364107+00:00",
+  "embedding_model": "text-embedding-3-small",
+  "embedding_dimensions": 1536,
+  "backend": "Qdrant 1.15.5; real configured provider embeddings; HTTP-only retrieval"
+}

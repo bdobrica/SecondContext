@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     qdrant_api_key: SecretStr = SecretStr("")
     qdrant_collection: str = Field(default="knowledge_chunks", pattern=r"^[a-zA-Z0-9_-]{1,128}$")
     embedding_dimensions: int = Field(default=1536, ge=1, le=65536)
+    search_max_limit: int = Field(default=20, ge=1, le=100)
+    search_candidate_limit: int = Field(default=100, ge=1, le=200)
+    search_timeout_seconds: float = Field(default=20, ge=1, le=60)
 
     @field_validator("database_url")
     @classmethod
@@ -91,6 +94,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_tokens(self) -> Self:
+        if self.search_candidate_limit < self.search_max_limit:
+            raise ValueError("search candidate limit must cover the maximum result limit")
         if self.chunk_target_tokens > self.chunk_max_tokens:
             raise ValueError("chunk target must not exceed the hard maximum")
         if self.chunk_overlap_tokens >= self.chunk_target_tokens:

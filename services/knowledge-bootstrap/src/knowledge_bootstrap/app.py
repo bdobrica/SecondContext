@@ -30,11 +30,14 @@ from knowledge_bootstrap.schemas import (
     ChunkView,
     DocumentView,
     JobView,
+    SearchRequest,
+    SearchResponse,
     SourceAccepted,
     SourceCreate,
     SourceView,
     UploadFormat,
 )
+from knowledge_bootstrap.search import search
 from knowledge_bootstrap.service import ServiceError, create_source, get_owned, refresh_source
 
 bearer = HTTPBearer(auto_error=False)
@@ -132,6 +135,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessions = make_sessions(engine)
     app.state.engine = engine
     app.add_middleware(BodyLimit, max_bytes=settings.max_request_bytes)
+
+    @app.post("/v1/search", response_model=SearchResponse, response_model_exclude_none=True)
+    def search_evidence(payload: SearchRequest, owner: Owner, session: Database):
+        return search(session, settings, owner, payload)
 
     @app.post("/v1/sources/{source_id}/reindex", response_model=SourceAccepted, status_code=202)
     def reindex(source_id: UUID, owner: Owner, session: Database):

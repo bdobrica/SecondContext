@@ -3,8 +3,10 @@ from uuid import UUID, uuid4
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from knowledge_bootstrap.app import create_app
 from knowledge_bootstrap.index import SearchIndex, owned_filter, sparse_vector
 from knowledge_bootstrap.ingestion import process_next
 from knowledge_bootstrap.models import Chunk
@@ -20,7 +22,7 @@ class DeterministicEmbeddingIndex(SearchIndex):
 
 
 def test_real_qdrant_projection_dense_sparse_stale_cleanup_and_rebuild(
-    client, sessions, db_settings, owners, request
+    client, sessions, db_settings, owners, request, monkeypatch
 ):
     url = os.environ.get("KNOWLEDGE_TEST_QDRANT_URL")
     if not url:
@@ -104,6 +106,47 @@ def test_real_qdrant_projection_dense_sparse_stale_cleanup_and_rebuild(
                 },
             )
             response.raise_for_status()
+            # Exercise the external-consumer API with real Qdrant retrieval and canonical
+            # hydration, without a paid embedding dependency in integration tests.
+            import importlib
+
+            monkeypatch.setattr(
+                importlib.import_module("knowledge_bootstrap.search"),
+                "SearchIndex",
+                DeterministicEmbeddingIndex,
+            )
+            with TestClient(create_app(config)) as search_client:
+                search_client.headers["Authorization"] = "Bearer test-owner-a-token-123"
+                for mode in ("dense", "sparse", "hybrid"):
+                    results = (
+                        search_client.post(
+                            "/v1/search", json={"query": "backups", "mode": mode, "debug": True}
+                        )
+                        .raise_for_status()
+                        .json()["results"]
+                    )
+                    assert results and {r["chunk_id"] for r in results} <= canonical
+                    assert all(r["source_id"] == source_id and r["uri"] for r in results)
+                    assert all("score_components" in r for r in results)
+                    # Orphan same-owner and cross-owner points cannot become evidence.
+                    assert stale not in {r["chunk_id"] for r in results}
+                    assert unrelated not in {r["chunk_id"] for r in results}
+                document_id = results[0]["document_id"]
+                for filters in (
+                    {"source_ids": [source_id]},
+                    {"document_ids": [document_id]},
+                    {"formats": ["markdown"]},
+                ):
+                    assert (
+                        search_client.post(
+                            "/v1/search", json={"query": "backups", "filters": filters}
+                        )
+                        .raise_for_status()
+                        .json()["results"]
+                    )
+                assert search_client.post(
+                    "/v1/search", json={"query": "backups", "filters": {"formats": ["pdf"]}}
+                ).raise_for_status().json() == {"results": []}
             client.post(f"/v1/sources/{source_id}/reindex")
             process_index_next(sessions, config, DeterministicEmbeddingIndex)
             assert {p["id"] for p in scroll()} == canonical

@@ -117,6 +117,53 @@ class ChunkView(RowView):
     metadata_json: dict[str, Any]
 
 
+class SearchFilters(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_ids: list[UUID] = Field(default_factory=list, max_length=100)
+    document_ids: list[UUID] = Field(default_factory=list, max_length=100)
+    formats: list[Format] = Field(default_factory=list, max_length=7)
+    # Reserved rather than silently ignoring filters the caller expects to apply.
+    tags: list[str] = Field(default_factory=list, max_length=0)
+
+
+class SearchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(min_length=1, max_length=2048)
+    limit: int = Field(default=5, ge=1, le=100)
+    filters: SearchFilters = Field(default_factory=SearchFilters)
+    mode: Literal["hybrid", "dense", "sparse"] = "hybrid"
+    debug: bool = False
+
+    @field_validator("query")
+    @classmethod
+    def validate_query(cls, value: str) -> str:
+        if not value.strip() or "\x00" in value:
+            raise ValueError("query must be nonblank and contain no NUL bytes")
+        return value.strip()
+
+
+class SearchResult(BaseModel):
+    chunk_id: UUID
+    document_id: UUID
+    source_id: UUID
+    score: float
+    text: str
+    title: str
+    heading_path: list[str]
+    page_start: int | None
+    page_end: int | None
+    uri: str
+    source_uri: str | None
+    format: Format | None
+    score_components: dict[str, float | int | None] | None = None
+
+
+class SearchResponse(BaseModel):
+    results: list[SearchResult]
+
+
 class JobTransition(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
