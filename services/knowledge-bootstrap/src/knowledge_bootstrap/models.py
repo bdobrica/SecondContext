@@ -39,11 +39,19 @@ class Stage(StrEnum):
 TERMINAL = {Stage.READY, Stage.FAILED}
 STAGE_CHECK = "status IN ('pending','fetching','parsing','chunking','indexing','ready','failed')"
 FORMAT_CHECK = "format IS NULL OR format IN ('html','pdf','docx','markdown','json','yaml','text')"
-SCHEMA_REVISION = "0002_source_bytes"
+SCHEMA_REVISION = "0003_chunk_metadata"
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class IndexConfiguration(Base):
+    """Prevent silently mixing models/recipes in one search projection."""
+
+    __tablename__ = "knowledge_index_configurations"
+    target: Mapped[str] = mapped_column(String(64), primary_key=True)
+    config_json: Mapped[dict[str, Any]] = mapped_column(JSONB)
 
 
 class CanonicalRow:
@@ -149,6 +157,7 @@ class Chunk(CanonicalRow, Base):
     page_end: Mapped[int | None] = mapped_column(Integer)
     token_count: Mapped[int] = mapped_column(Integer)
     content_hash: Mapped[str] = mapped_column(String(64))
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
 
 
 class IngestionJob(CanonicalRow, Base):

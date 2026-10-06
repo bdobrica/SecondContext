@@ -7,7 +7,9 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from knowledge_bootstrap.config import Settings
 from knowledge_bootstrap.database import make_engine, make_sessions
+from knowledge_bootstrap.index import IndexError
 from knowledge_bootstrap.models import Stage
+from knowledge_bootstrap.pipeline import rebuild_index, reindex_source
 from knowledge_bootstrap.schemas import JobTransition, JobView
 from knowledge_bootstrap.service import ServiceError, transition_job
 
@@ -26,6 +28,14 @@ def main() -> None:
     transition.add_argument("--chunks-created", type=int)
     transition.add_argument("--error-code")
     transition.add_argument("--error-detail")
+    reindex = commands.add_parser("reindex-source", help="Queue a durable projection-only retry")
+    reindex.add_argument("source_id", type=UUID)
+    reindex.add_argument("--owner", required=True)
+    for name in ("rebuild-index", "reconcile-index"):
+        rebuild = commands.add_parser(
+            name, help="Replay canonical owner chunks and remove orphan points"
+        )
+        rebuild.add_argument("--owner", required=True)
     args = parser.parse_args()
     engine = None
     try:
@@ -33,6 +43,20 @@ def main() -> None:
         if args.owner not in settings.auth_tokens:
             parser.error("--owner must be a configured knowledge owner")
         engine = make_engine(settings)
+        sessions = make_sessions(engine)
+        if args.command == "reindex-source":
+            with sessions() as session:
+                _, job = reindex_source(session, args.owner, args.source_id)
+                print(JobView.model_validate(job).model_dump_json(indent=2))
+            return
+        if args.command in {"rebuild-index", "reconcile-index"}:
+            if not settings.indexing_enabled:
+                parser.error("indexing must be enabled for rebuild/reconciliation")
+            jobs = rebuild_index(sessions, settings, args.owner)
+            print("\n".join(JobView.model_validate(job).model_dump_json() for job in jobs))
+            if any(job.status != Stage.READY for job in jobs):
+                sys.exit(1)
+            return
         change = JobTransition(
             status=args.status,
             documents_found=args.documents_found,
@@ -44,7 +68,7 @@ def main() -> None:
         with make_sessions(engine)() as session:
             job = transition_job(session, args.owner, args.job_id, change)
             print(JobView.model_validate(job).model_dump_json(indent=2))
-    except ServiceError as exc:
+    except (ServiceError, IndexError) as exc:
         print(f"{exc.code}: {exc.detail}", file=sys.stderr)
         sys.exit(1)
     except (ValidationError, SQLAlchemyError) as exc:

@@ -19,6 +19,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def pytest_addoption(parser):
     parser.addoption(
+        "--require-qdrant", action="store_true", help="Require real Qdrant projection tests"
+    )
+    parser.addoption(
         "--require-postgres", action="store_true", help="Fail if Postgres tests cannot run"
     )
 
@@ -29,6 +32,7 @@ def settings():
         database_url="postgresql+psycopg://unused:unused@localhost:1/knowledge_bootstrap_test",
         auth_tokens={"owner-a": "test-owner-a-token-123", "owner-b": "test-owner-b-token-456"},
         text_worker_enabled=False,
+        indexing_enabled=False,
     )
 
 
@@ -72,6 +76,7 @@ def db_settings(migrated_url):
             f"owner-b-{unique}": "test-owner-b-token-456",
         },
         text_worker_enabled=False,
+        indexing_enabled=False,
     )
 
 

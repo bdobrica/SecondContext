@@ -1,4 +1,4 @@
-"""Durable ingestion worker: K5 will consume canonical chunking jobs."""
+"""Durable parser stage plus canonical chunking and search projection polling."""
 
 import hashlib
 import logging
@@ -13,6 +13,7 @@ from knowledge_bootstrap.binary import parse_binary
 from knowledge_bootstrap.config import Settings
 from knowledge_bootstrap.models import Document, IngestionJob, Source, SourceKind, Stage
 from knowledge_bootstrap.parsers import ParseError, detect_format, normalize_input, parse_text
+from knowledge_bootstrap.pipeline import process_chunk_next, process_index_next
 from knowledge_bootstrap.schemas import JobTransition
 from knowledge_bootstrap.service import apply_transition
 from knowledge_bootstrap.web import ingest_website
@@ -122,6 +123,7 @@ def process_next(sessions: sessionmaker, settings: Settings) -> bool:
             document.raw_content_or_ref = uri  # Original text/bytes remain on the source.
             document.text_content = parsed.text
             document.content_hash = parsed.content_hash
+            parsed.title, parsed.uri = document.title, uri
             document.metadata_json = {
                 **parsed.metadata(),
                 "source_uri": source.source_uri,
@@ -177,6 +179,7 @@ def process_website(session, source: Source, job: IngestionJob, settings: Settin
         document.raw_content_or_ref = uri  # Refetchable; raw HTML is deliberately not retained.
         document.text_content = parsed.text
         document.content_hash = parsed.content_hash
+        parsed.title, parsed.uri = document.title, uri
         document.metadata_json = {**parsed.metadata(), "source_uri": source.source_uri}
     source.format = "html"
     source.content_type = result.documents[0].extra_metadata["content_type"]
@@ -206,7 +209,11 @@ def process_website(session, source: Source, job: IngestionJob, settings: Settin
 def run_worker(sessions: sessionmaker, settings: Settings, stop: Event) -> None:
     while not stop.is_set():
         try:
-            if process_next(sessions, settings):
+            if (
+                process_next(sessions, settings)
+                or process_chunk_next(sessions, settings)
+                or process_index_next(sessions, settings)
+            ):
                 continue
         except SQLAlchemyError as exc:
             # The transaction rolled back. Retry durably on the next poll, without logging input.

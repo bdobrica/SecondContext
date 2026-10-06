@@ -9,12 +9,13 @@ K2 adds pasted and uploaded TXT, Markdown, JSON and YAML ingestion. A small in-p
 polls durable jobs and writes canonical documents without an LLM. Swagger at `/docs` is
 available now. K3 adds digital PDF and DOCX uploads, with page/section provenance and bounded
 parser subprocesses. K4 adds public static websites with SSRF-resistant fetching and bounded
-page/path/host crawling. Chunking, indexing, search and the Jinja2 management UI belong to
-later milestones.
+page/path/host crawling. K5 adds structure-aware chunks and dense/sparse Qdrant indexing,
+with projection-only retry and rebuild tools. Search and the Jinja2 UI remain K6/K7.
 
-**Parsed inputs stop at `chunking`, with processed documents and zero chunks.** This means
-parsing succeeded and the canonical document is inspectable; it does not mean the source is
-indexed/searchable. K5 will consume this stage. `ready` remains reserved for the full pipeline.
+**Jobs now reach `ready` after canonical chunks and acknowledged index writes.** Configure
+an embedding endpoint and the dedicated Qdrant collection below. Setting
+`KNOWLEDGE_INDEXING_ENABLED=false` keeps parsing/chunking usable without either backend;
+jobs then pause at `indexing` with inspectable chunks, and resume when indexing is enabled.
 
 ## Run alongside the existing SecondContext stack
 
@@ -74,11 +75,12 @@ timeouts, request size and log level are configurable. `/healthz` reports proces
 `/readyz` verifies database access, the expected migration revision and the canonical tables.
 Migrations run explicitly rather than competing across API processes on startup.
 
-Qdrant configuration reserves a dedicated `knowledge_chunks` collection. K1–K3 do not connect
-to Qdrant or need embeddings/LLM credentials. Canonical data lives entirely in Postgres.
-K3's additive `0002_source_bytes` migration stores original PDF/DOCX bytes on file sources;
-apply migrations before starting the updated service. Existing text/document/job rows survive
-the upgrade. Downgrading to K2 drops retained binary inputs.
+Canonical data lives entirely in Postgres. K5 uses a dedicated `knowledge_chunks` Qdrant
+collection, independently of SecondContext's memory collection. Apply migrations before
+starting the updated service. `0002_source_bytes` retains PDF/DOCX bytes;
+`0003_chunk_metadata` adds semantic chunk metadata and pins each projection's embedding/lexical
+recipe. Existing sources, documents and jobs survive the upgrade. The worker automatically
+continues K2–K4 jobs paused at `chunking`. Downgrade drops the fields introduced by that revision.
 
 ## Ownership and API
 
@@ -354,11 +356,12 @@ if increasing that bound, increase its stop grace period as well.
 
 Seed failure produces a durable failed job. Failed linked pages are skipped with URL/error code
 in source `metadata_json.crawl`; a total timeout/output/resource failure aborts the attempt.
-Successful work commits all documents and counters atomically, pauses at `chunking`, and reports
-page/frontier limits when reached. Refresh reuses documents by final URL. While awaiting K5,
-refresh returns the active job; after a failed/completed job it creates another attempt.
-Removal of old pages/chunks/index projections during refresh belongs to K8: existing documents
-that were not fetched successfully in a later crawl are currently retained. Multiple deployed
+Successful parsing commits all documents and counters atomically, then K5 creates chunks and
+indexes them. Crawl metadata reports page/frontier limits. Refresh reuses documents by final
+URL and returns any active job; after a failed/completed job it creates another attempt.
+Existing website documents not fetched successfully in a later crawl remain retained and
+indexed. Removing absent website pages belongs to K8; stale chunks of changed documents
+and their obsolete index points are removed now. Multiple deployed
 worker processes can each run one crawl; concurrency/delay coordination across replicas is
 outside this MVP. No schema migration or Qdrant connection is needed for K4.
 
@@ -375,9 +378,11 @@ Workers lock sources before jobs and use `SKIP LOCKED`, so multiple API processe
 Postgres safely. Parsing/crawling and document/progress persistence happen in one bounded transaction;
 a crash or database failure rolls back the claim and retries on a later poll/restart. Parser
 failures commit a failed attempt. Refresh retries failed jobs using retained input, and upserts
-the same canonical document rather than duplicating it. While a parsed job awaits K5 at
-`chunking`, refresh reuses that active job. Completed downstream refresh/delete/projection
-semantics are subsequent milestones.
+the same canonical document rather than duplicating it. Chunking commits canonical chunks
+and `indexing` progress in a separate transaction. Projection writers serialize by owner
+using Postgres advisory locks, then lock the source/job in the same order as refresh.
+A configured owner can index one source at a time; other owners can proceed independently.
+Refresh reuses any active job; public deletion remains K8.
 
 ## Exercise the state machine
 
@@ -411,7 +416,7 @@ uv run --env-file .env knowledge-bootstrap transition-job JOB_UUID failed --owne
 ```
 
 The operator CLI permits an empty job to reach `ready` for testing the lifecycle; this does
-not create documents/chunks. Normal K2–K4 ingestion deliberately stops at `chunking`.
+not create documents/chunks. Normal ingestion runs the full K2–K5 pipeline.
 Job retention currently follows source retention: the schema cascades sources to their
 documents, chunks and jobs. Public deletion and projection cleanup are later lifecycle work.
 
@@ -423,14 +428,16 @@ uv sync --locked
 make check test
 # Use the generated database role/password with the separate test database on the host.
 export KNOWLEDGE_TEST_DATABASE_URL='postgresql+psycopg://USER:PASSWORD@localhost:5432/knowledge_bootstrap_test'
+export KNOWLEDGE_TEST_QDRANT_URL=http://localhost:6333
 make test-integration
 ```
 
-The integration command fails if the database setting is missing/unreachable; it does not
-silently skip Postgres. Database names must end in `_test` or `_integration`. Tests run the
+The integration command requires both Postgres and Qdrant settings and reachable backends;
+it does not silently skip either. Database names must end in `_test` or `_integration`. Tests run the
 actual Alembic migrations, use unique owners, and delete only their own rows. Migration
 upgrade/downgrade checks run in an isolated temporary schema. The separate CI workflow runs
-all tests against Postgres without SecondContext or Qdrant.
+all tests against dedicated Postgres and Qdrant containers, without SecondContext or paid
+inference. Real Qdrant tests use deterministic test embeddings; other backend tests mock HTTP.
 
 Dependency versions are committed in `uv.lock`; Docker and CI install the frozen lock.
 Tests cover source/job atomicity, legal transitions, monotonic progress, failure/retry,
@@ -447,3 +454,127 @@ redirect and robots safety, wildcard robots rules, real slow HTTP headers/bodies
 streamed byte limits, crawl scope/depth/attempt/frontier bounds, canonical provenance, owner
 isolation, idempotency, failed-job retry, atomic rollback and child cleanup. The local HTTP
 fixture changes transport only inside tests; production exposes no private-network bypass.
+
+## Chunking and indexing (K5)
+
+Every parser emits the same `ParsedDocument`/`Block` representation, defined in
+`representation.py`. Ingestion binds title, stable URI and format to the canonical document;
+blocks retain heading ancestry, JSON Pointer paths and PDF page ranges. Chunking reads this
+stored representation and does not reparse source bytes or fetch URLs.
+
+Defaults are a target of **600 tokens** and a hard maximum of **1,200 tokens**, counted with
+`tiktoken`'s fixed `cl100k_base` encoding. Heading ancestry defines section boundaries; tiny
+sections remain separate, while paragraphs in the same section pack together. PDF/plain text
+pack paragraphs and retain the min/max page range. Code, tables, lists and structured values
+stay intact unless the hard limit requires a split. Long unstructured paragraphs alone repeat
+up to **40 suffix tokens**. Chunks also have a 16,384-character ceiling; splitting tokenizes
+4,096-character windows to bound pathological long-word BPE work, then recounts each emitted
+chunk exactly. Unicode splits are lossless. No LLM normalization or blind section overlap is
+used. Docker preloads the tokenizer vocabulary so runtime chunking needs no download; local
+runs download/cache it on first use.
+
+Each chunk stores text, ordinal, token count, heading/page provenance, block indexes/types and
+structured paths, actual overlap counts, and the versioned recipe. A SHA-256 hash covers text
+and heading/page location; UUIDv5 identities include document ID, hash and duplicate occurrence.
+Unchanged chunks retain IDs across refreshes and projection retries. Changing the global recipe
+requires **refresh** to re-chunk; reindex/rebuild only replay stored chunks.
+
+Set these values in the service's own `.env` (the Go service's environment is not read):
+
+```dotenv
+KNOWLEDGE_EMBEDDING_BASE_URL=https://api.openai.com/v1
+KNOWLEDGE_EMBEDDING_API_KEY=YOUR_EMBEDDING_KEY
+KNOWLEDGE_EMBEDDING_MODEL=text-embedding-3-small
+KNOWLEDGE_EMBEDDING_DIMENSIONS=1536
+KNOWLEDGE_QDRANT_URL=http://qdrant:6333
+KNOWLEDGE_QDRANT_COLLECTION=knowledge_chunks
+```
+
+The [embedding API contract](https://developers.openai.com/api/reference/resources/embeddings/methods/create)
+is OpenAI-compatible: batched strings, float vectors and indexed results. Alternate providers
+can use the same contract; authentication is sent only to the configured embedding endpoint.
+`KNOWLEDGE_EMBEDDING_REQUEST_DIMENSIONS` is optional, for providers/models supporting an explicit
+output dimension. Returned dimensions must match `KNOWLEDGE_EMBEDDING_DIMENSIONS`.
+
+Qdrant holds named `dense` (Cosine) and `sparse` vectors. Sparse encoding is deterministic
+Unicode case-folded lexical log-TF with 32-bit SHA-256 token hashes; Qdrant's `idf` modifier
+supplies corpus weights. It needs no learned sparse model or downloaded vocabulary. Hash
+collisions are possible, and this baseline has no stemming/semantic expansion. K6 must use
+this same function for queries and evaluate retrieval quality. Payloads retain owner/source/
+document/chunk IDs, title/URI/canonical URL, heading/page/format/hash and projection generation;
+canonical text stays in Postgres. Keyword indexes support owner/source/document filtering.
+
+The service creates missing collections and validates existing dense/sparse configuration.
+Postgres pins the embedding endpoint/model/dimensions and lexical recipe **before external
+writes**. Changing any of these requires a new collection name and rebuild, even when vector
+dimensions match. Credentials can rotate without changing the recipe. Use a dedicated
+collection; never point this service at SecondContext's memory collection. A restored canonical
+database must preserve this manifest along with its chunks.
+
+| Setting (`KNOWLEDGE_` prefix) | Default | Purpose |
+| --- | --- | --- |
+| `CHUNK_TARGET_TOKENS` | 600 | Paragraph packing target |
+| `CHUNK_MAX_TOKENS` | 1200 | Exact hard chunk token ceiling |
+| `CHUNK_OVERLAP_TOKENS` | 40 | Oversized unstructured paragraph suffix only |
+| `MAX_CHUNKS_PER_SOURCE` | 5000 | Canonical/projection source bound |
+| `INDEXING_ENABLED` | true | Disable external writes and pause at indexing |
+| `INDEX_BATCH_SIZE` | 32 | Embedding and upsert batch size |
+| `INDEX_TIMEOUT_SECONDS` | 10 | Backend HTTP operation timeout |
+| `INDEX_SOURCE_TIMEOUT_SECONDS` | 120 | Projection elapsed-time budget checked between operations/reads |
+
+HTTP responses are bounded to 16 MiB, redirects/proxy environment are disabled, identity
+encoding is requested and compressed responses rejected. Errors expose stable sanitized codes,
+never backend bodies or credentials. The elapsed budget does not preempt a blocked socket;
+its operation timeout bounds that final wait. Increase Compose shutdown grace if increasing
+crawl/index timeouts. Readiness checks canonical Postgres/schema, so backend outages do not
+hide inspectable data or prevent the core API starting.
+
+### Failure recovery and rebuild
+
+Commit order is **documents -> chunks/indexing job -> recipe manifest -> Qdrant -> ready**.
+All current points upsert by canonical chunk UUID with `wait=true`; only after all succeed does
+an owner/source/generation filter remove obsolete points. A backend failure commits a durable
+`failed` attempt at stage `indexing`, with chunks and counters intact. A database failure after
+external success leaves the old indexing job retryable, and repeating its upserts/deletion is
+idempotent. Projection batches are not atomically visible across stores; K6 must validate
+returned IDs/hashes against canonical rows and source readiness.
+
+Retry indexing without refetching, reparsing or rechunking:
+
+```bash
+curl -X POST -H "Authorization: Bearer $KNOWLEDGE_TOKEN" \
+  http://localhost:8090/v1/sources/SOURCE_UUID/reindex
+```
+
+The endpoint is owner-scoped, returns the active job if one exists, otherwise creates a new
+indexing attempt. Finished attempts remain immutable. Without canonical chunks it returns
+`no_canonical_chunks`; use refresh to retry earlier stages. Re-enabling indexing automatically
+consumes paused indexing jobs; failed attempts need an explicit retry.
+
+Operator tools (from the service directory):
+
+```bash
+uv run --env-file .env knowledge-bootstrap reindex-source SOURCE_UUID --owner local
+uv run --env-file .env knowledge-bootstrap rebuild-index --owner local
+uv run --env-file .env knowledge-bootstrap reconcile-index --owner local
+```
+
+Rebuild and reconcile intentionally share one MVP implementation: replay every retained
+canonical chunk for the selected configured owner, then remove that owner's orphaned source
+points. They recreate a lost collection without original files/websites, remove obsolete
+same-source points, and preserve other owners. Durable jobs expose any failure; a non-ready
+job or cleanup failure gives a nonzero exit. Active parse/chunk jobs are reused and may require
+finishing before rerunning rebuild. Back up Postgres; the search projection is disposable.
+For a new embedding model, choose a fresh collection and replay each owner. Neither command
+wipes a live collection, and public deletion/absent-crawl-page lifecycle remains K8.
+
+K5 tests cover tiny/large/deep sections, Unicode, code/tables, page ranges, structured paths,
+overlap and determinism; real Postgres tests cover stage commits, partial index failure,
+projection-only retry, owner isolation, stable IDs, concurrency and rollback after external
+success. Real Qdrant tests cover dense/sparse queries, stale filters, preserving other owners,
+and rebuilding a deleted test collection:
+
+```bash
+export KNOWLEDGE_TEST_QDRANT_URL=http://localhost:6333
+uv run pytest --require-postgres --require-qdrant
+```

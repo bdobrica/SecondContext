@@ -25,6 +25,7 @@ from knowledge_bootstrap.ingestion import run_worker
 from knowledge_bootstrap.logging import configure_logging
 from knowledge_bootstrap.models import SCHEMA_REVISION, Chunk, Document, IngestionJob, Source
 from knowledge_bootstrap.parsers import ParseError, normalize_input
+from knowledge_bootstrap.pipeline import reindex_source
 from knowledge_bootstrap.schemas import (
     ChunkView,
     DocumentView,
@@ -131,6 +132,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessions = make_sessions(engine)
     app.state.engine = engine
     app.add_middleware(BodyLimit, max_bytes=settings.max_request_bytes)
+
+    @app.post("/v1/sources/{source_id}/reindex", response_model=SourceAccepted, status_code=202)
+    def reindex(source_id: UUID, owner: Owner, session: Database):
+        source, job = reindex_source(session, owner, source_id)
+        return SourceAccepted(
+            source=SourceView.model_validate(source), job=JobView.model_validate(job)
+        )
 
     @app.middleware("http")
     async def log_request(request: Request, call_next):

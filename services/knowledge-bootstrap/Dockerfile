@@ -6,6 +6,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY src ./src
 RUN uv sync --frozen --no-dev --no-editable
+ENV TIKTOKEN_CACHE_DIR=/app/tokenizer-cache
+RUN /app/.venv/bin/python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
 COPY alembic.ini ./
 COPY migrations ./migrations
 RUN useradd --uid 10001 --create-home knowledge

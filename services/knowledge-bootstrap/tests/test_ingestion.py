@@ -190,10 +190,10 @@ def test_actual_lifespan_worker_processes_durable_pending_jobs(sessions, owners,
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
             state = api.get(f"/v1/jobs/{job.id}").json()["status"]
-            if state == "chunking":
+            if state in {"indexing", "ready", "failed"}:
                 break
             time.sleep(0.05)
-        assert state == "chunking"
+        assert state == "indexing"
 
 
 def test_text_and_upload_limits_and_validation(client, sessions, db_settings):

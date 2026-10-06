@@ -114,6 +114,7 @@ class ChunkView(RowView):
     page_end: int | None
     token_count: int
     content_hash: str
+    metadata_json: dict[str, Any]
 
 
 class JobTransition(BaseModel):

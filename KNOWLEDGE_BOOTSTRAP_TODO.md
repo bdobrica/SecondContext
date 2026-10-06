@@ -1,6 +1,6 @@
 # Knowledge Bootstrap Service — TODO
 
-Status: K1–K4 implemented; remaining milestones proposed
+Status: K1–K5 implemented; remaining milestones proposed
 
 Track: Standalone / parallel to SecondContext
 
@@ -102,9 +102,9 @@ in a later milestone.
 
 Implemented in the optional service: pasted JSON requests and `/v1/sources/upload` feed a
 bounded polling worker. TXT/Markdown/JSON/YAML produce canonical documents with semantic
-blocks, heading ancestry or JSON Pointer paths in metadata. Parsed jobs pause at `chunking`
-with one processed document; actual chunks, indexing and `ready` completion belong to K5.
-No new database migration, LLM, Qdrant connection or SecondContext dependency is required.
+blocks, heading ancestry or JSON Pointer paths in metadata. K2 commits one processed document
+at `chunking`; K5 now consumes that stage through indexing and `ready`. The parser stage
+requires no LLM, Qdrant connection or SecondContext dependency.
 
 ### Pasted text
 
@@ -178,8 +178,8 @@ format hints. Bounded original bytes remain in Postgres for retry/refresh. A dis
 process enforces wall time, CPU, memory and output limits; PDFs retain page provenance and
 DOCX retains heading ancestry, paragraphs, lists and readable tables. Scanned/near-empty PDFs
 fail explicitly with `pdf_text_unavailable`; OCR remains deferred. Migration
-`0002_source_bytes` extends only the optional service database. Parsed jobs still pause at
-`chunking` for K5.
+`0002_source_bytes` extends only the optional service database. K3 commits parsed documents
+at `chunking`; K5 now continues through indexing and `ready`.
 
 ### PDF
 
@@ -233,7 +233,8 @@ bounded and tested. Canonical pages retain title, requested/final/canonical URL 
 retrieval/status/content type, hashes and semantic blocks. Low-text/JavaScript-only content
 fails explicitly. No browser, database migration, Qdrant connection or Go dependency is
 introduced. Host scope excludes subdomains; registrable-domain expansion remains deferred.
-Parsed jobs still pause at `chunking` for K5; stale-page removal on refresh belongs to K8.
+K4 commits parsed documents at `chunking`; K5 now continues through indexing and `ready`.
+Removal of absent website pages on refresh belongs to K8.
 
 ### Single-page ingestion first
 
@@ -307,67 +308,78 @@ Parsed jobs still pause at `chunking` for K5; stale-page removal on refresh belo
 
 ## K5 — Canonical representation, structure-aware chunking, and indexing pipeline
 
+
+Implemented in the optional service: all parsers share a neutral block/document model;
+heading/paragraph-aware chunks retain paths/pages, exact token counts, stable hashes/IDs and
+a versioned recipe. Canonical chunks commit before external writes. A dedicated Qdrant
+collection holds dense embeddings and deterministic Unicode lexical sparse vectors with IDF.
+Durable index failures can retry through `/v1/sources/{id}/reindex` without reparsing;
+owner-scoped rebuild/reconciliation commands replay Postgres chunks and remove stale/orphan
+points. Migration `0003_chunk_metadata` adds chunk metadata and pins projection recipes.
+Jobs now complete at `ready`; indexing can be disabled to pause with inspectable chunks.
+Search/UI and absent website-page deletion remain K6/K7/K8.
+
 ### Canonical document model
 
-- [ ] Define parser-neutral document/block representation.
-- [ ] Include title/URI/format metadata.
-- [ ] Include heading blocks.
-- [ ] Include paragraph blocks.
-- [ ] Include code/list/table blocks where useful.
-- [ ] Include page provenance where available.
-- [ ] Make all parsers emit this representation.
+- [x] Define parser-neutral document/block representation.
+- [x] Include title/URI/format metadata.
+- [x] Include heading blocks.
+- [x] Include paragraph blocks.
+- [x] Include code/list/table blocks where useful.
+- [x] Include page provenance where available.
+- [x] Make all parsers emit this representation.
 
 ### Chunking
 
-- [ ] Chunk Markdown/HTML/DOCX primarily on heading/section boundaries.
-- [ ] Chunk PDF/raw text primarily on paragraph boundaries.
-- [ ] Start with configurable target size around 500–800 tokens.
-- [ ] Start with configurable hard maximum around 1,200 tokens.
-- [ ] Avoid fixed overlap when structural ancestry is sufficient.
-- [ ] Add limited overlap for long unstructured runs only where justified.
-- [ ] Preserve heading path.
-- [ ] Preserve page/range.
-- [ ] Preserve source/document IDs.
-- [ ] Store ordinal and token count.
-- [ ] Compute stable chunk content hashes.
-- [ ] Make re-chunking deterministic for unchanged input/config.
+- [x] Chunk Markdown/HTML/DOCX primarily on heading/section boundaries.
+- [x] Chunk PDF/raw text primarily on paragraph boundaries.
+- [x] Start with configurable target size around 500–800 tokens.
+- [x] Start with configurable hard maximum around 1,200 tokens.
+- [x] Avoid fixed overlap when structural ancestry is sufficient.
+- [x] Add limited overlap for long unstructured runs only where justified.
+- [x] Preserve heading path.
+- [x] Preserve page/range.
+- [x] Preserve source/document IDs.
+- [x] Store ordinal and token count.
+- [x] Compute stable chunk content hashes.
+- [x] Make re-chunking deterministic for unchanged input/config.
 
 ### Chunking tests
 
-- [ ] Tiny sections.
-- [ ] Oversized sections.
-- [ ] Deep heading hierarchy.
-- [ ] Tables.
-- [ ] Code blocks.
-- [ ] Page transitions.
-- [ ] Long unstructured paragraphs.
-- [ ] Deterministic repeat run.
+- [x] Tiny sections.
+- [x] Oversized sections.
+- [x] Deep heading hierarchy.
+- [x] Tables.
+- [x] Code blocks.
+- [x] Page transitions.
+- [x] Long unstructured paragraphs.
+- [x] Deterministic repeat run.
 
 ### Search-index projection
 
-- [ ] Create dedicated `knowledge_chunks` collection/index.
-- [ ] Index dense vector per chunk.
-- [ ] Index sparse/lexical representation per chunk.
-- [ ] Keep canonical text/state in Postgres.
-- [ ] Include owner/source/document/chunk IDs in index payload.
-- [ ] Include title/URL/heading/page/format/content-hash metadata.
-- [ ] Implement idempotent upsert.
-- [ ] Implement stale-point deletion.
-- [ ] Implement full rebuild from Postgres.
+- [x] Create dedicated `knowledge_chunks` collection/index.
+- [x] Index dense vector per chunk.
+- [x] Index sparse/lexical representation per chunk.
+- [x] Keep canonical text/state in Postgres.
+- [x] Include owner/source/document/chunk IDs in index payload.
+- [x] Include title/URL/heading/page/format/content-hash metadata.
+- [x] Implement idempotent upsert.
+- [x] Implement stale-point deletion.
+- [x] Implement full rebuild from Postgres.
 
 ### Cross-store failure handling
 
-- [ ] Decide commit order between Postgres and search projection.
-- [ ] Persist enough state to retry failed index writes.
-- [ ] Add reconciliation command/job.
-- [ ] Add tests for Postgres-success/index-failure scenarios.
-- [ ] Add tests for retry without duplicate canonical chunks.
+- [x] Decide commit order between Postgres and search projection.
+- [x] Persist enough state to retry failed index writes.
+- [x] Add reconciliation command/job.
+- [x] Add tests for Postgres-success/index-failure scenarios.
+- [x] Add tests for retry without duplicate canonical chunks.
 
 ### K5 exit criteria
 
-- [ ] Every supported input produces canonical, inspectable chunks.
-- [ ] Search projection can be rebuilt entirely from Postgres.
-- [ ] Partial index failure is recoverable.
+- [x] Every supported input produces canonical, inspectable chunks.
+- [x] Search projection can be rebuilt entirely from Postgres.
+- [x] Partial index failure is recoverable.
 
 ---
 
@@ -688,10 +700,10 @@ Begin only after retrieval quality is proven.
 
 1. [x] K1 — Core service and data model.
 2. [x] K2 — Text / Markdown / JSON / YAML ingestion.
-3. [ ] K5 foundation — canonical document/chunk model and stable hashing.
+3. [x] K5 foundation — canonical document/chunk model and stable hashing.
 4. [x] K3 — PDF / DOCX.
-5. [ ] K4 — safe website ingestion.
-6. [ ] K5 completion — dense/sparse indexing and recovery.
+5. [x] K4 — safe website ingestion.
+6. [x] K5 completion — dense/sparse indexing and recovery.
 7. [ ] K6 — hybrid retrieval API.
 8. [ ] K7 — management and test-retrieval UI.
 9. [ ] K8 — lifecycle, recovery, hardening, and evaluation.

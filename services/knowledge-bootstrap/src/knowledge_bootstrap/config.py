@@ -42,10 +42,22 @@ class Settings(BaseSettings):
     web_max_output_bytes: int = Field(default=8_388_608, ge=1024, le=33_554_432)
     web_crawl_delay_seconds: float = Field(default=1, ge=0.1, le=30)
     web_min_text_chars: int = Field(default=40, ge=1, le=1000)
-    # Future search projection; intentionally not connected or needed in K1.
+    chunk_target_tokens: int = Field(default=600, ge=32, le=4000)
+    chunk_max_tokens: int = Field(default=1200, ge=32, le=8000)
+    chunk_overlap_tokens: int = Field(default=40, ge=0, le=200)
+    max_chunks_per_source: int = Field(default=5000, ge=1, le=20000)
+    indexing_enabled: bool = True
+    index_batch_size: int = Field(default=32, ge=1, le=128)
+    index_timeout_seconds: float = Field(default=10, ge=0.1, le=60)
+    index_source_timeout_seconds: float = Field(default=120, ge=1, le=600)
+    embedding_base_url: str = "https://api.openai.com/v1"
+    embedding_api_key: SecretStr = SecretStr("")
+    embedding_model: str = Field(default="text-embedding-3-small", min_length=1, max_length=200)
+    # Optional API dimensions parameter: leave unset for other compatible providers/models.
+    embedding_request_dimensions: int | None = Field(default=None, ge=1, le=65536)
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: SecretStr = SecretStr("")
-    qdrant_collection: str = Field(default="knowledge_chunks", min_length=1, max_length=128)
+    qdrant_collection: str = Field(default="knowledge_chunks", pattern=r"^[a-zA-Z0-9_-]{1,128}$")
     embedding_dimensions: int = Field(default=1536, ge=1, le=65536)
 
     @field_validator("database_url")
@@ -67,7 +79,7 @@ class Settings(BaseSettings):
             raise ValueError("unsupported log level")
         return value
 
-    @field_validator("qdrant_url")
+    @field_validator("qdrant_url", "embedding_base_url")
     @classmethod
     def validate_qdrant_url(cls, value: str) -> str:
         from urllib.parse import urlsplit
@@ -79,6 +91,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_tokens(self) -> Self:
+        if self.chunk_target_tokens > self.chunk_max_tokens:
+            raise ValueError("chunk target must not exceed the hard maximum")
+        if self.chunk_overlap_tokens >= self.chunk_target_tokens:
+            raise ValueError("chunk overlap must be smaller than the target")
+        if self.embedding_request_dimensions not in {None, self.embedding_dimensions}:
+            raise ValueError("requested embedding dimensions must match the collection dimensions")
         tokens = []
         for owner, secret in self.auth_tokens.items():
             if not owner.strip() or owner != owner.strip() or len(owner) > 200:

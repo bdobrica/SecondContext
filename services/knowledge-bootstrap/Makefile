@@ -17,4 +17,4 @@ test:
 	uv run pytest -m 'not integration'
 
 test-integration:
-	uv run pytest --require-postgres
+	uv run pytest --require-postgres --require-qdrant
