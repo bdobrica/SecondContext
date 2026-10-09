@@ -79,6 +79,24 @@ def ingest(client, sessions, config, text="# Deployment\n\nRollback safely."):
     )
 
 
+@pytest.mark.parametrize("phase", ["before", "during"])
+def test_outdated_canonical_chunks_are_not_evidence_even_if_marked_ready(
+    retrieval_client, sessions, search_config, phase
+):
+    source_id, _ = ingest(retrieval_client, sessions, search_config)
+
+    def outdated():
+        with sessions.begin() as session:
+            source = session.get(Source, UUID(source_id))
+            source.metadata_json = {**source.metadata_json, "chunks_current": False}
+
+    if phase == "before":
+        outdated()
+    else:
+        RetrievalIndex.hook = outdated
+    assert retrieval_client.post("/v1/search", json={"query": "rollback"}).json() == {"results": []}
+
+
 def test_search_evidence_debug_filters_and_owner(retrieval_client, sessions, search_config, owners):
     client = retrieval_client
     source_id, point = ingest(client, sessions, search_config)

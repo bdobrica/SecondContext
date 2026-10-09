@@ -13,6 +13,8 @@ page/path/host crawling. K5 adds structure-aware chunks and dense/sparse Qdrant 
 with projection-only retry and rebuild tools. K6 adds filtered hybrid retrieval with canonical
 evidence and score debugging. K7 adds a Jinja2 management and test UI at `/knowledge`,
 with ingestion, inspection, refresh/reindex, confirmed deletion and ranked evidence.
+K8 completes website refresh cleanup, unchanged parser/chunk reuse, owner-scoped operational
+metrics, backup/recovery guidance and a real Postgres/Qdrant lifecycle evaluation.
 
 **Jobs now reach `ready` after canonical chunks and acknowledged index writes.** Configure
 an embedding endpoint and the dedicated Qdrant collection below. Setting
@@ -364,9 +366,10 @@ in source `metadata_json.crawl`; a total timeout/output/resource failure aborts 
 Successful parsing commits all documents and counters atomically, then K5 creates chunks and
 indexes them. Crawl metadata reports page/frontier limits. Refresh reuses documents by final
 URL and returns any active job; after a failed/completed job it creates another attempt.
-Existing website documents not fetched successfully in a later crawl remain retained and
-indexed. Removing absent website pages belongs to K8; stale chunks of changed documents
-and their obsolete index points are removed now. Multiple deployed
+K8 removes absent documents after an exhausted successful crawl, and confirmed linked
+404/410 responses remove their previous documents. Limited or partially failed crawls
+retain unvisited pages; stale chunks and obsolete index points are removed after projection
+succeeds. Multiple deployed
 worker processes can each run one crawl; concurrency/delay coordination across replicas is
 outside this MVP. No schema migration or Qdrant connection is needed for K4.
 
@@ -387,7 +390,7 @@ the same canonical document rather than duplicating it. Chunking commits canonic
 and `indexing` progress in a separate transaction. Projection writers serialize by owner
 using Postgres advisory locks, then lock the source/job in the same order as refresh.
 A configured owner can index one source at a time; other owners can proceed independently.
-Refresh reuses any active job; public deletion remains K8.
+Refresh reuses any active job; deletion is serialized with projection and ingestion writers.
 
 ## Exercise the state machine
 
@@ -571,7 +574,8 @@ same-source points, and preserve other owners. Durable jobs expose any failure; 
 job or cleanup failure gives a nonzero exit. Active parse/chunk jobs are reused and may require
 finishing before rerunning rebuild. Back up Postgres; the search projection is disposable.
 For a new embedding model, choose a fresh collection and replay each owner. Neither command
-wipes a live collection, and public deletion/absent-crawl-page lifecycle remains K8.
+wipes a live collection. K8 completes absent-crawl-page lifecycle handling; K7 supplies
+the serialized deletion path.
 
 K5 tests cover tiny/large/deep sections, Unicode, code/tables, page ranges, structured paths,
 overlap and determinism; real Postgres tests cover stage commits, partial index failure,
@@ -771,11 +775,11 @@ Postgres. Locks can time out while an ingestion worker holds the source; retry a
 attempt completes. A fresh search cannot return a canonically deleted source. Evidence from
 an earlier response remains an earlier snapshot.
 
-This is the deletion path needed by K7, not completion of K8. Canonical deletion waits for
+Canonical deletion waits for
 search cleanup, so backend outages defer deletion. Moving Qdrant endpoints needs cleanup of
 the old endpoint using its configuration; no endpoint history/outbox/tombstone migration is
-added here. Broader refresh reconciliation, missing website-page cleanup, job retention,
-metrics and operational lifecycle hardening remain K8.
+added here. Jobs are retained while their source exists, and deleted by the same canonical
+FK cascade; there is no separate archive or automatic retention expiry.
 
 ### Browser smoke test
 
@@ -798,3 +802,147 @@ uv run --with playwright python tests/ui_smoke.py --browser-path /usr/bin/chromi
 workspace. Browser tooling is temporary and is not a production dependency. The regular
 suite validates the credential-free shell/headers, canonical summaries, owner isolation,
 writer locking, deletion retries/cascades and real Qdrant cleanup without paid inference.
+
+## K8 lifecycle and operations
+
+### Refresh and retained inputs
+
+`POST /v1/sources/{id}/refresh` queues a new attempt after a finished job, or returns the
+outstanding job. Text/file refresh reads the bytes already stored in Postgres; it does not
+read a local filename or replace an upload. To ingest a replacement file/text through the
+current API, create a new source and delete the old one after checking the replacement.
+Website refresh always refetches and parses the configured URL/crawl scope.
+
+Retained text/file parsing is reused when the input hash, detected format, name, parser
+configuration, cache version and parser/resource limits match the previous parse. A changed
+limit forces validation again. Document block/recipe fingerprints let chunking retain stored
+rows for unchanged documents; changes deterministically regenerate only affected documents.
+Unchanged semantic chunks retain their UUIDs even within a changed document. Existing K1–K7
+documents acquire these cache markers during their next parse/chunk attempt; no migration
+is required. Parser behavior changes must bump the input fingerprint's version.
+
+For websites, document identity is the observed final URL. An exhausted frontier within the
+configured scope/depth, with no skipped pages, page limit or discovery truncation, is
+authoritative: previous documents absent from that crawl are deleted with their chunks.
+Confirmed linked 404/410 responses also remove their previous URL documents, including
+during an otherwise partial crawl. A failed seed still fails the job and retains data.
+HTTP errors, robots denial and discovery/page caps retain unvisited documents. HTML link
+discovery hitting its cap conservatively marks the frontier incomplete. Inspect
+`metadata_json.crawl` for `frontier_complete`, `missing_pages`, `absence_cleanup`, limit
+flags and `canonical_documents`. Job document counters describe pages processed in that
+attempt; chunk counts include retained canonical pages. Website source hashes cover the
+retained canonical URL/content-hash set, not just the latest partial crawl.
+The retained canonical website set is also bounded by `KNOWLEDGE_WEB_MAX_PAGES`; repeated
+partial refreshes cannot accumulate unlimited old/new pages. Exceeding that bound fails
+with `crawl_limit_exceeded` before document changes, retaining the previous snapshot.
+Retry with a complete crawl (or deliberately increase the validated server bound).
+
+Projection replay still embeds/upserts every retained chunk, even on an unchanged refresh.
+This deliberately repairs externally missing points rather than trusting an old `ready`
+marker. All current writes must succeed before stale generations are deleted. Failed
+projection attempts keep canonical chunks for `/reindex`; a database rollback after external
+success leaves the durable job replayable. Search suppresses non-ready or outdated sources.
+If parsing committed newer documents but chunking failed, reindex returns
+`409 canonical_chunks_outdated`; correct the failing limit/configuration and refresh
+to finish chunking before publishing those documents. A later parsing failure does not
+clear this guard. Sources record `metadata_json.chunks_current` after parser/chunker commits.
+Search validates canonical identity/hash/generation. The previous evidence can be temporarily
+unavailable during refresh/failure. Equal backend scores sort by point ID before rank fusion,
+so rebuilding does not reorder ties within the returned candidate set. Approximate retrieval
+and ties across the bounded candidate cutoff can still vary in a larger corpus.
+
+### Metrics
+
+`GET /v1/metrics` uses the same bearer credential and returns only that owner's aggregates:
+
+- canonical source/document/chunk counts;
+- jobs by status and failures by stage (`fetching`, `parsing`, `chunking`, `indexing`);
+- completed ingestion-attempt latency: count, seconds sum and maximum, from first work
+  through completion, including inter-stage waits, excluding initial queue wait;
+- search requests/failures, seconds sum and cumulative latency buckets per retrieval mode.
+
+Job metrics come from retained Postgres rows and survive restarts; deleting a source deletes
+its jobs and removes them from these aggregates. They are operational summaries, not an audit
+archive. Search metrics are bounded, locked counters for this API process, reset on restart,
+and count authenticated searches that passed request-schema validation (including runtime
+validation/backend failures). With multiple API workers, collect each process separately.
+No query, token, URI, source UUID or exception text becomes a metric label. There is no new
+monitoring dependency or public metrics endpoint. JSON can be polled by internal tooling.
+
+### Backup and restore
+
+Back up the dedicated **Postgres database**, including original inputs, semantic documents,
+chunks, jobs, recipe manifests and `alembic_version`. Qdrant contains a disposable projection
+and does not need to be the authoritative backup. Keep the service `.env`/owner credentials
+and embedding configuration separately in your normal secret backup. A database dump does
+not provision cluster roles/passwords. Recreate the `knowledge_bootstrap` role on a new
+cluster before restoring. Backups contain private reference content and retained uploads;
+store them outside the repository with restricted access and your normal retention policy.
+
+Using the existing Postgres container from the repository root, save a custom-format dump
+to a private destination (substitute your backup path):
+
+```bash
+umask 077
+docker compose exec -T postgres sh -c \
+  'exec pg_dump -U "$POSTGRES_USER" --format=custom --no-acl knowledge_bootstrap' \
+  > /secure/backups/knowledge.dump
+```
+
+`pg_dump` supports a consistent database snapshot during normal use. For a restore drill,
+create an isolated database and restore there; use no destructive cleanup flags:
+
+```bash
+docker compose exec -T postgres sh -c \
+  'exec createdb -U "$POSTGRES_USER" -O knowledge_bootstrap knowledge_bootstrap_restore_integration'
+docker compose exec -T postgres sh -c \
+  'exec pg_restore -U "$POSTGRES_USER" --role=knowledge_bootstrap --no-owner --no-acl --exit-on-error -d knowledge_bootstrap_restore_integration' \
+  < /secure/backups/knowledge.dump
+```
+
+See the PostgreSQL 16 [pg_dump](https://www.postgresql.org/docs/16/app-pgdump.html) and
+[pg_restore](https://www.postgresql.org/docs/16/app-pgrestore.html) documentation for archive
+and restore options. Check counts, document/chunk hashes, ownership and migration revision
+in the restored database. Apply newer migrations if needed. For an actual recovery, stop
+only the optional knowledge service while switching its private database configuration;
+SecondContext continues running. Keep the previous database until recovery is verified.
+
+Rebuild with the restored database and a **fresh Qdrant collection**, keeping the same
+embedding model/dimensions/lexical recipe. Run `rebuild-index --owner OWNER` for every
+configured owner using the operator commands above. The owner value and bearer token must
+match your saved configuration. Rebuild reads canonical chunks, not websites or original
+files; active parse/chunk jobs must finish before reindexing them. After readiness/search
+checks, start the optional service. Incomplete jobs resume from their durable stages; failed
+jobs require refresh or reindex. A fresh collection avoids accidentally serving projections
+from a different point in time and permits rollback to the previous configuration.
+
+### Evaluation and hardening
+
+`tests/test_lifecycle_qdrant.py` ingests a two-page handbook through the website parser into
+real Postgres/Qdrant, checks HTTP retrieval/provenance in all three modes, replaces a page,
+injects failure after an acknowledged index batch, retries without parsing, verifies stale
+points disappear, removes/rebuilds the isolated collection and compares six query/mode
+rankings. It then deletes the source twice and verifies canonical/jobs/projection cleanup
+and empty retrieval. Fixtures and the collection are isolated and cleaned automatically.
+
+Run from the service directory with a dedicated database ending in `_test`/`_integration`:
+
+```bash
+KNOWLEDGE_TEST_QDRANT_URL=http://127.0.0.1:6333 \
+  uv run pytest --require-postgres --require-qdrant
+# Set KNOWLEDGE_TEST_DATABASE_URL privately before running.
+# Optionally save a report for the lifecycle case:
+KNOWLEDGE_TEST_QDRANT_URL=http://127.0.0.1:6333 \
+  KNOWLEDGE_LIFECYCLE_REPORT=benchmarks/lifecycle-results.json \
+  uv run pytest --require-postgres --require-qdrant tests/test_lifecycle_qdrant.py
+```
+
+The recorded [lifecycle report](benchmarks/lifecycle-results.json) uses deterministic test
+embeddings and a versioned HTML fixture, so it measures lifecycle consistency, not semantic
+retrieval quality or live website behavior. The K6 corpus/evaluator/results above remain the
+separate real-embedding retrieval benchmark. K8 also runs the existing abuse regressions:
+oversized/streamed text; JSON/YAML depth/alias expansion; DOCX ZIP/XML bombs; malformed and
+oversized PDF streams; hostile/oversized HTML; actual slow sockets and redirect-to-metadata;
+redirect/frontier/page/depth bounds; and cross-owner API/enumeration/projection isolation.
+No OCR, browser rendering, scheduled refresh, job archive, endpoint-migration outbox or
+SecondContext adapter is introduced.

@@ -114,6 +114,7 @@ def canonical_candidates(session, settings, owner, request, branches):
             Document.owner_id == owner,
             Source.owner_id == owner,
             Source.status == Stage.READY,
+            ~Source.metadata_json.contains({"chunks_current": False}),
         )
         .options(
             load_only(
@@ -217,6 +218,7 @@ def search(session, settings, owner: str, request: SearchRequest, index_factory=
         .where(
             Source.owner_id == owner,
             Source.status == Stage.READY,
+            ~Source.metadata_json.contains({"chunks_current": False}),
             Source.metadata_json["index"]["collection"].astext == settings.qdrant_collection,
         )
         .limit(1)

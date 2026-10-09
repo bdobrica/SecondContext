@@ -1,18 +1,18 @@
 # Knowledge Bootstrap Service — TODO
 
-Status: K1–K7 implemented; remaining milestones proposed
+Status: K1–K8 implemented; remaining milestones proposed
 
 Track: Standalone / parallel to SecondContext
 
 ## Goals
 
-- [ ] Build an independently deployable knowledge-bootstrap service.
-- [ ] Ingest websites, PDFs, DOCX, Markdown, JSON, YAML, plain text, and pasted unstructured content.
-- [ ] Keep canonical source/document/chunk state separate from any consumer such as SecondContext.
-- [ ] Expose grounded hybrid retrieval through a small versioned HTTP API.
-- [ ] Preserve provenance from every returned chunk to source/document location.
-- [ ] Make ingestion observable, bounded, retryable, owner/tenant-isolated, and safe against hostile URLs or malformed files.
-- [ ] Provide a minimal management and test-retrieval UI so the service is useful before SecondContext integration.
+- [x] Build an independently deployable knowledge-bootstrap service.
+- [x] Ingest websites, PDFs, DOCX, Markdown, JSON, YAML, plain text, and pasted unstructured content.
+- [x] Keep canonical source/document/chunk state separate from any consumer such as SecondContext.
+- [x] Expose grounded hybrid retrieval through a small versioned HTTP API.
+- [x] Preserve provenance from every returned chunk to source/document location.
+- [x] Make ingestion observable, bounded, retryable, owner/tenant-isolated, and safe against hostile URLs or malformed files.
+- [x] Provide a minimal management and test-retrieval UI so the service is useful before SecondContext integration.
 
 ## Architectural boundary
 
@@ -234,7 +234,7 @@ retrieval/status/content type, hashes and semantic blocks. Low-text/JavaScript-o
 fails explicitly. No browser, database migration, Qdrant connection or Go dependency is
 introduced. Host scope excludes subdomains; registrable-domain expansion remains deferred.
 K4 commits parsed documents at `chunking`; K5 now continues through indexing and `ready`.
-Removal of absent website pages on refresh belongs to K8.
+K8 now removes absent pages safely on authoritative refreshes.
 
 ### Single-page ingestion first
 
@@ -317,7 +317,7 @@ Durable index failures can retry through `/v1/sources/{id}/reindex` without repa
 owner-scoped rebuild/reconciliation commands replay Postgres chunks and remove stale/orphan
 points. Migration `0003_chunk_metadata` adds chunk metadata and pins projection recipes.
 Jobs now complete at `ready`; indexing can be disabled to pause with inspectable chunks.
-K6 now provides hybrid search. K7 provides the UI; absent website-page deletion remains K8.
+K6 provides hybrid search, K7 the UI, and K8 absent website-page cleanup.
 
 ### Canonical document model
 
@@ -464,8 +464,8 @@ job/error summaries. Website, file and paste forms, bounded pagination, upload p
 status polling, document/chunk provenance and hybrid/dense/sparse retrieval debugging work
 without SecondContext. Confirmed deletion adds the minimal serialized API path needed here:
 search cleanup before canonical FK cascades, backend failure retains the source for retry,
-missing sources/collections are idempotent, and jobs are removed with the source. This does
-not finish K8's broader refresh/recovery/observability work. Real Chromium smoke coverage is
+missing sources/collections are idempotent, and jobs are removed with the source. K8 extends
+this with refresh/recovery/observability work. Real Chromium smoke coverage is
 in `tests/ui_smoke.py`; PostgreSQL/Qdrant tests cover summaries, isolation, cleanup and retries.
 
 ### Sources page
@@ -533,65 +533,79 @@ in `tests/ui_smoke.py`; PostgreSQL/Qdrant tests cover summaries, isolation, clea
 
 ## K8 — Refresh, deletion, recovery, evaluation, and hardening
 
+Implemented in the optional service. Refresh reuses unchanged retained text/file parses and
+unchanged canonical chunk snapshots, refetches websites, and removes absent pages only after
+an authoritative complete crawl (or confirmed linked 404/410). Capped/partially failed crawls
+retain unvisited pages. Canonical-first retries, serialized idempotent deletion, reindex and
+owner rebuild/reconciliation reuse K5/K7 paths. Retained pages stay within the server bound;
+failed chunking cannot publish outdated chunks through reindex or search.
+Authenticated `/v1/metrics` exposes durable
+job latency/failures and bounded process-local search counters. Backup/restore guidance and a
+real PostgreSQL/Qdrant handbook lifecycle evaluation are included; equal backend score ties
+now resolve consistently before rank fusion. Deletion cascades jobs; no archive/TTL/outbox,
+scheduled refresh, OCR, rendering or SecondContext integration is added. Website HTML is
+still fetched/parsed on every refresh; projection replay still embeds all retained chunks to
+repair missing points. The broader K2–K7 abuse suite is part of K8 validation.
+
 ### Refresh semantics
 
-- [ ] Re-read/refetch source.
-- [ ] Compute new source/document hashes.
-- [ ] Skip unchanged work where practical.
-- [ ] Reparse changed documents.
-- [ ] Deterministically re-chunk.
-- [ ] Preserve stable chunk IDs for unchanged chunks where practical.
-- [ ] Upsert changed/new search points.
-- [ ] Remove stale points.
-- [ ] Leave source recoverable after partial failure.
+- [x] Re-read/refetch source.
+- [x] Compute new source/document hashes.
+- [x] Skip unchanged work where practical.
+- [x] Reparse changed documents.
+- [x] Deterministically re-chunk.
+- [x] Preserve stable chunk IDs for unchanged chunks where practical.
+- [x] Upsert changed/new search points.
+- [x] Remove stale points.
+- [x] Leave source recoverable after partial failure.
 
 ### Deletion semantics
 
-- [ ] Delete/tombstone source canonically.
-- [ ] Delete documents.
-- [ ] Delete chunks.
-- [ ] Delete derived search points.
-- [ ] Decide ingestion-job retention policy.
-- [ ] Ensure search never returns a canonically deleted source after deletion completes.
-- [ ] Make deletion retries idempotent.
+- [x] Delete/tombstone source canonically.
+- [x] Delete documents.
+- [x] Delete chunks.
+- [x] Delete derived search points.
+- [x] Decide ingestion-job retention policy.
+- [x] Ensure search never returns a canonically deleted source after deletion completes.
+- [x] Make deletion retries idempotent.
 
 ### Operational tooling
 
-- [ ] Add search-index rebuild command/job.
-- [ ] Add cross-store reconciliation command/job.
-- [ ] Add source reindex command/job.
-- [ ] Add backup guidance for Postgres canonical data.
-- [ ] Document that search projections are rebuildable.
-- [ ] Add metrics for ingestion latency and failures.
-- [ ] Add metrics for parser/fetch/index failures.
-- [ ] Add metrics for search latency.
+- [x] Add search-index rebuild command/job.
+- [x] Add cross-store reconciliation command/job.
+- [x] Add source reindex command/job.
+- [x] Add backup guidance for Postgres canonical data.
+- [x] Document that search projections are rebuildable.
+- [x] Add metrics for ingestion latency and failures.
+- [x] Add metrics for parser/fetch/index failures.
+- [x] Add metrics for search latency.
 
 ### Abuse/hardening tests
 
-- [ ] Very large text input.
-- [ ] Deep JSON/YAML nesting.
-- [ ] ZIP/DOCX expansion abuse.
-- [ ] Malformed PDFs.
-- [ ] Hostile/oversized HTML.
-- [ ] Slow HTTP server behavior.
-- [ ] Excessive redirect chains.
-- [ ] Crawl explosion attempts.
-- [ ] Cross-owner enumeration/access attempts.
+- [x] Very large text input.
+- [x] Deep JSON/YAML nesting.
+- [x] ZIP/DOCX expansion abuse.
+- [x] Malformed PDFs.
+- [x] Hostile/oversized HTML.
+- [x] Slow HTTP server behavior.
+- [x] Excessive redirect chains.
+- [x] Crawl explosion attempts.
+- [x] Cross-owner enumeration/access attempts.
 
 ### End-to-end evaluation
 
-- [ ] Ingest a small handbook/spec.
-- [ ] Verify source/document/chunk provenance.
-- [ ] Run benchmark queries through `/v1/search`.
-- [ ] Refresh a changed source and verify stale chunks disappear.
-- [ ] Delete a source and verify it is no longer searchable.
-- [ ] Rebuild search index from Postgres and compare retrieval.
+- [x] Ingest a small handbook/spec.
+- [x] Verify source/document/chunk provenance.
+- [x] Run benchmark queries through `/v1/search`.
+- [x] Refresh a changed source and verify stale chunks disappear.
+- [x] Delete a source and verify it is no longer searchable.
+- [x] Rebuild search index from Postgres and compare retrieval.
 
 ### K8 exit criteria
 
-- [ ] Canonical state survives/reconciles partial projection failures.
-- [ ] Refresh/delete behavior is deterministic and tested.
-- [ ] The standalone MVP is operationally usable.
+- [x] Canonical state survives/reconciles partial projection failures.
+- [x] Refresh/delete behavior is deterministic and tested.
+- [x] The standalone MVP is operationally usable.
 
 ---
 
@@ -703,18 +717,18 @@ Begin only after retrieval quality is proven.
 
 ## MVP deliverables
 
-- [ ] Standalone service runs without SecondContext.
-- [ ] PDF, DOCX, Markdown, JSON, YAML, TXT, pasted content, and accessible static web pages can be ingested.
-- [ ] Ingestion progress/failures are visible and retryable.
-- [ ] Postgres is the canonical source of documents/chunks/jobs.
-- [ ] Search index is rebuildable from canonical state.
-- [ ] Dense + sparse retrieval returns source-backed chunks with provenance.
-- [ ] `/v1/search` is sufficient for an external consumer to use the knowledge base.
-- [ ] Refresh updates changed content and removes stale chunks.
-- [ ] Delete removes/tombstones canonical content and cleans derived search points.
-- [ ] Website ingestion is bounded and SSRF-resistant.
-- [ ] Standalone UI supports source management and test retrieval.
-- [ ] End-to-end demo works before SecondContext integration exists.
+- [x] Standalone service runs without SecondContext.
+- [x] PDF, DOCX, Markdown, JSON, YAML, TXT, pasted content, and accessible static web pages can be ingested.
+- [x] Ingestion progress/failures are visible and retryable.
+- [x] Postgres is the canonical source of documents/chunks/jobs.
+- [x] Search index is rebuildable from canonical state.
+- [x] Dense + sparse retrieval returns source-backed chunks with provenance.
+- [x] `/v1/search` is sufficient for an external consumer to use the knowledge base.
+- [x] Refresh updates changed content and removes stale chunks.
+- [x] Delete removes/tombstones canonical content and cleans derived search points.
+- [x] Website ingestion is bounded and SSRF-resistant.
+- [x] Standalone UI supports source management and test retrieval.
+- [x] End-to-end demo works before SecondContext integration exists.
 - [ ] SecondContext integration, when implemented, uses an HTTP provider boundary only.
 
 ---
@@ -729,6 +743,6 @@ Begin only after retrieval quality is proven.
 6. [x] K5 completion — dense/sparse indexing and recovery.
 7. [x] K6 — hybrid retrieval API.
 8. [x] K7 — management and test-retrieval UI.
-9. [ ] K8 — lifecycle, recovery, hardening, and evaluation.
+9. [x] K8 — lifecycle, recovery, hardening, and evaluation.
 10. [ ] K9 — SecondContext adapter.
 11. [ ] K10 — optional derived knowledge only after grounded retrieval is proven.

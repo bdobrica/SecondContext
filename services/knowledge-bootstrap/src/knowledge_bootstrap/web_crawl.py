@@ -92,6 +92,7 @@ def crawl(requested_url: str, config: CrawlConfig, settings: Settings) -> CrawlR
     final_urls = set()
     documents = []
     skipped = []
+    missing = []
     attempts = 0
     queue_limit = settings.web_max_pages * settings.web_max_links
     # Bound frontier independently of attacker-controlled link breadth.
@@ -115,6 +116,9 @@ def crawl(requested_url: str, config: CrawlConfig, settings: Settings) -> CrawlR
                 ),
                 before_request=before_page,
             )
+            if documents and result.status in {404, 410}:
+                missing.extend([url, result.final_url])
+                continue
             if not 200 <= result.status < 300:
                 raise ParseError("http_status", "Website returned an unsuccessful HTTP status")
             if result.final_url in final_urls:
@@ -136,6 +140,7 @@ def crawl(requested_url: str, config: CrawlConfig, settings: Settings) -> CrawlR
                 "crawl_output_too_large", "Crawl exceeds the total normalized output limit"
             )
         if config.scope != "page" and depth < config.max_depth:
+            truncated = truncated or document.extra_metadata.get("link_limit_reached", False)
             for target in links:
                 if target not in scheduled and in_scope(target, seed, config.scope):
                     if len(scheduled) >= queue_limit:
@@ -148,8 +153,10 @@ def crawl(requested_url: str, config: CrawlConfig, settings: Settings) -> CrawlR
         "attempted_pages": attempts,
         "documents": len(documents),
         "skipped_pages": skipped,
+        "missing_pages": sorted(set(missing)),
         "frontier_truncated": truncated,
         "page_limit_reached": bool(queue and attempts >= config.max_pages),
+        "frontier_complete": not queue and not truncated and not skipped,
         "robots_policy": "respect; missing 404/410 allows; other failures deny",
         "concurrency": 1,
     }

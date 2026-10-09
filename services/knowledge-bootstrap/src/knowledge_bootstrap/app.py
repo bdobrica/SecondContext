@@ -24,6 +24,7 @@ from knowledge_bootstrap.database import make_engine, make_sessions
 from knowledge_bootstrap.ingestion import run_worker
 from knowledge_bootstrap.logging import configure_logging
 from knowledge_bootstrap.management import delete_source, source_summaries
+from knowledge_bootstrap.metrics import SearchMetrics, operational_metrics
 from knowledge_bootstrap.models import SCHEMA_REVISION, Chunk, Document, IngestionJob, Source
 from knowledge_bootstrap.parsers import ParseError, normalize_input
 from knowledge_bootstrap.pipeline import reindex_source
@@ -137,6 +138,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.sessions = make_sessions(engine)
     app.state.engine = engine
+    app.state.search_metrics = SearchMetrics(settings.auth_tokens)
     app.add_middleware(BodyLimit, max_bytes=settings.max_request_bytes)
     install_ui(app, settings)
 
@@ -147,7 +149,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/v1/search", response_model=SearchResponse, response_model_exclude_none=True)
     def search_evidence(payload: SearchRequest, owner: Owner, session: Database):
-        return search(session, settings, owner, payload)
+        with app.state.search_metrics.measure(owner, payload.mode):
+            return search(session, settings, owner, payload)
+
+    @app.get("/v1/metrics")
+    def metrics(owner: Owner, session: Database):
+        return operational_metrics(session, owner, app.state.search_metrics)
 
     @app.post("/v1/sources/{source_id}/reindex", response_model=SourceAccepted, status_code=202)
     def reindex(source_id: UUID, owner: Owner, session: Database):

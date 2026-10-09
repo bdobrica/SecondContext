@@ -98,11 +98,13 @@ The system observes user input or manually ingested notes, extracts structured m
 The optional [Knowledge Bootstrap service](services/knowledge-bootstrap/README.md) adds a
 standalone FastAPI reference-knowledge track. It uses a separate database on Postgres and can
 be started with the opt-in `knowledge` Compose profile. SecondContext runs independently of
-this Python service. K1–K7 provide durable jobs, pasted/uploaded TXT, Markdown, JSON, YAML,
+this Python service. K1–K8 provide durable jobs, pasted/uploaded TXT, Markdown, JSON, YAML,
 PDF and DOCX parsing, bounded static website ingestion, structure-aware canonical chunks,
 dense/sparse Qdrant indexing, projection recovery/rebuild tools, and owner-scoped hybrid
 retrieval through `POST /v1/search`. Open `http://localhost:8090/knowledge` for the Jinja2
 management and retrieval UI, and connect with a configured knowledge bearer token.
+K8 adds safe refresh cleanup, unchanged-content reuse, backup guidance and authenticated
+operational summaries at `GET /v1/metrics`.
 
 - **Language:** Go
 - **API:** OpenAI-compatible `/v1/responses` endpoint

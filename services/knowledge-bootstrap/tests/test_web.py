@@ -3,7 +3,7 @@ import signal
 import subprocess
 import sys
 import time
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -389,6 +389,8 @@ def crawl_site(monkeypatch):
             return response(url, routes.get(url, b"User-agent: *\nDisallow:\n"), mime="text/plain")
         if isinstance(routes[url], Exception):
             raise routes[url]
+        if isinstance(routes[url], FetchResult):
+            return routes[url]
         return response(url, routes[url])
 
     monkeypatch.setattr(web_crawl, "fetch", fake_fetch)
@@ -445,6 +447,35 @@ def test_host_scope(crawl_site, settings):
     routes[root] = page("/elsewhere")
     routes["https://example.com/elsewhere"] = page()
     assert len(crawl(root, CrawlConfig(scope="host", max_pages=2), settings).documents) == 2
+
+
+@pytest.mark.parametrize("status", [404, 410])
+def test_confirmed_missing_page_and_complete_frontier(crawl_site, settings, status):
+    routes, _ = crawl_site
+    root = "https://example.com/docs"
+    routes[root] = page("/docs/gone")
+    routes[root + "/gone"] = replace(response(root + "/gone"), status=status)
+    result = crawl(root, CrawlConfig(scope="path", max_pages=3), settings)
+    assert result.metadata["frontier_complete"]
+    assert result.metadata["missing_pages"] == [root + "/gone"]
+    assert result.metadata["skipped_pages"] == []
+    routes[root] = replace(response(root), status=status)
+    with pytest.raises(ParseError) as error:
+        crawl(root, CrawlConfig(), settings)
+    assert error.value.code == "http_status"
+
+
+def test_capped_link_discovery_is_not_authoritative_for_absence(crawl_site, settings):
+    routes, _ = crawl_site
+    root = "https://example.com/docs"
+    routes[root] = page("/docs/a", "/docs/b")
+    routes[root + "/a"] = page()
+    limited = settings.model_copy(update={"web_max_links": 1})
+    result = crawl(root, CrawlConfig(scope="path", max_pages=3), limited)
+    assert len(result.documents) == 2
+    assert not result.metadata["page_limit_reached"]
+    assert result.metadata["frontier_truncated"]
+    assert not result.metadata["frontier_complete"]
 
 
 def test_robots_disallow_seed_and_links(crawl_site, settings):

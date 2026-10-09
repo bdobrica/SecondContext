@@ -1,10 +1,11 @@
 """Durable parser stage plus canonical chunking and search projection polling."""
 
 import hashlib
+import json
 import logging
 from threading import Event
 
-from sqlalchemy import or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
@@ -86,6 +87,40 @@ def process_next(sessions: sessionmaker, settings: Settings) -> bool:
             session.flush()
             return True
         apply_transition(source, job, JobTransition(status=Stage.PARSING, documents_found=1))
+        if source.input_bytes is None:
+            source.format = source.format or detect_format(source.input_text)
+        uri = f"urn:knowledge:source:{source.id}"
+        document = session.scalar(
+            select(Document).where(Document.source_id == source.id, Document.uri == uri)
+        )
+        input_hash = hashlib.sha256(
+            source.input_bytes if source.input_bytes is not None else source.input_text.encode()
+        ).hexdigest()
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                {
+                    "version": 1,
+                    "input_hash": input_hash,
+                    "format": source.format,
+                    "name": source.name,
+                    "config": source.config_json,
+                    "limits": {
+                        key: value
+                        for key, value in settings.model_dump().items()
+                        if key.startswith(("max_", "min_pdf_", "parser_"))
+                    },
+                },
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+        if document is not None and document.metadata_json.get("input_fingerprint") == fingerprint:
+            source.content_hash = input_hash
+            apply_transition(
+                source,
+                job,
+                JobTransition(status=Stage.CHUNKING, documents_found=1, documents_processed=1),
+            )
+            return True
         try:
             if source.input_bytes is not None:
                 parsed = parse_binary(source.input_bytes, source.format, settings)
@@ -125,14 +160,15 @@ def process_next(sessions: sessionmaker, settings: Settings) -> bool:
             document.content_hash = parsed.content_hash
             parsed.title, parsed.uri = document.title, uri
             document.metadata_json = {
+                **(document.metadata_json or {}),
                 **parsed.metadata(),
+                "input_fingerprint": fingerprint,
                 "source_uri": source.source_uri,
                 "declared_content_type": source.content_type,
             }
             source.format = parsed.format
-            source.content_hash = hashlib.sha256(
-                source.input_bytes if source.input_bytes is not None else source.input_text.encode()
-            ).hexdigest()
+            source.content_hash = input_hash
+            source.metadata_json = {**source.metadata_json, "chunks_current": False}
             apply_transition(
                 source,
                 job,
@@ -147,6 +183,30 @@ def process_website(session, source: Source, job: IngestionJob, settings: Settin
     apply_transition(source, job, JobTransition(status=Stage.FETCHING))
     try:
         result = ingest_website(source.source_uri, source.config_json, settings)
+        observed = {doc.extra_metadata["final_url"] for doc in result.documents}
+        complete = (
+            result.metadata.get("frontier_complete") is True
+            and not result.metadata.get("skipped_pages")
+            and not result.metadata.get("frontier_truncated")
+            and not result.metadata.get("page_limit_reached")
+        )
+        missing = set(result.metadata.get("missing_pages", [])) - observed
+        retained = (
+            0
+            if complete
+            else session.scalar(
+                select(func.count(Document.id)).where(
+                    Document.source_id == source.id,
+                    Document.owner_id == source.owner_id,
+                    Document.uri.not_in(observed | missing),
+                )
+            )
+        )
+        if retained + len(observed) > settings.web_max_pages:
+            raise ParseError(
+                "crawl_limit_exceeded",
+                "Refresh exceeds the retained website page limit; retry with a complete crawl",
+            )
     except ParseError as exc:
         apply_transition(
             source,
@@ -180,17 +240,52 @@ def process_website(session, source: Source, job: IngestionJob, settings: Settin
         document.text_content = parsed.text
         document.content_hash = parsed.content_hash
         parsed.title, parsed.uri = document.title, uri
-        document.metadata_json = {**parsed.metadata(), "source_uri": source.source_uri}
+        document.metadata_json = {
+            **(document.metadata_json or {}),
+            **parsed.metadata(),
+            "source_uri": source.source_uri,
+        }
+    # Only an exhausted, successful frontier is authoritative for absence. A capped
+    # or partially failed crawl updates observed pages and retains all unvisited ones.
+    if complete:
+        session.execute(
+            delete(Document).where(
+                Document.source_id == source.id,
+                Document.owner_id == source.owner_id,
+                Document.uri.not_in(observed),
+            )
+        )
+    else:
+        # Explicit 404/410 responses can remove previously observed URLs even when
+        # unrelated targets failed. Never remove a URL that this crawl did observe.
+        if missing:
+            session.execute(
+                delete(Document).where(
+                    Document.source_id == source.id,
+                    Document.owner_id == source.owner_id,
+                    Document.uri.in_(missing),
+                )
+            )
+    session.flush()
+    canonical = session.scalars(
+        select(Document).where(
+            Document.source_id == source.id, Document.owner_id == source.owner_id
+        )
+    ).all()
     source.format = "html"
     source.content_type = result.documents[0].extra_metadata["content_type"]
     source.content_hash = hashlib.sha256(
-        "\n".join(
-            sorted(
-                doc.extra_metadata["final_url"] + " " + doc.content_hash for doc in result.documents
-            )
-        ).encode()
+        "\n".join(sorted(doc.uri + " " + doc.content_hash for doc in canonical)).encode()
     ).hexdigest()
-    source.metadata_json = {**source.metadata_json, "crawl": result.metadata}
+    source.metadata_json = {
+        **source.metadata_json,
+        "chunks_current": False,
+        "crawl": {
+            **result.metadata,
+            "absence_cleanup": complete,
+            "canonical_documents": len(canonical),
+        },
+    }
     apply_transition(
         source,
         job,

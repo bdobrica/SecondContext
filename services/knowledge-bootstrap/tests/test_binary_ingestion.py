@@ -193,8 +193,13 @@ def test_running_worker_consumes_persisted_binary(client, sessions, db_settings)
     with TestClient(create_app(settings)):
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
-            if client.get(f"/v1/jobs/{created['job']['id']}").json()["status"] == "chunking":
+            state = client.get(f"/v1/jobs/{created['job']['id']}").json()
+            # K5 continues immediately into chunking/indexing; polling may miss the
+            # transient chunking stage even though binary parsing completed correctly.
+            if state["status"] in {"chunking", "indexing"}:
+                assert state["documents_found"] == state["documents_processed"] == 1
                 break
+            assert state["status"] != "failed", state.get("error_code")
             time.sleep(0.05)
         else:
             pytest.fail("Worker did not finish binary parsing")

@@ -241,7 +241,9 @@ class SearchIndex(AbstractContextManager):
                         or not math.isfinite(point["score"])
                     ):
                         raise ValueError
-                output[name] = points
+                # Equal backend scores otherwise depend on insertion/rebuild order,
+                # which changes reciprocal ranks even though the evidence is identical.
+                output[name] = sorted(points, key=lambda p: (-p["score"], p["id"]))
             return output
         except (KeyError, TypeError, ValueError, AttributeError, OverflowError):
             raise IndexError(

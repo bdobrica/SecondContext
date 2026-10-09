@@ -94,6 +94,23 @@ def test_ties_are_stable_and_single_document_can_fill_limit():
     assert len(first.results) == 4
 
 
+def test_backend_score_ties_do_not_depend_on_rebuild_insertion_order(settings):
+    points = [
+        {"id": "b", "score": 1.0, "payload": {}},
+        {"id": "a", "score": 1.0, "payload": {}},
+        {"id": "c", "score": 2.0, "payload": {}},
+    ]
+
+    def respond(_):
+        return httpx.Response(200, json={"result": [{"points": points}]})
+
+    with SearchIndex(settings, transport=httpx.MockTransport(respond)) as index:
+        before = index.query({"dense": [1]}, {}, 3)
+        points.reverse()
+        assert index.query({"dense": [1]}, {}, 3) == before
+        assert [p["id"] for p in before["dense"]] == ["c", "a", "b"]
+
+
 def test_query_batch_contract_auth_and_read_only(settings):
     def respond(request):
         import json

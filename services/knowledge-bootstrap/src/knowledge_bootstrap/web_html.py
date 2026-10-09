@@ -169,6 +169,13 @@ def parse_html(result: FetchResult, settings: Settings) -> tuple[ParsedDocument,
             "html_text_unavailable",
             "Too little static text; page may require JavaScript or contain unsupported content",
         )
-    metadata = {**result.metadata(), "canonical_url": canonical or result.final_url, "links": links}
+    metadata = {
+        **result.metadata(),
+        "canonical_url": canonical or result.final_url,
+        "links": links,
+        # Conservatively mark an exactly-full list as capped as well. Refresh must
+        # not infer absence from a frontier whose discovery was bounded.
+        "link_limit_reached": len(links) >= settings.web_max_links,
+    }
     document = ParsedDocument("html", text, blocks, title, metadata)
     return validate_document(document, settings), links

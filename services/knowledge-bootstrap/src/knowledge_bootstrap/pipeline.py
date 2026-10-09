@@ -1,10 +1,12 @@
 """Canonical-first chunking and durable, source-serialized projection recovery."""
 
 import hashlib
+import json
 from dataclasses import asdict
+from datetime import UTC, datetime
 from uuid import uuid5
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.dialects.postgresql import insert
 
 from knowledge_bootstrap.chunking import chunk_blocks, recipe, token_count
@@ -48,11 +50,28 @@ def chunk_source(session, source, job, settings):
         .order_by(Document.uri)
     ).all()
     planned = []
+    total = 0
     try:
         for doc in documents:
+            fingerprint = hashlib.sha256(
+                json.dumps(
+                    {"blocks": doc.metadata_json["blocks"], "recipe": recipe(settings)},
+                    sort_keys=True,
+                ).encode()
+            ).hexdigest()
+            previous = doc.metadata_json.get("chunk_snapshot", {})
+            count = session.scalar(select(func.count(Chunk.id)).where(Chunk.document_id == doc.id))
+            if (
+                previous.get("fingerprint") == fingerprint
+                and count > 0
+                and previous.get("count") == count
+            ):
+                total += count
+                continue
             blocks = [Block(**b) for b in doc.metadata_json["blocks"]]
-            planned.append((doc, chunk_blocks(blocks, settings)))
-        total = sum(len(specs) for _, specs in planned)
+            specs = chunk_blocks(blocks, settings)
+            planned.append((doc, specs, fingerprint))
+            total += len(specs)
         if not documents or total > settings.max_chunks_per_source:
             raise ParseError(
                 "chunk_limit_exceeded", "Source has no documents or exceeds the chunk limit"
@@ -62,10 +81,8 @@ def chunk_source(session, source, job, settings):
             "invalid_document_blocks", "Canonical semantic blocks are invalid"
         ) from None
     # Plan before mutation so a chunking failure preserves the previous canonical snapshot.
-    session.execute(
-        delete(Chunk).where(Chunk.owner_id == source.owner_id, Chunk.source_id == source.id)
-    )
-    for doc, specs in planned:
+    for doc, specs, fingerprint in planned:
+        session.execute(delete(Chunk).where(Chunk.document_id == doc.id))
         occurrences = {}
         for ordinal, spec in enumerate(specs):
             occurrence = occurrences.get(spec.content_hash, 0)
@@ -81,7 +98,15 @@ def chunk_source(session, source, job, settings):
                     **asdict(spec),
                 )
             )
-    source.metadata_json = {**source.metadata_json, "chunking": recipe(settings)}
+        doc.metadata_json = {
+            **doc.metadata_json,
+            "chunk_snapshot": {"fingerprint": fingerprint, "count": len(specs)},
+        }
+    source.metadata_json = {
+        **source.metadata_json,
+        "chunking": recipe(settings),
+        "chunks_current": True,
+    }
     apply_transition(source, job, JobTransition(status=Stage.INDEXING, chunks_created=total))
 
 
@@ -248,6 +273,8 @@ def process_index_next(sessions, settings, index_factory=SearchIndex, *, source_
             )
             if job is None:
                 continue
+            if job.started_at is None:
+                job.started_at = datetime.now(UTC)
             try:
                 if recipe_error is not None:
                     raise recipe_error
@@ -280,6 +307,11 @@ def reindex_source(session, owner, source_id):
         )
         if active is not None:
             return source, active
+        if source.metadata_json.get("chunks_current") is False:
+            raise ServiceError(
+                "canonical_chunks_outdated",
+                "Canonical documents need chunking; refresh the source before reindexing",
+            )
         chunks = session.scalars(
             select(Chunk).where(Chunk.source_id == source.id, Chunk.owner_id == owner)
         ).all()

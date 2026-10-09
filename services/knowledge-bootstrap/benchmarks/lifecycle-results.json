@@ -1,0 +1,14 @@
+{
+  "milestone": "K8",
+  "evaluated_at": "2026-10-09T19:28:52.825160+00:00",
+  "storage": "existing PostgreSQL test database and Qdrant; isolated owner/collection",
+  "embedding": "deterministic test vectors; quality benchmark remains K6 corpus.json",
+  "website": "versioned HTML fixture through real parser; crawler safety tested separately",
+  "checks": [
+    "initial handbook retrieval and canonical provenance in all three modes",
+    "refresh removes absent page; partial write retains chunks; retry cleans stale data",
+    "lost collection rebuilt from Postgres; all six query/mode rankings preserved",
+    "canonical cascade and index deletion; repeated delete succeeds; retrieval empty"
+  ],
+  "passed": true
+}
