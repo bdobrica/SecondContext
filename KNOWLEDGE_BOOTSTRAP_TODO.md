@@ -672,39 +672,53 @@ Search(ctx, query, filters, limit) -> []KnowledgeEvidence
 
 ## K10 — Optional derived-knowledge bridge
 
-Begin only after retrieval quality is proven.
+Implemented after the K6 retrieval evaluation and K9 live grounded-answer demonstration.
+The standalone service exposes an explicit, default-off source/document extraction API for
+entities, people, topics, claims and relationships. Strictly validated candidates carry exact
+quoted chunk snapshots, canonical UUIDs and model/prompt/schema versions. Owner-scoped API
+polling exposes active/retracted candidates; database triggers invalidate changed/deleted
+evidence transactionally. Refresh requires an explicit recomputation after ingestion finishes.
+Consumers decide promotion; no SecondContext canonical tables or projections are written.
+Contradictory sources remain independent, and the Go consumer prompt preserves conflicts with
+episodic observations without promoting documentary mentions into person models.
+
+For the pragmatic MVP, extraction is synchronous and bounded, selected per request rather
+than scheduled automatically. Audit snapshots survive source deletion and can be purged
+explicitly. There is no extraction job history, automatic promotion, contradiction classifier
+or event broker. Configuration, API examples, retraction/polling and retention semantics are
+documented in the service README.
 
 ### Candidate extraction
 
-- [ ] Extract candidate entities.
-- [ ] Extract candidate people.
-- [ ] Extract candidate topics.
-- [ ] Extract candidate factual claims.
-- [ ] Extract candidate relationships.
-- [ ] Make extraction optional per source/document.
-- [ ] Store `knowledge_chunk` evidence IDs for every candidate assertion.
-- [ ] Preserve extraction model/version metadata.
+- [x] Extract candidate entities.
+- [x] Extract candidate people.
+- [x] Extract candidate topics.
+- [x] Extract candidate factual claims.
+- [x] Extract candidate relationships.
+- [x] Make extraction optional per source/document.
+- [x] Store `knowledge_chunk` evidence IDs for every candidate assertion.
+- [x] Preserve extraction model/version metadata.
 
 ### Consumer boundary
 
-- [ ] Expose candidates through API/event output.
-- [ ] Do not write directly to SecondContext canonical tables.
-- [ ] Let the consumer decide whether/how candidates become people/topics/beliefs/graph edges.
-- [ ] Distinguish documentary claims from episodic observations.
-- [ ] Avoid creating person-model observations from generic factual mentions without an explicit semantic rule.
+- [x] Expose candidates through API/event output.
+- [x] Do not write directly to SecondContext canonical tables.
+- [x] Let the consumer decide whether/how candidates become people/topics/beliefs/graph edges.
+- [x] Distinguish documentary claims from episodic observations.
+- [x] Avoid creating person-model observations from generic factual mentions without an explicit semantic rule.
 
 ### Retraction and refresh
 
-- [ ] Track which evidence supports each extracted candidate.
-- [ ] Retract/recompute candidates when evidence disappears.
-- [ ] Handle changed claims after source refresh.
-- [ ] Add contradiction tests across sources.
-- [ ] Add contradiction tests between documentary evidence and episodic observations in consumers that support both.
+- [x] Track which evidence supports each extracted candidate.
+- [x] Retract/recompute candidates when evidence disappears.
+- [x] Handle changed claims after source refresh.
+- [x] Add contradiction tests across sources.
+- [x] Add contradiction tests between documentary evidence and episodic observations in consumers that support both.
 
 ### K10 exit criteria
 
-- [ ] Every derived candidate remains auditable back to source chunks.
-- [ ] Source deletion/refresh can invalidate stale derived candidates.
+- [x] Every derived candidate remains auditable back to source chunks.
+- [x] Source deletion/refresh can invalidate stale derived candidates.
 
 ---
 
@@ -754,4 +768,4 @@ Begin only after retrieval quality is proven.
 8. [x] K7 — management and test-retrieval UI.
 9. [x] K8 — lifecycle, recovery, hardening, and evaluation.
 10. [x] K9 — SecondContext adapter.
-11. [ ] K10 — optional derived knowledge only after grounded retrieval is proven.
+11. [x] K10 — optional derived knowledge only after grounded retrieval is proven.

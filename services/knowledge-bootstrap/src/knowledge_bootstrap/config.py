@@ -62,6 +62,14 @@ class Settings(BaseSettings):
     search_max_limit: int = Field(default=20, ge=1, le=100)
     search_candidate_limit: int = Field(default=100, ge=1, le=200)
     search_timeout_seconds: float = Field(default=20, ge=1, le=60)
+    # Explicit, independent opt-in; ingestion and retrieval never call the extractor.
+    extraction_enabled: bool = False
+    extraction_base_url: str = "https://api.openai.com/v1"
+    extraction_api_key: SecretStr = SecretStr("")
+    extraction_model: str = Field(default="gpt-4.1-mini", min_length=1, max_length=200)
+    extraction_timeout_seconds: float = Field(default=30, ge=1, le=60)
+    extraction_max_chunks: int = Field(default=20, ge=1, le=100)
+    extraction_max_input_bytes: int = Field(default=131_072, ge=1024, le=1_048_576)
 
     @field_validator("database_url")
     @classmethod
@@ -82,7 +90,7 @@ class Settings(BaseSettings):
             raise ValueError("unsupported log level")
         return value
 
-    @field_validator("qdrant_url", "embedding_base_url")
+    @field_validator("qdrant_url", "embedding_base_url", "extraction_base_url")
     @classmethod
     def validate_qdrant_url(cls, value: str) -> str:
         from urllib.parse import urlsplit

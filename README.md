@@ -107,6 +107,10 @@ K8 adds safe refresh cleanup, unchanged-content reuse, backup guidance and authe
 operational summaries at `GET /v1/metrics`.
 K9 adds an optional Go HTTP adapter to response generation; reference knowledge stays
 separate from memory, person models and beliefs. See [adapter configuration](#reference-knowledge-adapter-k9).
+K10 adds explicit source/document extraction of documentary candidates with quoted chunk
+evidence, owner-scoped API output and refresh/deletion retractions. Extraction stays off by
+default, and consumers decide whether to promote candidates. See the
+[K10 bridge contract](services/knowledge-bootstrap/README.md#optional-derived-knowledge-bridge-k10).
 
 - **Language:** Go
 - **API:** OpenAI-compatible `/v1/responses` endpoint

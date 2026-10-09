@@ -39,7 +39,7 @@ class Stage(StrEnum):
 TERMINAL = {Stage.READY, Stage.FAILED}
 STAGE_CHECK = "status IN ('pending','fetching','parsing','chunking','indexing','ready','failed')"
 FORMAT_CHECK = "format IS NULL OR format IN ('html','pdf','docx','markdown','json','yaml','text')"
-SCHEMA_REVISION = "0003_chunk_metadata"
+SCHEMA_REVISION = "0004_derived_candidates"
 
 
 class Base(DeclarativeBase):
@@ -208,3 +208,42 @@ class IngestionJob(CanonicalRow, Base):
     error_detail: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Candidate(CanonicalRow, Base):
+    """Documentary suggestions, including retained retractions; never cognitive facts.
+
+    Deliberately no FK to live sources/chunks: evidence snapshots and retractions must
+    remain readable after deletion. Owners can explicitly purge these audit records.
+    """
+
+    __tablename__ = "knowledge_candidates"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('entity','person','topic','claim','relationship')",
+            name="ck_candidates_kind",
+        ),
+        CheckConstraint(
+            "(status = 'active' AND retracted_at IS NULL AND retraction_reason IS NULL) OR "
+            "(status = 'retracted' AND retracted_at IS NOT NULL AND retraction_reason IS NOT NULL)",
+            name="ck_candidates_status",
+        ),
+        Index("ix_candidates_owner_source", "owner_id", "source_id"),
+        Index("ix_candidates_owner_updated", "owner_id", "updated_at", "id"),
+        Index("ix_candidates_evidence", "owner_id", "chunk_id"),
+    )
+
+    source_id: Mapped[UUID]
+    document_id: Mapped[UUID]
+    chunk_id: Mapped[UUID]
+    extraction_id: Mapped[UUID]
+    kind: Mapped[str] = mapped_column(String(16))
+    statement: Mapped[str] = mapped_column(Text)
+    subject: Mapped[str | None] = mapped_column(Text)
+    predicate: Mapped[str | None] = mapped_column(Text)
+    object: Mapped[str | None] = mapped_column(Text)
+    evidence_json: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    extraction_json: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    retracted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    retraction_reason: Mapped[str | None] = mapped_column(String(64))

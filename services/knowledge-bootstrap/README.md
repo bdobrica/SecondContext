@@ -15,6 +15,8 @@ evidence and score debugging. K7 adds a Jinja2 management and test UI at `/knowl
 with ingestion, inspection, refresh/reindex, confirmed deletion and ranked evidence.
 K8 completes website refresh cleanup, unchanged parser/chunk reuse, owner-scoped operational
 metrics, backup/recovery guidance and a real Postgres/Qdrant lifecycle evaluation.
+K10 adds explicit, optional documentary extraction with chunk-backed candidates and
+transactional retraction. It does not promote candidates into a consumer’s cognitive model.
 
 **Jobs now reach `ready` after canonical chunks and acknowledged index writes.** Configure
 an embedding endpoint and the dedicated Qdrant collection below. Setting
@@ -83,7 +85,8 @@ Canonical data lives entirely in Postgres. K5 uses a dedicated `knowledge_chunks
 collection, independently of SecondContext's memory collection. Apply migrations before
 starting the updated service. `0002_source_bytes` retains PDF/DOCX bytes;
 `0003_chunk_metadata` adds semantic chunk metadata and pins each projection's embedding/lexical
-recipe. Existing sources, documents and jobs survive the upgrade. The worker automatically
+recipe. `0004_derived_candidates` adds a candidate audit table and evidence-retraction
+triggers. Existing sources, documents and jobs survive the upgrade. The worker automatically
 continues K2–K4 jobs paused at `chunking`. Downgrade drops the fields introduced by that revision.
 
 ## Ownership and API
@@ -92,7 +95,9 @@ continues K2–K4 jobs paused at `chunking`. Downgrade drops the fields introduc
 tokens. Tokens must have at least 16 characters and no whitespace. There is no identity table
 and no caller-selectable owner field/header. The credential determines ownership. All `/v1`
 endpoints require it; cross-owner lookups return the same `404` as missing resources.
-Composite foreign keys enforce matching owners and provenance even on direct database writes.
+Composite foreign keys enforce matching owners and provenance for sources/documents/chunks
+even on direct database writes. K10 candidate audit snapshots deliberately survive those
+rows and are owner-scoped by the extraction and inspection APIs.
 
 Use the generated token from the ignored service `.env` as `KNOWLEDGE_TOKEN` in your shell,
 or paste it into the **Authorize** dialog at `/docs`:
@@ -872,7 +877,7 @@ monitoring dependency or public metrics endpoint. JSON can be polled by internal
 ### Backup and restore
 
 Back up the dedicated **Postgres database**, including original inputs, semantic documents,
-chunks, jobs, recipe manifests and `alembic_version`. Qdrant contains a disposable projection
+chunks, jobs, candidate audit records, recipe manifests and `alembic_version`. Qdrant contains a disposable projection
 and does not need to be the authoritative backup. Keep the service `.env`/owner credentials
 and embedding configuration separately in your normal secret backup. A database dump does
 not provision cluster roles/passwords. Recreate the `knowledge_bootstrap` role on a new
@@ -946,3 +951,157 @@ oversized PDF streams; hostile/oversized HTML; actual slow sockets and redirect-
 redirect/frontier/page/depth bounds; and cross-owner API/enumeration/projection isolation.
 No OCR, browser rendering, scheduled refresh, job archive, endpoint-migration outbox or
 SecondContext adapter is introduced.
+
+
+## Optional derived-knowledge bridge (K10)
+
+Extraction is **off by default** and runs only when an authenticated caller explicitly
+requests it. Ingestion, search and SecondContext response generation never invoke it.
+SecondContext still runs without the Python service, and the Python service still runs
+without an extraction endpoint/key. K9 retrieval and its live answer evaluation preceded K10;
+this feature makes no claim that extraction improves retrieval quality.
+
+Enable extraction in the ignored service `.env`, independently of embedding configuration:
+
+```dotenv
+KNOWLEDGE_EXTRACTION_ENABLED=true
+KNOWLEDGE_EXTRACTION_BASE_URL=https://api.openai.com/v1
+KNOWLEDGE_EXTRACTION_API_KEY=your-private-key
+KNOWLEDGE_EXTRACTION_MODEL=gpt-4.1-mini
+KNOWLEDGE_EXTRACTION_TIMEOUT_SECONDS=30
+KNOWLEDGE_EXTRACTION_MAX_CHUNKS=20
+KNOWLEDGE_EXTRACTION_MAX_INPUT_BYTES=131072
+```
+
+The model must support the OpenAI-compatible `POST /chat/completions` API, JSON object
+response format and `max_completion_tokens`. Sampling settings use the model defaults;
+no unsupported temperature override or legacy `max_tokens` parameter is sent. See the
+[official OpenAI chat API contract](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create). Model and endpoint selection are explicit;
+credentials are never inherited automatically from SecondContext or embedding settings.
+Restart the optional service after changing configuration. Apply migration
+`0004_derived_candidates` before starting the updated service.
+
+### Explicit source/document opt-in
+
+```bash
+# All current chunks of this ready source:
+curl -X POST "http://localhost:8090/v1/sources/$SOURCE_ID/extract" \
+  -H "Authorization: Bearer $KNOWLEDGE_TOKEN" \
+  -H 'Content-Type: application/json' -d '{}'
+
+# Only the specified documents; foreign/missing documents produce 404:
+curl -X POST "http://localhost:8090/v1/sources/$SOURCE_ID/extract" \
+  -H "Authorization: Bearer $KNOWLEDGE_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"document_ids":["00000000-0000-0000-0000-000000000001"]}'
+```
+
+Use `/docs` for interactive authenticated calls. The source must be `ready` with current
+canonical chunks. This synchronous MVP has no automatic extraction worker, schedule or
+per-source background opt-in flag. A refresh retracts invalid evidence immediately; explicitly
+call extraction again once it is ready. Sources/documents never requested remain untouched.
+
+Requests select at most 50 document IDs. The server defaults to at most 20 chunks and 128 KiB
+of serialized evidence per operation, rejecting oversized scopes with `413` before model IO;
+choose fewer/smaller documents rather than silently extracting a prefix. Each chunk yields
+at most 20 candidates, each with a statement of at most 2,000 characters and an exact quote
+of at most 4,000 characters. Model completion is limited to 4,096 tokens (including any reasoning tokens) and 256 KiB per
+response. The 30-second elapsed deadline is checked before each request and between response
+segments; each network operation has at most a 10-second timeout (or remaining time).
+An in-progress network operation can extend elapsed time by up to that timeout. Configuration
+allows an elapsed budget up to 60 seconds. Redirects, proxy inheritance, compressed responses,
+truncated output and automatic retries are disabled. Errors expose stable codes, never raw
+model output, source text or credentials.
+
+### Candidate contract and consumer policy
+
+The response contains `extraction_id`, `chunks_processed`, the extraction recipe and
+`candidates`. Five kinds are supported: `entity`, `person`, `topic`, `claim`, `relationship`.
+Claims and relationships require `subject`, `predicate`, `object` strings. All candidates
+contain a `statement`, canonical source/document/chunk UUIDs, `evidence_json` and
+`extraction_json`. Evidence includes an exact source quote, a retained chunk-text snapshot,
+content hashes, title, URI, section and page information. Extraction records the configured
+and reported model, endpoint, version, prompt/schema hashes and operation UUID.
+
+Every row is explicitly `evidence_kind: documentary_claim` and
+`promotion_policy: consumer_decides`, with `status: active` or `retracted`. These labels also
+apply to mentions: a person mentioned in a handbook is not an episodic observation or a
+personality estimate. The prompt forbids such inference; output validation enforces a strict
+schema and an exact nonblank quote. Quote membership does **not** prove semantic entailment
+or model accuracy. These are reviewable candidates, not accepted facts.
+
+The service never accesses SecondContext tables or memory collections. No candidate is
+automatically added to people, topics, beliefs, person observations or graph edges. Consumers
+must choose an explicit semantic promotion rule, retain candidate/chunk evidence IDs and
+handle retractions. Contradictory sources remain independent assertions with separate
+provenance; there is no cross-source identity merge, truth arbitration or contradiction
+classifier. SecondContext’s response prompt now also preserves disagreements between source
+material and episodic observations instead of silently choosing or merging them.
+
+### Polling, refresh and audit retention
+
+```bash
+curl "http://localhost:8090/v1/candidates?status=all&limit=100&offset=0" \
+  -H "Authorization: Bearer $KNOWLEDGE_TOKEN"
+curl "http://localhost:8090/v1/candidates/$CANDIDATE_ID" \
+  -H "Authorization: Bearer $KNOWLEDGE_TOKEN"
+```
+
+Lists default to active rows. Filter by `source_id`, `document_id`, or
+`status=active|retracted|all`; pagination defaults to 50 and permits 100 rows per page.
+Owner identity comes exclusively from the bearer token, including after source deletion.
+For this MVP, consumers periodically reconcile a **complete paginated owner snapshot**,
+including retracted rows, against their retained IDs. Repeat polling while writers are active;
+offset pagination is not a transaction snapshot or exactly-once event stream. A previously
+known ID that is absent/404 has been purged and must also be removed from consumer projections.
+No webhook, broker or incremental timestamp cursor is required.
+
+Postgres triggers atomically retract candidates on document content/provenance changes,
+chunk deletion/update and source/document deletion, including cascading or direct SQL writes.
+Unchanged refreshes retain candidates when canonical chunks/provenance are reused. A change
+is visible as a retraction at parsing time, even before new chunks finish indexing; parsing
+failure before a canonical change retains the previous candidates. Retraction rolls back
+with a failed canonical mutation. The extractor releases its read transaction during model
+IO, then locks/revalidates the complete selected snapshot before committing; concurrent
+refresh/deletion yields `409 evidence_changed`. No partial output is committed on failure.
+
+A successful recomputation replaces active candidates only for the selected documents,
+including when the new result is empty. Identical assertions under the same configured
+recipe/chunk reuse their UUID and update operation/model metadata; removed assertions remain
+retracted with reason `recomputed`. Failed extraction retains the prior result. Calls may be
+retried manually, but every call performs model IO and may incur cost; there is no durable
+extraction-job history or promise of deterministic model output. The operation UUID groups
+a successful result; zero-result operations are returned rather than stored as separate runs.
+
+Source deletion still removes canonical content/jobs and Qdrant points. **Candidate audit
+records deliberately survive** with their last evidence snapshot, statement and retraction
+reason, so consumers can retract promoted assertions and reviewers can inspect old claims.
+This is additional retained source content: include it in backup/retention policy. To remove
+it permanently, list the source's candidates with `status=all` and purge each captured ID:
+
+```bash
+curl -X DELETE "http://localhost:8090/v1/candidates/$CANDIDATE_ID" \
+  -H "Authorization: Bearer $KNOWLEDGE_TOKEN"
+```
+
+Purging is owner-scoped, idempotent (`204` even if absent/foreign) and irreversible; it removes
+that candidate's snapshot. A later explicit extraction can recreate a purged active assertion
+while its source exists. There is no automatic audit-expiry schedule in this MVP.
+
+### Validation
+
+Unit tests exercise all five candidate kinds, exact-quote/schema enforcement, private errors,
+backend timeout/deadline, oversized/unfinished output, redirects and default-off operation.
+Postgres integration tests use real migrations and cover ownership, UUID reuse, document
+opt-in, empty/partial/failed recomputation, concurrent evidence changes, unchanged/changed
+refresh, transactional retraction/rollback, deletion and purge, and contradictory sources.
+The Go consumer regression preserves contradictory documentary and episodic inputs plus
+provenance and checks the explicit non-promotion/contradiction policy. This verifies the
+assembled prompt contract, not a general guarantee about LLM answers or extraction quality.
+
+Deployment validation also exercised the real configured embedding/chat backends through
+the HTTP API: two conflicting fixture sources were extracted, one was refreshed to a changed
+claim and explicitly recomputed, and source deletion retracted its candidates before audit
+purge. Quotes and canonical UUIDs matched, memory-item IDs stayed unchanged, health/readiness
+passed, and all captured sources, search points and audit snapshots were removed. This is a
+small functional demonstration rather than an extraction accuracy benchmark.

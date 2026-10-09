@@ -5,7 +5,7 @@ import time
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from threading import Event, Thread
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, File, Form, Header, Query, Request, UploadFile
@@ -21,11 +21,24 @@ from knowledge_bootstrap.binary import MIME_TYPES as BINARY_MIME_TYPES
 from knowledge_bootstrap.binary import select_upload_format
 from knowledge_bootstrap.config import Settings
 from knowledge_bootstrap.database import make_engine, make_sessions
+from knowledge_bootstrap.derived import (
+    CandidateView,
+    ExtractionRequest,
+    ExtractionResponse,
+    extract_candidates,
+)
 from knowledge_bootstrap.ingestion import run_worker
 from knowledge_bootstrap.logging import configure_logging
 from knowledge_bootstrap.management import delete_source, source_summaries
 from knowledge_bootstrap.metrics import SearchMetrics, operational_metrics
-from knowledge_bootstrap.models import SCHEMA_REVISION, Chunk, Document, IngestionJob, Source
+from knowledge_bootstrap.models import (
+    SCHEMA_REVISION,
+    Candidate,
+    Chunk,
+    Document,
+    IngestionJob,
+    Source,
+)
 from knowledge_bootstrap.parsers import ParseError, normalize_input
 from knowledge_bootstrap.pipeline import reindex_source
 from knowledge_bootstrap.schemas import (
@@ -142,6 +155,50 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(BodyLimit, max_bytes=settings.max_request_bytes)
     install_ui(app, settings)
 
+    @app.post("/v1/sources/{source_id}/extract", response_model=ExtractionResponse)
+    def extract(source_id: UUID, payload: ExtractionRequest, owner: Owner, session: Database):
+        return extract_candidates(session, settings, owner, source_id, payload)
+
+    @app.get("/v1/candidates", response_model=list[CandidateView])
+    def list_candidates(
+        owner: Owner,
+        session: Database,
+        source_id: UUID | None = None,
+        document_id: UUID | None = None,
+        status: Literal["active", "retracted", "all"] = "active",
+        limit: Limit = 50,
+        offset: Offset = 0,
+    ):
+        statement = select(Candidate).where(Candidate.owner_id == owner)
+        if source_id is not None:
+            statement = statement.where(Candidate.source_id == source_id)
+        if document_id is not None:
+            statement = statement.where(Candidate.document_id == document_id)
+        if status != "all":
+            statement = statement.where(Candidate.status == status)
+        return session.scalars(
+            statement.order_by(Candidate.updated_at, Candidate.id).offset(offset).limit(limit)
+        ).all()
+
+    @app.get("/v1/candidates/{candidate_id}", response_model=CandidateView)
+    def show_candidate(candidate_id: UUID, owner: Owner, session: Database):
+        return get_owned(session, Candidate, owner, candidate_id)
+
+    @app.delete("/v1/candidates/{candidate_id}", status_code=204)
+    def purge_candidate(candidate_id: UUID, owner: Owner, session: Database):
+        with session.begin():
+            candidate = session.scalar(
+                select(Candidate)
+                .where(
+                    Candidate.id == candidate_id,
+                    Candidate.owner_id == owner,
+                )
+                .with_for_update()
+            )
+            if candidate is not None:
+                session.delete(candidate)
+        return Response(status_code=204)
+
     @app.delete("/v1/sources/{source_id}", status_code=204)
     def remove_source(source_id: UUID, owner: Owner, session: Database):
         delete_source(session, settings, owner, source_id)
@@ -235,7 +292,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             session.execute(
                 text(
                     "SELECT 1 FROM knowledge_sources, knowledge_documents, "
-                    "knowledge_chunks, knowledge_ingestion_jobs LIMIT 0"
+                    "knowledge_chunks, knowledge_ingestion_jobs, knowledge_candidates LIMIT 0"
                 )
             )
         except SQLAlchemyError:

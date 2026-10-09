@@ -12,7 +12,7 @@ from sqlalchemy.engine import make_url
 from knowledge_bootstrap.app import create_app
 from knowledge_bootstrap.config import Settings
 from knowledge_bootstrap.database import make_engine, make_sessions
-from knowledge_bootstrap.models import Source
+from knowledge_bootstrap.models import Candidate, Source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -87,6 +87,7 @@ def sessions(db_settings):
     yield factory
     with factory.begin() as session:
         session.execute(delete(Source).where(Source.owner_id.in_(db_settings.auth_tokens)))
+        session.execute(delete(Candidate).where(Candidate.owner_id.in_(db_settings.auth_tokens)))
     engine.dispose()
 
 
