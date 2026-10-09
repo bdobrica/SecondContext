@@ -25,6 +25,11 @@ jobs then pause at `indexing` with inspectable chunks, and resume when indexing 
 
 ## Run alongside the existing SecondContext stack
 
+Versioned API/UI images are published as `quay.io/bdobrica/secondcontext-knowledge` for
+amd64 and arm64. Releases use this service's `.bumpversion.cfg` independently of the Go
+gateway; see [Docker publication and manual version bumps](../../README.md#publishing-docker-images).
+The image includes migrations, which still need to run explicitly before starting the API.
+
 From the repository root, initialize a separate database and role on the existing Postgres
 container. This also creates a disposable test database and an ignored service `.env` with
 generated database credentials and a bearer token for the `local` owner:

@@ -6,3 +6,4 @@
 __pycache__
 tests
 README.md
+.bumpversion.cfg

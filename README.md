@@ -461,6 +461,67 @@ Postgres is the source of truth. It records the canonical outcome before Qdrant 
 
 The `/metrics` endpoint exposes request counts, request latency histograms, in-flight request count, upstream LLM request counts, upstream LLM latency histograms, and token counters.
 
+## Publishing Docker images
+
+The [Docker release workflow](.github/workflows/docker-publish.yml) publishes two independent
+images to Quay when a push to `main` increases a committed `current_version`:
+
+| Image | Version file | Contents |
+| --- | --- | --- |
+| `quay.io/bdobrica/secondcontext-gateway` | [`.bumpversion.cfg`](.bumpversion.cfg) | Go API gateway |
+| `quay.io/bdobrica/secondcontext-knowledge` | [service `.bumpversion.cfg`](services/knowledge-bootstrap/.bumpversion.cfg) | Optional knowledge API, worker, migrations and Jinja2 UI |
+
+Each release publishes `MAJOR.MINOR.PATCH` and `latest` tags for `linux/amd64` and
+`linux/arm64`. The UI uses the same knowledge image; it needs no separate frontend build.
+The Python package version in `pyproject.toml`/`uv.lock` is independent of the image version.
+
+Create both repositories under `bdobrica` on Quay and give your account or robot account
+write access. In GitHub **Settings → Secrets and variables → Actions**, add `QUAY_AUTH`,
+containing the base64 encoding of `USERNAME:PASSWORD_OR_ROBOT_TOKEN`. This is the same
+`auth` value used by your existing Docker registry configuration. A Quay robot's username
+includes the namespace, for example `bdobrica+github`. The image namespace stays `bdobrica`
+regardless of the login username. The workflow never prints the credential.
+
+Use [bump2version](https://github.com/c4urself/bump2version#configuration-file) locally, from
+a clean repository root, to choose each release manually:
+
+```bash
+# Install once, if needed; this adds no application dependency.
+uv tool install bump2version==1.0.1
+
+# Gateway only:
+bump2version --config-file .bumpversion.cfg patch
+git add .bumpversion.cfg
+git commit -m "chore(release): bump gateway image to 0.1.1"
+git push origin main
+
+# Knowledge service/UI only (a separate release):
+bump2version --config-file services/knowledge-bootstrap/.bumpversion.cfg patch
+git add services/knowledge-bootstrap/.bumpversion.cfg
+git commit -m "chore(release): bump knowledge image to 0.1.1"
+git push origin main
+```
+
+Use `minor` or `major` instead of `patch` when appropriate. Both configs disable automatic
+commits and Git tags so you can write your own development-log commit message. To release
+both images together, bump both files and include both in one commit/push.
+
+The initial `0.1.0` files establish a baseline and **do not publish images**. Commit that
+baseline to `main`, then bump to `0.1.1` for the first publication. Ordinary source changes,
+config comments, config additions/deletions and pull requests never publish images.
+Detection compares the versions before and after the entire push, so it also handles
+multiple commits and builds only the final version of each image. Versions must increase;
+downgrades and malformed versions fail the workflow. A bump reverted within the same push
+produces no release.
+
+Pull requests run the release-selection tests without accessing Quay credentials. Existing
+application verification workflows still run independently. A failed publication can be
+retried from GitHub Actions. `latest` follows the last completed publication, including
+reruns of old releases, so use version tags or digests for deployments. Publishing does not
+restart any service or run database migrations. The knowledge service remains optional, and its image requires
+the same explicit migration and runtime configuration described in the
+[knowledge service guide](services/knowledge-bootstrap/README.md).
+
 ## End-to-end demo
 
 The repo includes a repeatable end-to-end demo runner.

@@ -1,0 +1,121 @@
+name: Publish versioned Docker images
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - '.bumpversion.cfg'
+      - 'services/knowledge-bootstrap/.bumpversion.cfg'
+      - '.github/workflows/docker-publish.yml'
+      - 'scripts/docker_release_matrix.py'
+      - 'scripts/test_docker_release_matrix.py'
+
+permissions:
+  contents: read
+
+jobs:
+  versions:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.releases.outputs.matrix }}
+      has_releases: ${{ steps.releases.outputs.has_releases }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Test release selection
+        run: python3 -m unittest discover -s scripts -p 'test_docker_release_matrix.py'
+      - name: Fetch push baseline if needed
+        if: github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [[ "$BEFORE" != "0000000000000000000000000000000000000000" ]] && ! git cat-file -e "$BEFORE^{commit}"; then
+            git fetch --no-tags origin "$BEFORE"
+          fi
+      - name: Select images whose versions increased
+        if: github.event_name == 'push'
+        id: releases
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: python3 scripts/docker_release_matrix.py --before "$BEFORE" --after "$AFTER"
+
+  publish:
+    needs: versions
+    if: github.event_name == 'push' && needs.versions.outputs.has_releases == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.versions.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Configure Quay authentication
+        env:
+          QUAY_AUTH: ${{ secrets.QUAY_AUTH }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import binascii
+          import json
+          import os
+          from pathlib import Path
+
+          auth = os.environ.get("QUAY_AUTH", "").strip()
+          try:
+              username, separator, password = base64.b64decode(auth, validate=True).decode().partition(":")
+              if not username or not separator or not password:
+                  raise ValueError
+          except (ValueError, binascii.Error, UnicodeError):
+              raise SystemExit("Set QUAY_AUTH to base64(username:password-or-robot-token).") from None
+          directory = Path(os.environ["RUNNER_TEMP"]) / "quay-docker-auth"
+          directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+          config = directory / "config.json"
+          config.touch(mode=0o600)
+          config.write_text(json.dumps({"auths": {"quay.io": {"auth": auth}}}))
+          with Path(os.environ["GITHUB_ENV"]).open("a") as handle:
+              handle.write(f"DOCKER_CONFIG={directory}\n")
+          PY
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            quay.io/bdobrica/${{ matrix.image }}:${{ matrix.version }}
+            quay.io/bdobrica/${{ matrix.image }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ matrix.version }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      - name: Record published image
+        env:
+          IMAGE: quay.io/bdobrica/${{ matrix.image }}
+          VERSION: ${{ matrix.version }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          echo "Published $IMAGE:$VERSION and $IMAGE:latest ($DIGEST) for linux/amd64 and linux/arm64." >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove registry credentials
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          (Path(os.environ["RUNNER_TEMP"]) / "quay-docker-auth" / "config.json").unlink(missing_ok=True)
+          PY
