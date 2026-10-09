@@ -81,9 +81,14 @@ The system then updates its memories and person/topic model so future recommenda
 flowchart TD
     client["Chat client / OpenAI SDK"] -->|OpenAI-compatible /v1/responses| gateway["Go API Gateway<br/>- auth<br/>- conversation state<br/>- LLM calls<br/>- retrieval policy<br/>- scoring/reranking<br/>- memory updates"]
     gateway --> postgres["Postgres<br/>- sessions<br/>- messages<br/>- memories<br/>- people<br/>- topics<br/>- beliefs<br/>- graph edges<br/>- outcomes"]
-    gateway --> qdrant["Qdrant<br/>- dense vectors<br/>- sparse/BM25 vectors<br/>- payload metadata<br/>- hybrid retrieval"]
-    qdrant --> llm["Upstream LLM Provider<br/>- extraction<br/>- embeddings<br/>- answer generation<br/>- scenario simulation<br/>- memory consolidation"]
+    gateway --> qdrant["Qdrant<br/>- dense vectors<br/>- sparse lexical vectors<br/>- payload metadata<br/>- hybrid retrieval"]
+    gateway --> llm["Upstream LLM Provider<br/>- extraction<br/>- embeddings<br/>- answer generation<br/>- scenario generation"]
+    gateway -. optional HTTP search .-> knowledge["FastAPI knowledge API / UI<br/>separate database and Qdrant collection"]
 ```
+
+Current behavior and decisions: [architecture](docs/architecture.md),
+[knowledge base](docs/knowledge-base.md), [operations](docs/operations.md) and
+[ADRs](docs/architecture.md#code-map-and-decision-records).
 
 ## Core loop
 
@@ -93,9 +98,9 @@ observe -> extract -> store -> retrieve -> reason -> act -> update
 
 The system observes user input or manually ingested notes, extracts structured memory, stores it, retrieves relevant context for future tasks, reasons with the LLM, and updates its memory based on outcomes.
 
-## Planned stack
+## Stack
 
-The optional [Knowledge Bootstrap service](services/knowledge-bootstrap/README.md) adds a
+The optional [knowledge base](docs/knowledge-base.md) adds a
 standalone FastAPI reference-knowledge track. It uses a separate database on Postgres and can
 be started with the opt-in `knowledge` Compose profile. SecondContext runs independently of
 this Python service. K1–K8 provide durable jobs, pasted/uploaded TXT, Markdown, JSON, YAML,
@@ -211,43 +216,49 @@ The assistant recommends the strategy closest to the user's goal while consideri
 
 ## Repository structure
 
-Proposed structure:
-
 ```text
 .
-├── cmd/
-│   └── api/
+├── cmd/                     # api, migrate, devseed, demo, eval
 ├── internal/
 │   ├── api/
 │   ├── config/
 │   ├── db/
 │   ├── debug/
+│   ├── beliefs/
+│   ├── knowledge/
 │   ├── llm/
 │   ├── memory/
+│   ├── modeling/
 │   ├── models/
+│   ├── outcomes/
 │   ├── prompts/
 │   ├── qdrant/
 │   ├── retrieval/
+│   ├── scenarios/
 │   └── scoring/
 ├── migrations/
-├── deploy/
-│   └── docker-compose.yml
-├── docs/
-│   ├── PLAN.md
-│   └── TODO.md
+├── services/knowledge-bootstrap/
+├── docker-compose.yml
+├── docker-compose.knowledge.yml
+├── docker-compose.integration.yml
+├── deploy/                  # deployment notes
+├── docs/                    # architecture, operations, knowledge, ADRs, contracts
+├── scripts/                 # integration and release tooling
+├── TODO.md
 ├── README.md
 └── LICENSE
 ```
 
-## Planned API surface
+## API surface
 
 OpenAI-compatible endpoints:
 
 ```text
 GET  /v1/models                implemented
 POST /v1/responses            implemented
-POST /v1/chat/completions     optional
 ```
+
+Streaming and `POST /v1/chat/completions` remain deferred.
 
 Internal/debug endpoints:
 
@@ -258,11 +269,16 @@ GET  /memory                 implemented
 DELETE /memory/{id}          implemented
 POST /memory/search          implemented
 POST /interactions/outcome   implemented
+POST /v1/subjects/purge      implemented (authenticated)
 GET  /debug/context          implemented
 GET  /debug/beliefs          implemented
-GET  /debug/person/:id       implemented
-PUT  /debug/person/:id       implemented
+GET  /debug/person/{id}      implemented
+PUT  /debug/person/{id}      implemented
 ```
+
+Debug routes exist only in development-like environments. Service credentials
+have the restricted route set in the [HTTP contract](docs/contracts/service-context-v1.md).
+The independent knowledge API is documented in the [knowledge guide](docs/knowledge-base.md#search-api-and-ui).
 
 ## Example request
 
@@ -296,7 +312,11 @@ Memory-disabled comparison request (set `disable_knowledge` as well for a run wi
 
 ## Development status
 
-This project now has a working Stage 13 baseline:
+The gateway implements the memory, modeling, strategy, outcome, debug, demo and
+evaluation flows, with authentication, subject isolation/purge and required
+integration checks. The optional knowledge track implements K1–K10, including
+standalone management/search and explicitly enabled documentary extraction.
+Current capabilities include:
 
 - Postgres-backed schema and repositories;
 - `GET /v1/models`;
@@ -330,7 +350,7 @@ This project now has a working Stage 13 baseline:
 - debug endpoints to inspect and manually edit person-topic models;
 - `GET /debug/context` for inspecting stored context, rebuilt current context, people models, beliefs, latest-turn updates, and scenario metadata;
 - optional stateless-vs-memory comparison in `GET /debug/context`, with a minimal HTML debug view for interactive inspection;
-- direct `disable_memory` support on `POST /v1/responses` for stateless runs that still honor explicit request hints;
+- independent `disable_memory` and `disable_knowledge` controls on `/v1/responses`; disable both for a response without retrieved context;
 - debug routes mounted only in development-like environments;
 - validated Stage 9 flow covering memory ingest, person inspection, and person-model updates;
 - integration-tested Stage 10 flow covering belief extraction, contradiction tracking, debug inspection, and belief-aware prompt augmentation.
@@ -345,8 +365,10 @@ Not implemented yet:
 
 See:
 
-- [`PLAN.md`](PLAN.md) for the architecture and product plan.
-- [`TODO.md`](TODO.md) for the implementation work breakdown.
+- [Architecture and ADRs](docs/architecture.md) for implemented design decisions.
+- [Knowledge-base guide](docs/knowledge-base.md) for the optional service and integration boundary.
+- [Operations](docs/operations.md) for deployment, recovery, retention and verification.
+- [TODO.md](TODO.md) for completed work and remaining extensions.
 
 ## Non-goals for the MVP
 
@@ -571,11 +593,12 @@ More detail is in `docs/evaluation.md`.
 Current environment variables:
 
 ```bash
-APP_NAME=salience-graph
+APP_NAME=second-context
 APP_ENV=development
 AUTH_ENABLED=false
 AUTH_REALM=second-context
 AUTH_BEARER_TOKENS=
+AUTH_SERVICE_TOKENS=
 HTTP_ADDR=:8080
 HTTP_SHUTDOWN_TIMEOUT=10s
 HTTP_RATE_LIMIT_REQUESTS_PER_MINUTE=60
@@ -603,6 +626,9 @@ OPENAI_REQUEST_TIMEOUT=30s
 ```
 
 The public model alias exposed by the API is `context-agent-1`, which currently maps to `OPENAI_CHAT_MODEL` upstream.
+The complete settings, including scoring, Qdrant and optional adapter configuration,
+are in [.env.example](.env.example). The Python service uses its own
+[environment template](services/knowledge-bootstrap/.env.example).
 
 ## License
 

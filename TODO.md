@@ -1,5 +1,11 @@
 # TODO.md — Work Breakdown Structure for Context-Augmented LLM MVP
 
+Implemented behavior is documented in [architecture and ADRs](docs/architecture.md),
+[operations](docs/operations.md), [demo](docs/demo.md), [evaluation](docs/evaluation.md)
+and the [knowledge-base guide](docs/knowledge-base.md). This checklist retains the
+development history and remaining work; completed tasks are not a promise that
+every broader hardening deliverable is finished.
+
 ## Stage 0 — Project Definition
 
 ### Goals
@@ -174,7 +180,7 @@ interaction_outcomes
 - [x] Define memory ingestion request schema.
 - [x] Store raw text and summary in Postgres.
 - [x] Add people and topic fields.
-- [ ] Add initial scores:
+- [x] Add initial scores:
   - [x] importance;
   - [x] utility;
   - [x] belief impact;
@@ -630,11 +636,11 @@ The assistant should recommend a narrow, low-friction request to Alex.
 - [x] Add backup/restore notes.
 - [x] Add authenticated, scoped subject purge with durable retry/fencing and vector cleanup.
 - [x] Add restricted namespace service credentials for multi-user applications.
-- [ ] Add person model editing.
+- [x] Add person model editing (development-only `PUT /debug/person/{id}`).
 - [ ] Add belief editing.
 - [ ] Add prompt versioning.
-- [ ] Add model/provider configuration.
-- [ ] Add observability:
+- [x] Add model/provider configuration through environment settings.
+- [x] Add observability through logs and metrics:
   - [x] logs;
   - [x] metrics;
   - [ ] traces if needed.
@@ -664,7 +670,7 @@ These are explicitly post-MVP.
 - [ ] Multi-user team memory.
 - [ ] Permissions model.
 - [ ] Local embedding model.
-- [ ] Python sidecar for document processing.
+- [x] Optional standalone Python service for document processing and reference retrieval.
 - [ ] Custom reranker.
 - [ ] LightGBM or other predictive model trained on interaction outcomes.
 - [ ] Fine-grained role graph.
@@ -717,3 +723,21 @@ The MVP is complete when the following scenario works end to end:
 ```
 
 No LightGBM or custom predictive model is required for MVP completion.
+
+## Knowledge-base follow-ups
+
+The original K1–K10 track is implemented and its planning files have been retired.
+Current APIs, lifecycle behavior and limitations are recorded in
+[docs/knowledge-base.md](docs/knowledge-base.md). Remaining extensions:
+
+- [ ] OCR for scanned/image-only PDFs.
+- [ ] JavaScript-rendered website ingestion with an isolated browser service.
+- [ ] Additional office/document formats.
+- [ ] Scheduled source refresh policies.
+- [ ] Source-level trust/priority controls.
+- [ ] Knowledge-owner team sharing/permissions.
+- [ ] External object/blob storage for original large files.
+- [ ] Incremental document-diff ingestion.
+- [ ] Cross-encoder/custom knowledge reranking.
+- [ ] Richer derived-knowledge extraction.
+- [ ] Source contradiction analysis.

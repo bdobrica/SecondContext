@@ -73,3 +73,12 @@ The useful signal in the output is:
 - the follow-up retrieval should include the newly recorded outcome or its effects.
 
 The command prints the generated user and session IDs so you can inspect the same records later on a long-running dev server.
+
+The demo's baseline toggles memory only. Keep `KNOWLEDGE_ENABLED=false` on the
+target gateway for a fully stateless comparison; otherwise a mapped subject may
+receive reference evidence in both drafts. The optional knowledge service can be
+tested independently by adding a small handbook in `/knowledge`, waiting for its
+job to reach `ready`, and using Test retrieval or `POST /v1/search`. Then enable
+the gateway's exact subject/token mapping to compare reference-backed answers.
+See [knowledge integration](knowledge-base.md#secondcontext-integration) and
+[evaluation controls](evaluation.md#knowledge-base-evaluation).

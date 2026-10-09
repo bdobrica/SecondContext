@@ -33,6 +33,14 @@ SECOND_CONTEXT_BASE_URL=http://localhost:8080 make eval
 
 Reports are written under `.artifacts/evaluation/` by default. You can override that with `EVAL_OUTPUT_DIR`.
 
+The evaluator toggles `disable_memory`, not `disable_knowledge`. For its original
+fully stateless versus memory-only comparison, run with `KNOWLEDGE_ENABLED=false`
+(the default). When targeting an existing API, disable the adapter in that API's
+configuration; setting it only in the evaluator process does not change the server.
+If knowledge is enabled and the evaluation subject is mapped, both answers may
+receive reference evidence. Record that setup as a memory comparison with knowledge
+available, rather than describing the baseline as fully stateless.
+
 ## What The Evaluator Measures
 
 Per case, the command captures:
@@ -83,3 +91,34 @@ The generated report includes prompts for:
 - reviewer notes on retrieval precision labels
 
 That keeps the benchmark honest: the harness automates what it can measure well, and leaves subjective checks explicit.
+
+## Knowledge-base evaluation
+
+The standalone service has its own
+[corpus](../services/knowledge-bootstrap/benchmarks/corpus.json),
+[HTTP evaluator](../services/knowledge-bootstrap/benchmarks/evaluate.py) and
+[recorded real-embedding results](../services/knowledge-bootstrap/benchmarks/results.json).
+It compares dense, sparse and hybrid search with labeled source relevance,
+precision@k and provenance checks. The ten-query/sixteen-document baseline found
+equal dense/hybrid mean precision@3 (0.4333), with dense stronger at top one.
+It establishes usable retrieval on a small fixture, not universal hybrid superiority.
+Run instructions and interpretation are in the
+[service benchmark reference](../services/knowledge-bootstrap/README.md#small-retrieval-benchmark).
+
+The separate [lifecycle report](../services/knowledge-bootstrap/benchmarks/lifecycle-results.json)
+uses real Postgres/Qdrant and deterministic embeddings to exercise changed website
+pages, acknowledged-write failure, projection-only retry, stale cleanup, collection
+loss/rebuild and deletion. It measures lifecycle/provenance consistency rather than
+semantic accuracy. Required CI tests use deterministic inference instead of paid
+models; a live model/backend smoke check is a separate integration signal.
+
+For gateway comparisons, independently vary `disable_memory` and `disable_knowledge`
+on `/v1/responses`. Disabling both removes retrieved context; enabling only knowledge
+can demonstrate grounded answers before any episodic memories exist. Inspect
+`metadata.context_packet.knowledge_context`, `knowledge_status`, provenance and budget
+omissions. Development debug comparisons hold knowledge constant when toggling memory.
+
+Derived-candidate tests check schema, exact-quote membership, ownership, evidence
+changes, transactional retraction, recomputation and audit purge. They do not prove
+semantic entailment or extraction accuracy. Promotion and answer-groundedness review
+remain consumer responsibilities; see [ADR 0005](adr/0005-documentary-candidates.md).

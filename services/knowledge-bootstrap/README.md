@@ -4,19 +4,17 @@ An optional, independently deployable FastAPI service for durable reference know
 SecondContext continues to run without this service. This package has its own configuration,
 dependencies, migrations, database and authentication; it imports no SecondContext code.
 
-K1 provides source registration, durable ingestion jobs, canonical models and inspection APIs.
-K2 adds pasted and uploaded TXT, Markdown, JSON and YAML ingestion. A small in-process worker
-polls durable jobs and writes canonical documents without an LLM. Swagger at `/docs` is
-available now. K3 adds digital PDF and DOCX uploads, with page/section provenance and bounded
-parser subprocesses. K4 adds public static websites with SSRF-resistant fetching and bounded
-page/path/host crawling. K5 adds structure-aware chunks and dense/sparse Qdrant indexing,
-with projection-only retry and rebuild tools. K6 adds filtered hybrid retrieval with canonical
-evidence and score debugging. K7 adds a Jinja2 management and test UI at `/knowledge`,
-with ingestion, inspection, refresh/reindex, confirmed deletion and ranked evidence.
-K8 completes website refresh cleanup, unchanged parser/chunk reuse, owner-scoped operational
-metrics, backup/recovery guidance and a real Postgres/Qdrant lifecycle evaluation.
-K10 adds explicit, optional documentary extraction with chunk-backed candidates and
-transactional retraction. It does not promote candidates into a consumer’s cognitive model.
+The service supports pasted/uploaded TXT, Markdown, JSON, YAML, digital PDF, DOCX
+and bounded public static website ingestion. A polling worker creates canonical documents,
+structure-aware chunks and dense/sparse projections; the API returns ranked source evidence.
+The Jinja2 UI at `/knowledge` manages sources and tests retrieval. Refresh, confirmed deletion,
+projection retry/rebuild, owner metrics and optional documentary candidates are implemented.
+Candidates are not automatically promoted into a consumer's cognitive model.
+
+Start with the [knowledge-base guide](../../docs/knowledge-base.md) for behavior and
+design boundaries, [ADRs](../../docs/architecture.md#code-map-and-decision-records) for
+rationale, and [operations](../../docs/operations.md#knowledge-service) for the runbook.
+This README retains detailed API, parser/settings, UI and evaluation references.
 
 **Jobs now reach `ready` after canonical chunks and acknowledged index writes.** Configure
 an embedding endpoint and the dedicated Qdrant collection below. Setting
@@ -120,9 +118,10 @@ Creation returns HTTP `202` with `{ "source": {...}, "job": {...} }`. `name` is 
 `format` accepts `auto` (also the default when omitted/null), `text`, `markdown`, `json` or
 `yaml` for textual input. The source records the detected format during parsing.
 
-The JSON route also accepts URL/file registrations without content for subsequent milestones.
-URL registrations require an HTTP/HTTPS `source_uri`, file registrations require an original
-filename, and neither is fetched. Jobs without stored text or binary input remain pending.
+The JSON route also accepts URL registrations, which the worker fetches using the safe
+transport below. Metadata-only file/text registrations remain pending until input is
+available; filenames are never read from the server's filesystem. File registrations
+require an original filename; use the multipart endpoint to supply file content.
 
 Upload text using the dedicated multipart route, with optional `name` and `format` form fields:
 
@@ -436,7 +435,8 @@ uv run --env-file .env knowledge-bootstrap transition-job JOB_UUID failed --owne
 The operator CLI permits an empty job to reach `ready` for testing the lifecycle; this does
 not create documents/chunks. Normal ingestion runs the full K2–K5 pipeline.
 Job retention currently follows source retention: the schema cascades sources to their
-documents, chunks and jobs. Public deletion and projection cleanup are later lifecycle work.
+documents, chunks and jobs. Public deletion also performs acknowledged source-scoped
+projection cleanup; candidate audits survive as retracted rows until explicitly purged.
 
 ## Verify
 
@@ -571,6 +571,10 @@ consumes paused indexing jobs; failed attempts need an explicit retry.
 
 Operator tools (from the service directory):
 
+For host-side execution, set `KNOWLEDGE_DATABASE_URL`/`KNOWLEDGE_QDRANT_URL` to
+reachable host endpoints instead of Compose hostnames. Alternatively, execute
+`/app/.venv/bin/knowledge-bootstrap` inside the optional container.
+
 ```bash
 uv run --env-file .env knowledge-bootstrap reindex-source SOURCE_UUID --owner local
 uv run --env-file .env knowledge-bootstrap rebuild-index --owner local
@@ -584,8 +588,8 @@ same-source points, and preserve other owners. Durable jobs expose any failure; 
 job or cleanup failure gives a nonzero exit. Active parse/chunk jobs are reused and may require
 finishing before rerunning rebuild. Back up Postgres; the search projection is disposable.
 For a new embedding model, choose a fresh collection and replay each owner. Neither command
-wipes a live collection. K8 completes absent-crawl-page lifecycle handling; K7 supplies
-the serialized deletion path.
+wipes a live collection. Website refresh also handles absent crawl pages, and public
+source deletion uses the same serialization boundary.
 
 K5 tests cover tiny/large/deep sections, Unicode, code/tables, page ranges, structured paths,
 overlap and determinism; real Postgres tests cover stage commits, partial index failure,
@@ -954,8 +958,9 @@ separate real-embedding retrieval benchmark. K8 also runs the existing abuse reg
 oversized/streamed text; JSON/YAML depth/alias expansion; DOCX ZIP/XML bombs; malformed and
 oversized PDF streams; hostile/oversized HTML; actual slow sockets and redirect-to-metadata;
 redirect/frontier/page/depth bounds; and cross-owner API/enumeration/projection isolation.
-No OCR, browser rendering, scheduled refresh, job archive, endpoint-migration outbox or
-SecondContext adapter is introduced.
+OCR, browser rendering, scheduled refresh, job archives and an endpoint-migration outbox
+remain deferred. SecondContext's optional adapter is separately implemented in Go and
+documented in the [integration guide](../../docs/knowledge-base.md#secondcontext-integration).
 
 
 ## Optional derived-knowledge bridge (K10)

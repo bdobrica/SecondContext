@@ -36,9 +36,27 @@ Use `make test-unit` for the fast dependency-free lane or `make test-integration
 
 ## Database upgrades and recovery
 
-Back up Postgres before applying migrations. Outcome processing treats Postgres as canonical and Qdrant as a rebuildable index, so restore Postgres first and reconcile any non-completed outcome stages afterward. See [`docs/operations.md`](../docs/operations.md) for inspection queries and the idempotent retry procedure.
+Back up Postgres before applying migrations. Restore canonical state first and
+reconcile incomplete outcome stages and the memory index before serving retrieval.
+Outcome retries repair their associated points; there is no general-purpose
+gateway memory-index rebuild CLI. Preserve a compatible Qdrant snapshot and use
+an explicit reconciliation plan. See [operations](../docs/operations.md) for
+inspection and retry procedures.
 
 For multi-user service clients and deletion, apply migration 000003 and use the
 [service authentication and purge contract](../docs/contracts/service-context-v1.md).
 Coordinate all API instances and budget the additional subject-lock connections as
 described in [operations](../docs/operations.md).
+
+## Optional knowledge service and image releases
+
+The [knowledge-base guide](../docs/knowledge-base.md) covers the separate API/UI,
+database and collection. Provision/migrate/start it with the opt-in Compose profile
+using the [knowledge runbook](../docs/operations.md#knowledge-service); ordinary
+gateway deployment needs no Python service.
+
+The gateway and knowledge API/UI have independent manually bumped Docker image
+versions. The [publication workflow](../README.md#publishing-docker-images) pushes
+to Quay only for committed version increases on `main`. Publication does not
+deploy an application or apply its migrations. Use explicit versions/digests and
+run each application's migration command during deployment.
