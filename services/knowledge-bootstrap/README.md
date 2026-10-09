@@ -11,7 +11,8 @@ available now. K3 adds digital PDF and DOCX uploads, with page/section provenanc
 parser subprocesses. K4 adds public static websites with SSRF-resistant fetching and bounded
 page/path/host crawling. K5 adds structure-aware chunks and dense/sparse Qdrant indexing,
 with projection-only retry and rebuild tools. K6 adds filtered hybrid retrieval with canonical
-evidence and score debugging. The Jinja2 management UI remains K7.
+evidence and score debugging. K7 adds a Jinja2 management and test UI at `/knowledge`,
+with ingestion, inspection, refresh/reindex, confirmed deletion and ranked evidence.
 
 **Jobs now reach `ready` after canonical chunks and acknowledged index writes.** Configure
 an embedding endpoint and the dedicated Qdrant collection below. Setting
@@ -154,9 +155,12 @@ leave temporary files until the container's temporary filesystem is removed.
 | --- | --- |
 | `POST /v1/sources` | Create source and pending job atomically |
 | `POST /v1/sources/upload` | Upload one bounded text, PDF or DOCX file |
-| `GET /v1/sources` | List this owner's sources |
-| `GET /v1/sources/{id}` | Inspect source |
+| `GET /v1/sources` | List this owner's sources, canonical counts and latest job/error |
+| `GET /v1/sources/{id}` | Inspect source, canonical counts and latest job/error |
+| `DELETE /v1/sources/{id}` | Delete source, descendants, jobs and source-scoped search points |
 | `POST /v1/sources/{id}/refresh` | Reuse active job, or queue a fresh attempt |
+| `POST /v1/sources/{id}/reindex` | Queue projection-only recovery from canonical chunks |
+| `POST /v1/search` | Retrieve ranked canonical evidence |
 | `GET /v1/sources/{id}/jobs` | Inspect attempt history |
 | `GET /v1/jobs/{id}` | Inspect status, progress and errors |
 | `GET /v1/sources/{id}/documents` | Inspect canonical documents |
@@ -705,3 +709,92 @@ the recorded live run were removed together with their owner-scoped Qdrant point
 embeddings are excluded from CI: regression tests use deterministic candidate/embedding
 fixtures, while required integration tests exercise real PostgreSQL and Qdrant through the
 API, including all three modes, filters, stale points and provenance.
+
+## K7 management and test UI
+
+Open `http://localhost:8090/knowledge` (or `/`, which redirects there). Connect using one
+of the bearer credentials configured in `KNOWLEDGE_AUTH_TOKENS`. The UI works directly
+against the standalone knowledge API; SecondContext is not involved. The credential is
+kept only in this tab's JavaScript memory. Disconnect or reload clears it, aborts outstanding
+requests and removes displayed workspace data. No authentication cookies, browser storage,
+URL tokens, server sessions or new identity provider are introduced. The public HTML shell
+contains no owner data or credentials; every data request/action still authenticates through
+the existing bearer boundary. Use HTTPS when accessing the service beyond localhost.
+
+The page uses FastAPI's [Jinja2 template support](https://fastapi.tiangolo.com/advanced/templates/)
+and bundled plain JavaScript/CSS. There is no Node build, CDN, external font or runtime UI
+dependency beyond Jinja2. The existing wheel/Docker build includes templates and assets.
+The UI escapes imported data through text nodes, permits only HTTP/HTTPS provenance links,
+and applies a restrictive Content Security Policy, no-referrer and no-store headers.
+Source/API responses are also marked no-store. The API and optional Compose profile remain
+compatible with existing consumers; this milestone requires no database migration.
+
+The library shows source type/detected format, ingestion status, canonical document/chunk
+counts, last successful ingestion time and latest error. Source detail polls every 2.5 seconds
+while displayed jobs are active; background tabs pause polling. It displays the latest ten
+jobs with stages, counters and parser/fetch/indexing errors. Website ingestion supports page,
+same-path and same-host scope with a server-bounded page limit. File ingestion supports the
+existing UTF-8/textual and PDF/DOCX formats, actual upload progress, format override and stable
+API error codes. Paste ingestion supports an optional name, a large textarea, format override
+and the detected format after parsing. All forms retain input when submission fails. Cancel
+closes the add dialog; it does not cancel an already submitted ingestion job.
+
+Sources paginate 50 at a time; documents/chunks paginate 20 at a time. Inspect a document to
+expand chunk text, section/page location, canonical IDs and provenance metadata. Refresh
+reuses active work or reparses; reindex queues only the projection step. With indexing disabled,
+the UI can still ingest and inspect text/documents/chunks paused at `indexing`, and search
+already-ready evidence. New searchable evidence needs the configured embedding/Qdrant backends.
+
+Test retrieval accepts a query, optional source filter, result limit, hybrid/dense/sparse mode
+and a score-debug toggle. The filter offers sources on the current library page and the
+selected source, retaining an existing filter during page changes. Each ranked result shows
+its score, title, heading/page range, URI, preview, expandable full text/IDs and optional score
+components. Inspect source opens the matching canonical detail. Backend/validation errors are
+shown explicitly; empty results explain that indexing must finish first.
+
+### Confirmed deletion
+
+The UI requires a confirmation dialog before calling `DELETE /v1/sources/{id}`. Deletion takes
+the same owner projection lock and source row lock as existing writers, deletes only points
+matching knowledge kind + authenticated owner + source ID with acknowledged writes, then
+commits canonical source deletion. Existing FK cascades remove documents, chunks and jobs
+(no job archive/retention store in this MVP). It cleans the configured collection and a prior
+collection recorded on the source at the currently configured Qdrant endpoint, even when
+indexing is disabled. It never creates a missing collection and requires no embeddings.
+
+The API returns `204` for completion or an absent source, including a source belonging to
+another owner, so retries are idempotent without exposing its existence. An absent collection
+is already clean. Backend/acknowledgement failure returns `503 deletion_unavailable` and keeps
+canonical data for retry. If a database commit fails after points were removed, retry deletion
+or reindex the surviving source; refreshing/rebuilding can regenerate projections from
+Postgres. Locks can time out while an ingestion worker holds the source; retry after that
+attempt completes. A fresh search cannot return a canonically deleted source. Evidence from
+an earlier response remains an earlier snapshot.
+
+This is the deletion path needed by K7, not completion of K8. Canonical deletion waits for
+search cleanup, so backend outages defer deletion. Moving Qdrant endpoints needs cleanup of
+the old endpoint using its configuration; no endpoint history/outbox/tombstone migration is
+added here. Broader refresh reconciliation, missing website-page cleanup, job retention,
+metrics and operational lifecycle hardening remain K8.
+
+### Browser smoke test
+
+`tests/ui_smoke.py` is an opt-in Playwright test of a running service. It uses only HTTP/browser
+interfaces, uniquely names/captures its fixture sources and deletes only those IDs in a final
+cleanup, including when assertions fail. It covers invalid/valid authentication, literal
+hostile imported text, paste/structured ingestion, PDF/DOCX uploads, static website ingestion,
+polling, chunks, hybrid/debug search, refresh/reindex, confirmation/cancel, mobile layout and
+credential/data clearing. Live indexing/search use your configured provider and may incur
+embedding charges. Set `KNOWLEDGE_TOKEN` privately to a configured credential, then run:
+
+```bash
+uv run --with playwright playwright install chromium
+uv run --with playwright python tests/ui_smoke.py --url http://localhost:8090
+# Or use an already installed browser:
+uv run --with playwright python tests/ui_smoke.py --browser-path /usr/bin/chromium
+```
+
+`--website` overrides the public example URL; `--screenshot` optionally saves the displayed
+workspace. Browser tooling is temporary and is not a production dependency. The regular
+suite validates the credential-free shell/headers, canonical summaries, owner isolation,
+writer locking, deletion retries/cascades and real Qdrant cleanup without paid inference.

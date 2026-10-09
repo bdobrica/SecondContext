@@ -159,5 +159,42 @@ def test_real_qdrant_projection_dense_sparse_stale_cleanup_and_rebuild(
             jobs = rebuild_index(sessions, config, owners[0], DeterministicEmbeddingIndex)
             assert all(job.status == "ready" for job in jobs)
             assert {p["id"] for p in scroll()} == canonical
+            # Delete only this owner's source, even if another owner's point carries
+            # the same source ID. The management path requires no embedding backend.
+            q.put(
+                path + "/points?wait=true",
+                json={
+                    "points": [
+                        {
+                            "id": unrelated,
+                            "vector": points[0]["vector"],
+                            "payload": {**payload, "owner_id": owners[1]},
+                        }
+                    ]
+                },
+            ).raise_for_status()
+            with TestClient(create_app(config)) as management_client:
+                management_client.headers["Authorization"] = "Bearer test-owner-a-token-123"
+                assert management_client.delete("/v1/sources/" + source_id).status_code == 204
+                assert management_client.get("/v1/sources/" + source_id).status_code == 404
+                assert management_client.post("/v1/search", json={"query": "backups"}).json() == {
+                    "results": []
+                }
+                assert management_client.delete("/v1/sources/" + source_id).status_code == 204
+                assert scroll() == []
+                remaining = (
+                    q.post(
+                        path + "/points/scroll",
+                        json={"filter": owned_filter(owners[1]), "limit": 10},
+                    )
+                    .raise_for_status()
+                    .json()["result"]["points"]
+                )
+                assert [point["id"] for point in remaining] == [unrelated]
+                q.delete(path).raise_for_status()
+                missing_source = management_client.post(
+                    "/v1/sources", json={"kind": "text", "text": "Not indexed yet."}
+                ).json()["source"]["id"]
+                assert management_client.delete("/v1/sources/" + missing_source).status_code == 204
         finally:
-            q.delete(path).raise_for_status()
+            assert q.delete(path).status_code in (200, 404)

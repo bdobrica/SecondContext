@@ -1,6 +1,6 @@
 # Knowledge Bootstrap Service — TODO
 
-Status: K1–K6 implemented; remaining milestones proposed
+Status: K1–K7 implemented; remaining milestones proposed
 
 Track: Standalone / parallel to SecondContext
 
@@ -38,8 +38,8 @@ flowchart LR
 Implemented in [`services/knowledge-bootstrap`](services/knowledge-bootstrap/README.md) using
 FastAPI, SQLAlchemy, and Alembic. The service is an optional Compose profile, shares the
 existing Postgres deployment through a separate database, and does not change SecondContext
-startup. K1 persists pending jobs; K2 now processes textual inputs. The Jinja2 UI remains
-in a later milestone.
+startup. K1 persists pending jobs; K2 now processes textual inputs. K7 now provides the
+Jinja2 management and retrieval UI.
 
 ### Project foundation
 
@@ -317,7 +317,7 @@ Durable index failures can retry through `/v1/sources/{id}/reindex` without repa
 owner-scoped rebuild/reconciliation commands replay Postgres chunks and remove stale/orphan
 points. Migration `0003_chunk_metadata` adds chunk metadata and pins projection recipes.
 Jobs now complete at `ready`; indexing can be disabled to pause with inspectable chunks.
-K6 now provides hybrid search. The UI and absent website-page deletion remain K7/K8.
+K6 now provides hybrid search. K7 provides the UI; absent website-page deletion remains K8.
 
 ### Canonical document model
 
@@ -394,7 +394,7 @@ are verified before evidence is returned. Debug responses explain score componen
 There are no search-time writes or memory recency decay. Tags are reserved and nonempty tag
 filters are rejected. Source-priority settings and optional freshness remain extensions;
 this milestone does not introduce them. The HTTP-only benchmark and recorded live results
-are in `services/knowledge-bootstrap/benchmarks`. The Jinja2 UI remains K7.
+are in `services/knowledge-bootstrap/benchmarks`. K7 now provides the Jinja2 UI.
 
 ### `/v1/search`
 
@@ -456,66 +456,78 @@ are in `services/knowledge-bootstrap/benchmarks`. The Jinja2 UI remains K7.
 
 ## K7 — Standalone management and test UI
 
+Implemented in the optional FastAPI service at `/knowledge` (root redirects there), with
+Jinja2 and local plain JavaScript/CSS, no frontend build or external assets. The browser
+calls the same owner-scoped bearer API as external consumers; the credential stays in tab
+memory and is cleared on disconnect/reload. Sources expose canonical counts and latest
+job/error summaries. Website, file and paste forms, bounded pagination, upload progress,
+status polling, document/chunk provenance and hybrid/dense/sparse retrieval debugging work
+without SecondContext. Confirmed deletion adds the minimal serialized API path needed here:
+search cleanup before canonical FK cascades, backend failure retains the source for retry,
+missing sources/collections are idempotent, and jobs are removed with the source. This does
+not finish K8's broader refresh/recovery/observability work. Real Chromium smoke coverage is
+in `tests/ui_smoke.py`; PostgreSQL/Qdrant tests cover summaries, isolation, cleanup and retries.
+
 ### Sources page
 
-- [ ] Add minimal `/knowledge` or `/` management UI.
-- [ ] Show source name/title.
-- [ ] Show source type.
-- [ ] Show ingestion status.
-- [ ] Show document count.
-- [ ] Show chunk count.
-- [ ] Show last ingested/refreshed time.
-- [ ] Show last error when failed.
+- [x] Add minimal `/knowledge` or `/` management UI.
+- [x] Show source name/title.
+- [x] Show source type.
+- [x] Show ingestion status.
+- [x] Show document count.
+- [x] Show chunk count.
+- [x] Show last ingested/refreshed time.
+- [x] Show last error when failed.
 
 ### Add source flow
 
-- [ ] Add Website mode.
-- [ ] Add File mode.
-- [ ] Add Paste text mode.
+- [x] Add Website mode.
+- [x] Add File mode.
+- [x] Add Paste text mode.
 
 #### Website form
 
-- [ ] URL.
-- [ ] Crawl scope.
-- [ ] Max pages.
+- [x] URL.
+- [x] Crawl scope.
+- [x] Max pages.
 
 #### File form
 
-- [ ] File selector or drag/drop.
-- [ ] Supported-type guidance.
-- [ ] Upload progress/status.
-- [ ] Stable error display.
+- [x] File selector or drag/drop.
+- [x] Supported-type guidance.
+- [x] Upload progress/status.
+- [x] Stable error display.
 
 #### Paste form
 
-- [ ] Optional source name.
-- [ ] Large text area.
-- [ ] Detected format.
-- [ ] Optional format override.
+- [x] Optional source name.
+- [x] Large text area.
+- [x] Detected format.
+- [x] Optional format override.
 
 ### Job/source detail
 
-- [ ] Poll ingestion status; no WebSocket requirement for v1.
-- [ ] Show current ingestion stage.
-- [ ] Show parser/fetch/indexing error.
-- [ ] Show documents.
-- [ ] Show chunks/provenance.
-- [ ] Add refresh/reindex action.
-- [ ] Add delete action with confirmation.
+- [x] Poll ingestion status; no WebSocket requirement for v1.
+- [x] Show current ingestion stage.
+- [x] Show parser/fetch/indexing error.
+- [x] Show documents.
+- [x] Show chunks/provenance.
+- [x] Add refresh/reindex action.
+- [x] Add delete action with confirmation.
 
 ### Test retrieval
 
-- [ ] Add query input.
-- [ ] Add optional source filter.
-- [ ] Show ranked chunks.
-- [ ] Show score.
-- [ ] Show title/section/page/URI.
-- [ ] Show full chunk text on expansion.
-- [ ] Add debug score breakdown toggle if available.
+- [x] Add query input.
+- [x] Add optional source filter.
+- [x] Show ranked chunks.
+- [x] Show score.
+- [x] Show title/section/page/URI.
+- [x] Show full chunk text on expansion.
+- [x] Add debug score breakdown toggle if available.
 
 ### K7 exit criteria
 
-- [ ] A user can ingest and test knowledge without curl, SQL, Qdrant tools, or SecondContext.
+- [x] A user can ingest and test knowledge without curl, SQL, Qdrant tools, or SecondContext.
 
 ---
 
@@ -716,7 +728,7 @@ Begin only after retrieval quality is proven.
 5. [x] K4 — safe website ingestion.
 6. [x] K5 completion — dense/sparse indexing and recovery.
 7. [x] K6 — hybrid retrieval API.
-8. [ ] K7 — management and test-retrieval UI.
+8. [x] K7 — management and test-retrieval UI.
 9. [ ] K8 — lifecycle, recovery, hardening, and evaluation.
 10. [ ] K9 — SecondContext adapter.
 11. [ ] K10 — optional derived knowledge only after grounded retrieval is proven.

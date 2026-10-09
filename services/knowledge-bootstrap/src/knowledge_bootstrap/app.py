@@ -10,7 +10,7 @@ from uuid import UUID
 
 from fastapi import Depends, FastAPI, File, Form, Header, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -23,6 +23,7 @@ from knowledge_bootstrap.config import Settings
 from knowledge_bootstrap.database import make_engine, make_sessions
 from knowledge_bootstrap.ingestion import run_worker
 from knowledge_bootstrap.logging import configure_logging
+from knowledge_bootstrap.management import delete_source, source_summaries
 from knowledge_bootstrap.models import SCHEMA_REVISION, Chunk, Document, IngestionJob, Source
 from knowledge_bootstrap.parsers import ParseError, normalize_input
 from knowledge_bootstrap.pipeline import reindex_source
@@ -34,11 +35,13 @@ from knowledge_bootstrap.schemas import (
     SearchResponse,
     SourceAccepted,
     SourceCreate,
+    SourceSummaryView,
     SourceView,
     UploadFormat,
 )
 from knowledge_bootstrap.search import search
 from knowledge_bootstrap.service import ServiceError, create_source, get_owned, refresh_source
+from knowledge_bootstrap.ui import install_ui
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -135,6 +138,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessions = make_sessions(engine)
     app.state.engine = engine
     app.add_middleware(BodyLimit, max_bytes=settings.max_request_bytes)
+    install_ui(app, settings)
+
+    @app.delete("/v1/sources/{source_id}", status_code=204)
+    def remove_source(source_id: UUID, owner: Owner, session: Database):
+        delete_source(session, settings, owner, source_id)
+        return Response(status_code=204)
 
     @app.post("/v1/search", response_model=SearchResponse, response_model_exclude_none=True)
     def search_evidence(payload: SearchRequest, owner: Owner, session: Database):
@@ -283,19 +292,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         return {"source": source, "job": job}
 
-    @app.get("/v1/sources", response_model=list[SourceView])
+    @app.get("/v1/sources", response_model=list[SourceSummaryView])
     def list_sources(owner: Owner, session: Database, limit: Limit = 50, offset: Offset = 0):
-        return session.scalars(
-            select(Source)
-            .where(Source.owner_id == owner)
-            .order_by(Source.created_at.desc(), Source.id)
-            .offset(offset)
-            .limit(limit)
-        ).all()
+        return source_summaries(session, owner, limit=limit, offset=offset)
 
-    @app.get("/v1/sources/{source_id}", response_model=SourceView)
+    @app.get("/v1/sources/{source_id}", response_model=SourceSummaryView)
     def show_source(source_id: UUID, owner: Owner, session: Database):
-        return get_owned(session, Source, owner, source_id)
+        rows = source_summaries(session, owner, source_id=source_id, limit=1)
+        if not rows:
+            raise ServiceError("not_found", "Resource not found", 404)
+        return rows[0]
 
     @app.post("/v1/sources/{source_id}/refresh", response_model=SourceAccepted, status_code=202)
     def refresh(source_id: UUID, owner: Owner, session: Database):

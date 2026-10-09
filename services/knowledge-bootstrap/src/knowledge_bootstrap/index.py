@@ -185,8 +185,12 @@ class SearchIndex(AbstractContextManager):
                 "embedding_invalid", "Embedding response has invalid vectors or dimensions"
             ) from None
 
-    def mutate(self, method, path, body):
-        result = self.request(method, self.collection_path + path + "?wait=true", body)
+    def mutate(self, method, path, body, *, allow_missing=False):
+        result = self.request(
+            method, self.collection_path + path + "?wait=true", body, allow_missing=allow_missing
+        )
+        if result is None and allow_missing:
+            return
         acknowledgement = result.get("result")
         if not isinstance(acknowledgement, dict) or acknowledgement.get("status") != "completed":
             raise IndexError(
@@ -196,8 +200,8 @@ class SearchIndex(AbstractContextManager):
     def upsert(self, points):
         self.mutate("PUT", "/points", {"points": points})
 
-    def delete_filter(self, filter):
-        self.mutate("POST", "/points/delete", {"filter": filter})
+    def delete_filter(self, filter, *, allow_missing=False):
+        self.mutate("POST", "/points/delete", {"filter": filter}, allow_missing=allow_missing)
 
     def query(self, vectors: dict, filter: dict, limit: int) -> dict[str, list[dict]]:
         """Read named vectors in one bounded request; never create or modify an index."""

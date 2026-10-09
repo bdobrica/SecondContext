@@ -75,6 +75,14 @@ class SourceView(RowView):
     last_ingested_at: datetime | None
 
 
+class SourceSummaryView(SourceView):
+    document_count: int
+    chunk_count: int
+    latest_stage: Stage | None
+    last_error_code: str | None
+    last_error_detail: str | None
+
+
 class JobView(RowView):
     source_id: UUID
     status: Stage

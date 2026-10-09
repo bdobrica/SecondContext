@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Knowledge · SecondContext</title>
+  <link rel="stylesheet" href="/knowledge/static/knowledge.css">
+  <script src="/knowledge/static/knowledge.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div><span class="eyebrow">SECOND CONTEXT</span><h1>Knowledge</h1></div>
+    <div class="connection"><span id="connection-status">Disconnected</span><button id="disconnect" hidden>Disconnect</button></div>
+  </header>
+  <main data-max-pages="{{ max_pages }}" data-max-file-bytes="{{ max_file_bytes }}" data-max-text-bytes="{{ max_text_bytes }}">
+    <section id="login" class="panel login">
+      <h2>Connect to your knowledge workspace</h2>
+      <p>Enter your configured knowledge bearer token. It stays in this tab’s memory and is cleared on disconnect or reload.</p>
+      <form id="login-form">
+        <label for="token">Bearer token</label>
+        <div class="inline"><input id="token" type="password" required autocomplete="off" spellcheck="false"><button type="submit" class="primary">Connect</button></div>
+      </form>
+    </section>
+    <p id="notice" role="status" aria-live="polite" hidden></p>
+    <div id="workspace" class="workspace" hidden>
+      <section class="panel sources-panel">
+        <div class="section-heading"><div><span class="eyebrow">REFERENCE LIBRARY</span><h2>Sources</h2></div><button id="add-source" class="primary">+ Add source</button></div>
+        <p class="muted">Ingest documents, websites or pasted text. Active jobs update automatically.</p>
+        <div class="inline toolbar"><button id="reload-sources">Reload</button><span id="source-page" class="muted"></span></div>
+        <div class="table-scroll"><table><thead><tr><th>Source</th><th>Status</th><th>Documents / chunks</th><th>Last ingested</th></tr></thead><tbody id="source-list"></tbody></table></div>
+        <div class="inline pager"><button id="sources-prev">Previous</button><button id="sources-next">Next</button></div>
+        <section id="source-detail" class="source-detail" hidden>
+          <div class="section-heading"><h3 id="detail-title"></h3><button id="close-detail" aria-label="Close source detail">Close</button></div>
+          <p id="detail-summary"></p><p id="detail-uri" class="reference"></p>
+          <p id="detail-error" class="error" role="status" hidden></p>
+          <div class="inline toolbar"><button id="refresh-source">Refresh</button><button id="reindex-source">Reindex</button><button id="delete-source" class="danger">Delete…</button></div>
+          <h4>Ingestion jobs</h4><div id="jobs"></div>
+          <h4>Documents</h4><div id="documents"></div>
+          <div class="inline pager"><button id="docs-prev">Previous documents</button><button id="docs-next">Next documents</button></div>
+          <section id="chunk-detail" hidden><h4 id="chunk-title">Chunks</h4><div id="chunks"></div><div class="inline pager"><button id="chunks-prev">Previous chunks</button><button id="chunks-next">Next chunks</button></div></section>
+        </section>
+      </section>
+      <section class="panel retrieval-panel">
+        <span class="eyebrow">EVIDENCE EXPLORER</span><h2>Test retrieval</h2>
+        <p class="muted">Try a question and inspect the source evidence.</p>
+        <form id="search-form">
+          <label for="query">Query</label><textarea id="query" rows="3" required maxlength="2048" placeholder="How do we roll back a failed deployment?"></textarea>
+          <label for="source-filter">Source filter</label><select id="source-filter"><option value="">All sources</option></select><p class="muted small">Sources on the current library page, plus the selected source.</p>
+          <div class="form-row"><div><label for="mode">Retrieval mode</label><select id="mode"><option value="hybrid">Hybrid</option><option value="dense">Dense only</option><option value="sparse">Sparse only</option></select></div><div><label for="limit">Results</label><input id="limit" type="number" min="1" max="{{ search_max_limit }}" value="{{ [5, search_max_limit]|min }}" required></div></div>
+          <label class="checkbox"><input id="debug" type="checkbox"> Show score breakdown</label>
+          <button type="submit" class="primary">Search</button>
+        </form>
+        <p id="search-status" role="status" aria-live="polite">Results will appear here.</p><div id="results"></div>
+      </section>
+    </div>
+  </main>
+  <dialog id="add-dialog">
+    <div class="section-heading"><h2>Add source</h2><button id="close-add">Cancel</button></div>
+    <label for="add-mode">Input</label><select id="add-mode"><option value="website">Website</option><option value="file">File</option><option value="paste">Paste text</option></select>
+    <form id="website-form" class="add-form">
+      <label for="website-name">Source name (optional)</label><input id="website-name" maxlength="500">
+      <label for="website-url">Website URL</label><input id="website-url" type="url" required placeholder="https://docs.example.com/handbook">
+      <div class="form-row"><div><label for="crawl-scope">Crawl scope</label><select id="crawl-scope"><option value="page">Single page</option><option value="path">Same path</option><option value="host">Same host</option></select></div><div><label for="max-pages">Max pages</label><input id="max-pages" type="number" min="1" max="{{ max_pages }}" value="1" required></div></div>
+      <p class="muted">Static, publicly accessible pages only. Robots rules and server crawl limits apply.</p>
+      <button type="submit" class="primary">Ingest website</button>
+    </form>
+    <form id="file-form" class="add-form" hidden>
+      <label for="file-name">Source name (optional)</label><input id="file-name" maxlength="500">
+      <label for="file">File</label><input id="file" type="file" accept=".pdf,.docx,.txt,.md,.markdown,.json,.yaml,.yml" required>
+      <p class="muted">Digital PDF, DOCX, UTF-8 TXT, Markdown, JSON or YAML. PDF/DOCX up to {{ max_file_bytes }} bytes; textual files up to {{ max_text_bytes }} bytes. Scanned PDFs need OCR before upload.</p>
+      <label for="file-format">Format</label><select id="file-format"><option value="auto">Detect automatically</option><option value="pdf">PDF</option><option value="docx">DOCX</option><option value="text">Plain text</option><option value="markdown">Markdown</option><option value="json">JSON</option><option value="yaml">YAML</option></select>
+      <button type="submit" class="primary">Upload file</button><progress id="upload-progress" max="100" value="0" hidden aria-label="Upload progress"></progress>
+    </form>
+    <form id="paste-form" class="add-form" hidden>
+      <label for="paste-name">Source name (optional)</label><input id="paste-name" maxlength="500">
+      <label for="paste-text">Text</label><textarea id="paste-text" rows="12" required placeholder="Paste a handbook section, a configuration or other reference text…"></textarea>
+      <label for="paste-format">Format</label><select id="paste-format"><option value="auto">Detect automatically</option><option value="text">Plain text</option><option value="markdown">Markdown</option><option value="json">JSON</option><option value="yaml">YAML</option></select>
+      <p class="muted">The detected format appears in source detail after parsing. Text is limited to {{ max_text_bytes }} UTF-8 bytes.</p>
+      <button type="submit" class="primary">Ingest text</button>
+    </form>
+    <p id="add-status" role="status" aria-live="polite" hidden></p>
+  </dialog>
+  <dialog id="delete-dialog">
+    <h2>Delete source?</h2><p id="delete-description"></p><p>This removes the source, documents, chunks, ingestion jobs and search points. This action cannot be undone.</p>
+    <div class="inline"><button id="cancel-delete">Cancel</button><button id="confirm-delete" class="danger">Delete source</button></div><p id="delete-status" role="status" hidden></p>
+  </dialog>
+  <noscript><p class="panel">Enable JavaScript to connect, manage sources and test retrieval.</p></noscript>
+</body>
+</html>
