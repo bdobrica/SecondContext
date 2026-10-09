@@ -51,6 +51,10 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !request.KnowledgeFilters.Valid() {
+		s.writeAPIError(w, r, http.StatusBadRequest, "invalid knowledge filters", "invalid_request_error", "invalid_knowledge_filters", "knowledge_filters")
+		return
+	}
 	if request.Stream {
 		s.writeAPIError(w, r, http.StatusBadRequest, "streaming is not implemented yet", "invalid_request_error", "unsupported_feature", "stream")
 		return
@@ -166,6 +170,9 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	if requestDisablesMemory(request) {
 		response.Metadata["disable_memory"] = true
+	}
+	if requestDisablesKnowledge(request) {
+		response.Metadata["disable_knowledge"] = true
 	}
 	if scenarioPlan != nil {
 		response.Metadata["scenario_plan"] = scenarioPlan

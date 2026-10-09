@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bdobrica/SecondContext/internal/config"
+	"github.com/bdobrica/SecondContext/internal/knowledge"
 	"github.com/bdobrica/SecondContext/internal/llm"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -16,14 +17,15 @@ import (
 )
 
 type Server struct {
-	cfg    config.Config
-	logger *slog.Logger
-	dbPool *pgxpool.Pool
-	llm    llm.Client
-	auth   *requestAuthenticator
-	obs    *observability
-	rate   *requestRateLimiter
-	client *clientIPResolver
+	cfg       config.Config
+	logger    *slog.Logger
+	dbPool    *pgxpool.Pool
+	llm       llm.Client
+	knowledge knowledge.KnowledgeProvider
+	auth      *requestAuthenticator
+	obs       *observability
+	rate      *requestRateLimiter
+	client    *clientIPResolver
 }
 
 type healthResponse struct {
@@ -40,15 +42,20 @@ func NewServer(cfg config.Config, logger *slog.Logger, dbPool *pgxpool.Pool) *Se
 
 func NewServerWithClient(cfg config.Config, logger *slog.Logger, dbPool *pgxpool.Pool, client llm.Client) *Server {
 	obs := newObservability(cfg.App.Name, cfg.App.Env)
+	var provider knowledge.KnowledgeProvider
+	if cfg.Knowledge.Enabled {
+		provider = knowledge.NewHTTPProvider(cfg.Knowledge)
+	}
 	return &Server{
-		cfg:    cfg,
-		logger: logger,
-		dbPool: dbPool,
-		llm:    newObservedLLMClient(client, logger, obs),
-		auth:   newRequestAuthenticator(cfg.Auth),
-		obs:    obs,
-		rate:   newRequestRateLimiter(cfg.HTTP.RateLimitRPM, time.Minute),
-		client: newClientIPResolver(cfg.HTTP.TrustedProxies),
+		cfg:       cfg,
+		knowledge: provider,
+		logger:    logger,
+		dbPool:    dbPool,
+		llm:       newObservedLLMClient(client, logger, obs),
+		auth:      newRequestAuthenticator(cfg.Auth),
+		obs:       obs,
+		rate:      newRequestRateLimiter(cfg.HTTP.RateLimitRPM, time.Minute),
+		client:    newClientIPResolver(cfg.HTTP.TrustedProxies),
 	}
 }
 

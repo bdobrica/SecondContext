@@ -17,6 +17,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_SSLMODE: disable
       QDRANT_URL: http://qdrant:6333
+      KNOWLEDGE_URL: ${KNOWLEDGE_DOCKER_URL:-http://knowledge:8090}
     depends_on:
       postgres:
         condition: service_healthy

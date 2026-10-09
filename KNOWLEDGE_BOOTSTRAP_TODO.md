@@ -1,6 +1,6 @@
 # Knowledge Bootstrap Service — TODO
 
-Status: K1–K8 implemented; remaining milestones proposed
+Status: K1–K9 implemented; remaining milestones proposed
 
 Track: Standalone / parallel to SecondContext
 
@@ -611,53 +611,62 @@ repair missing points. The broader K2–K7 abuse suite is part of K8 validation.
 
 ## K9 — SecondContext adapter
 
-This milestone belongs at the integration boundary only. The knowledge service itself should not gain dependencies on SecondContext internals.
+Implemented in Go at `internal/knowledge` with an HTTP-only provider, exact subject-to-token
+mapping, bounded hybrid requests and stable degraded status codes. Response assembly retrieves
+memory and reference evidence concurrently, labels/cites knowledge separately, applies fixed
+conservative token-budget reservations, and supports independent `disable_knowledge` controls.
+Evidence/provenance and budget usage survive response metadata, stored messages and the existing
+debug UI. The default deployment needs no Python service; enabling the adapter adds no startup
+or health dependency. HTTP/unit and real Postgres/Qdrant integration coverage includes an
+answer improved by reference evidence during memory failure without creating memory items.
+The standalone service has no changes or SecondContext dependencies. Configuration and limits
+are documented in the root README.
 
 ### SecondContext provider contract
 
-- [ ] Define a `KnowledgeProvider` interface in SecondContext.
-- [ ] Keep the interface consumer-oriented, for example:
+- [x] Define a `KnowledgeProvider` interface in SecondContext.
+- [x] Keep the interface consumer-oriented, for example:
 
 ```text
 Search(ctx, query, filters, limit) -> []KnowledgeEvidence
 ```
 
-- [ ] Define a `KnowledgeEvidence` model containing:
-  - [ ] chunk ID;
-  - [ ] source/document IDs;
-  - [ ] text;
-  - [ ] score;
-  - [ ] title;
-  - [ ] section;
-  - [ ] URI;
-  - [ ] page/range.
+- [x] Define a `KnowledgeEvidence` model containing:
+  - [x] chunk ID;
+  - [x] source/document IDs;
+  - [x] text;
+  - [x] score;
+  - [x] title;
+  - [x] section;
+  - [x] URI;
+  - [x] page/range.
 
 ### HTTP implementation
 
-- [ ] Implement provider using `POST /v1/search`.
-- [ ] Add timeout.
-- [ ] Add bounded result count.
-- [ ] Add stable error mapping.
-- [ ] Add graceful degradation when knowledge service is unavailable.
-- [ ] Avoid direct Postgres access.
-- [ ] Avoid direct Qdrant access.
+- [x] Implement provider using `POST /v1/search`.
+- [x] Add timeout.
+- [x] Add bounded result count.
+- [x] Add stable error mapping.
+- [x] Add graceful degradation when knowledge service is unavailable.
+- [x] Avoid direct Postgres access.
+- [x] Avoid direct Qdrant access.
 
 ### Context assembly
 
-- [ ] Run memory retrieval and knowledge retrieval independently.
-- [ ] Keep separate context budgets.
-- [ ] Label reference knowledge separately from episodic context.
-- [ ] Preserve source provenance in debug/context output.
-- [ ] Add `disable_knowledge` or equivalent independent control.
-- [ ] Do not silently overload existing `disable_memory` semantics.
-- [ ] Add token-budget arbitration across knowledge, memory, people/topics, and beliefs.
-- [ ] Add integration test proving knowledge improves an answer without creating memory items.
+- [x] Run memory retrieval and knowledge retrieval independently.
+- [x] Keep separate context budgets.
+- [x] Label reference knowledge separately from episodic context.
+- [x] Preserve source provenance in debug/context output.
+- [x] Add `disable_knowledge` or equivalent independent control.
+- [x] Do not silently overload existing `disable_memory` semantics.
+- [x] Add token-budget arbitration across knowledge, memory, people/topics, and beliefs.
+- [x] Add integration test proving knowledge improves an answer without creating memory items.
 
 ### K9 exit criteria
 
-- [ ] SecondContext consumes the service through HTTP only.
-- [ ] The knowledge service remains independently deployable and testable.
-- [ ] Knowledge failure does not take down ordinary SecondContext response generation.
+- [x] SecondContext consumes the service through HTTP only.
+- [x] The knowledge service remains independently deployable and testable.
+- [x] Knowledge failure does not take down ordinary SecondContext response generation.
 
 ---
 
@@ -729,7 +738,7 @@ Begin only after retrieval quality is proven.
 - [x] Website ingestion is bounded and SSRF-resistant.
 - [x] Standalone UI supports source management and test retrieval.
 - [x] End-to-end demo works before SecondContext integration exists.
-- [ ] SecondContext integration, when implemented, uses an HTTP provider boundary only.
+- [x] SecondContext integration, when implemented, uses an HTTP provider boundary only.
 
 ---
 
@@ -744,5 +753,5 @@ Begin only after retrieval quality is proven.
 7. [x] K6 — hybrid retrieval API.
 8. [x] K7 — management and test-retrieval UI.
 9. [x] K8 — lifecycle, recovery, hardening, and evaluation.
-10. [ ] K9 — SecondContext adapter.
+10. [x] K9 — SecondContext adapter.
 11. [ ] K10 — optional derived knowledge only after grounded retrieval is proven.

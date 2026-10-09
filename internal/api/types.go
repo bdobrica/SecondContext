@@ -4,19 +4,22 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/bdobrica/SecondContext/internal/knowledge"
 	"github.com/bdobrica/SecondContext/internal/prompts"
 )
 
 const defaultPublicModel = "context-agent-1"
 
 type createResponseRequest struct {
-	Model         string          `json:"model"`
-	Input         json.RawMessage `json:"input"`
-	Instructions  string          `json:"instructions,omitempty"`
-	DisableMemory bool            `json:"disable_memory,omitempty"`
-	Stream        bool            `json:"stream,omitempty"`
-	Metadata      map[string]any  `json:"metadata,omitempty"`
-	User          string          `json:"user,omitempty"`
+	Model            string            `json:"model"`
+	Input            json.RawMessage   `json:"input"`
+	Instructions     string            `json:"instructions,omitempty"`
+	DisableMemory    bool              `json:"disable_memory,omitempty"`
+	DisableKnowledge bool              `json:"disable_knowledge,omitempty"`
+	KnowledgeFilters knowledge.Filters `json:"knowledge_filters,omitempty"`
+	Stream           bool              `json:"stream,omitempty"`
+	Metadata         map[string]any    `json:"metadata,omitempty"`
+	User             string            `json:"user,omitempty"`
 }
 
 type listModelsResponse struct {
@@ -345,15 +348,16 @@ type debugContextSessionResponse struct {
 }
 
 type debugContextRequestResponse struct {
-	Input          string   `json:"input,omitempty"`
-	Goal           string   `json:"goal,omitempty"`
-	Instructions   string   `json:"instructions,omitempty"`
-	MemoryMode     string   `json:"memory_mode,omitempty"`
-	UserExternalID string   `json:"user_external_id,omitempty"`
-	People         []string `json:"people,omitempty"`
-	Topics         []string `json:"topics,omitempty"`
-	DisableMemory  bool     `json:"disable_memory,omitempty"`
-	CompareAnswers bool     `json:"compare_answers,omitempty"`
+	Input            string   `json:"input,omitempty"`
+	Goal             string   `json:"goal,omitempty"`
+	Instructions     string   `json:"instructions,omitempty"`
+	MemoryMode       string   `json:"memory_mode,omitempty"`
+	UserExternalID   string   `json:"user_external_id,omitempty"`
+	People           []string `json:"people,omitempty"`
+	Topics           []string `json:"topics,omitempty"`
+	DisableMemory    bool     `json:"disable_memory,omitempty"`
+	DisableKnowledge bool     `json:"disable_knowledge,omitempty"`
+	CompareAnswers   bool     `json:"compare_answers,omitempty"`
 }
 
 type debugContextVariantResponse struct {

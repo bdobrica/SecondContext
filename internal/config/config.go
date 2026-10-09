@@ -12,15 +12,26 @@ import (
 )
 
 type Config struct {
-	App      AppConfig
-	Auth     AuthConfig
-	Dev      DevConfig
-	HTTP     HTTPConfig
-	Log      LogConfig
-	Postgres PostgresConfig
-	Qdrant   QdrantConfig
-	OpenAI   OpenAIConfig
-	Scoring  ScoringConfig
+	App       AppConfig
+	Auth      AuthConfig
+	Dev       DevConfig
+	HTTP      HTTPConfig
+	Log       LogConfig
+	Postgres  PostgresConfig
+	Qdrant    QdrantConfig
+	OpenAI    OpenAIConfig
+	Scoring   ScoringConfig
+	Knowledge KnowledgeConfig
+}
+
+// Credentials map exact SecondContext subjects to independently scoped knowledge tokens.
+// There is no default credential or client-controlled owner override.
+type KnowledgeConfig struct {
+	Enabled bool
+	URL     string
+	Tokens  []AuthTokenConfig
+	Timeout time.Duration
+	Limit   int
 }
 
 type AppConfig struct {
@@ -102,6 +113,10 @@ type ScoringConfig struct {
 }
 
 func Load() (Config, error) {
+	knowledge, err := loadKnowledgeConfig()
+	if err != nil {
+		return Config{}, err
+	}
 	logLevel, err := parseLogLevel(getEnv("LOG_LEVEL", "info"))
 	if err != nil {
 		return Config{}, err
@@ -220,6 +235,7 @@ func Load() (Config, error) {
 	}
 
 	return Config{
+		Knowledge: knowledge,
 		App: AppConfig{
 			Name: getEnv("APP_NAME", "second-context"),
 			Env:  getEnv("APP_ENV", "development"),

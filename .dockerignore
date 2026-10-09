@@ -1,0 +1,9 @@
+# The Go image needs only Go sources. Keep secrets and the optional Python
+# application (including its virtualenv) outside the build context.
+**
+!go.mod
+!go.sum
+!cmd/
+!cmd/**
+!internal/
+!internal/**

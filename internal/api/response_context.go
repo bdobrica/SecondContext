@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 
+	"github.com/bdobrica/SecondContext/internal/knowledge"
+
 	beliefsvc "github.com/bdobrica/SecondContext/internal/beliefs"
 	"github.com/bdobrica/SecondContext/internal/llm"
 	"github.com/bdobrica/SecondContext/internal/modeling"
@@ -22,10 +24,23 @@ const (
 
 func (s *Server) buildResponseContext(ctx context.Context, request createResponseRequest, metadata requestMetadata, messages []llm.Message) (*prompts.ContextPacket, error) {
 	packet := buildBaseContextPacket(request, messages, metadata.UserExternalID)
-	if requestDisablesMemory(request) {
-		return packet, nil
+	// The two branches mutate separate packets, then merge after both complete.
+	// Memory/embedding failure cannot suppress reference retrieval (or vice versa).
+	knowledgePacket := *packet
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.populateKnowledgeContext(ctx, &knowledgePacket, request)
+	}()
+	var err error
+	if !requestDisablesMemory(request) {
+		err = s.populateResponseContext(ctx, packet)
 	}
-	return packet, s.populateResponseContext(ctx, packet)
+	<-done
+	packet.KnowledgeContext = knowledgePacket.KnowledgeContext
+	packet.KnowledgeStatus = knowledgePacket.KnowledgeStatus
+	prompts.ApplyContextBudgets(packet)
+	return packet, err
 }
 
 func buildBaseContextPacket(request createResponseRequest, messages []llm.Message, defaultUserExternalID string) *prompts.ContextPacket {
@@ -309,10 +324,10 @@ func truncateText(value string, limit int) string {
 		return trimmed
 	}
 	if limit <= 3 {
-		return trimmed[:limit]
+		return knowledge.ClipUTF8(trimmed, limit)
 	}
 
-	return trimmed[:limit-3] + "..."
+	return knowledge.ClipUTF8(trimmed, limit-3) + "..."
 }
 
 func containsFold(values []string, target string) bool {
@@ -343,4 +358,34 @@ func firstNonEmpty(values ...string) string {
 	}
 
 	return ""
+}
+
+func requestDisablesKnowledge(request createResponseRequest) bool {
+	return request.DisableKnowledge || boolFromMap(request.Metadata, "disable_knowledge")
+}
+
+func (s *Server) populateKnowledgeContext(ctx context.Context, packet *prompts.ContextPacket, request createResponseRequest) {
+	if requestDisablesKnowledge(request) {
+		packet.KnowledgeStatus = "disabled"
+		return
+	}
+	if s.knowledge == nil {
+		return
+	}
+	query := firstNonEmpty(packet.Query, packet.Goal)
+	if query == "" {
+		return
+	}
+	limit := s.cfg.Knowledge.Limit
+	if limit == 0 {
+		limit = 4
+	}
+	evidence, err := s.knowledge.Search(ctx, packet.UserExternalID, query, request.KnowledgeFilters, limit)
+	if err != nil {
+		packet.KnowledgeStatus = knowledge.ErrorCode(err)
+		s.logger.Warn("knowledge retrieval degraded", "code", packet.KnowledgeStatus)
+		return
+	}
+	packet.KnowledgeStatus = "ready"
+	packet.KnowledgeContext = evidence
 }

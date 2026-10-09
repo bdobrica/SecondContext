@@ -32,6 +32,7 @@ type debugContextQuery struct {
 	People             []string
 	Topics             []string
 	DisableMemory      bool
+	DisableKnowledge   bool
 	CompareAnswers     bool
 	Format             string
 }
@@ -170,12 +171,17 @@ func (s *Server) buildDebugContextResponse(ctx context.Context, query debugConte
 	}
 
 	memoryDisabledPacket := buildBaseContextPacket(request, promptMessages, user.ExternalID)
-	augmentedPacket := buildBaseContextPacket(request, promptMessages, user.ExternalID)
-	if err := s.populateResponseContext(ctx, augmentedPacket); err != nil {
-		return debugContextResponse{}, err
+	augmentedPacket, contextErr := s.buildResponseContext(ctx, request, requestMetadata{UserExternalID: user.ExternalID}, promptMessages)
+	if contextErr != nil {
+		s.logger.Warn("build debug response context", "error", contextErr)
 	}
 
 	currentPacket := augmentedPacket
+	memoryDisabledPacket.KnowledgeContext = append(memoryDisabledPacket.KnowledgeContext, augmentedPacket.KnowledgeContext...)
+	memoryDisabledPacket.KnowledgeStatus = augmentedPacket.KnowledgeStatus
+	prompts.ApplyContextBudgets(augmentedPacket)
+	prompts.ApplyContextBudgets(memoryDisabledPacket)
+
 	if query.DisableMemory {
 		currentPacket = memoryDisabledPacket
 	}
@@ -207,15 +213,16 @@ func (s *Server) buildDebugContextResponse(ctx context.Context, query debugConte
 			LatestUserInput:    latestUserInput,
 		},
 		Request: debugContextRequestResponse{
-			Input:          input,
-			Goal:           goal,
-			Instructions:   request.Instructions,
-			MemoryMode:     string(resolveResponseMode(memoryMode)),
-			UserExternalID: user.ExternalID,
-			People:         people,
-			Topics:         topics,
-			DisableMemory:  query.DisableMemory,
-			CompareAnswers: query.CompareAnswers,
+			Input:            input,
+			Goal:             goal,
+			Instructions:     request.Instructions,
+			MemoryMode:       string(resolveResponseMode(memoryMode)),
+			UserExternalID:   user.ExternalID,
+			People:           people,
+			Topics:           topics,
+			DisableMemory:    query.DisableMemory,
+			DisableKnowledge: query.DisableKnowledge,
+			CompareAnswers:   query.CompareAnswers,
 		},
 		StoredContextPacket:  storedPacket,
 		CurrentContextPacket: currentPacket,
@@ -468,9 +475,10 @@ func buildDebugCreateResponseRequest(query debugContextQuery, userExternalID, se
 		return createResponseRequest{}, nil, err
 	}
 	request := createResponseRequest{
-		Model:        defaultPublicModel,
-		Input:        inputBytes,
-		Instructions: strings.TrimSpace(query.Instructions),
+		Model:            defaultPublicModel,
+		DisableKnowledge: query.DisableKnowledge,
+		Input:            inputBytes,
+		Instructions:     strings.TrimSpace(query.Instructions),
 		Metadata: map[string]any{
 			"goal":             strings.TrimSpace(goal),
 			"people":           uniqueStrings(people),
@@ -502,6 +510,7 @@ func parseDebugContextQuery(r *http.Request) debugContextQuery {
 		People:             parseQueryCSV(values["people"]),
 		Topics:             parseQueryCSV(values["topics"]),
 		DisableMemory:      parseBoolQuery(values.Get("disable_memory")),
+		DisableKnowledge:   parseBoolQuery(values.Get("disable_knowledge")),
 		CompareAnswers:     parseBoolQuery(values.Get("compare")) || parseBoolQuery(values.Get("compare_answers")),
 		Format:             strings.TrimSpace(values.Get("format")),
 	}

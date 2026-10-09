@@ -105,6 +105,8 @@ retrieval through `POST /v1/search`. Open `http://localhost:8090/knowledge` for 
 management and retrieval UI, and connect with a configured knowledge bearer token.
 K8 adds safe refresh cleanup, unchanged-content reuse, backup guidance and authenticated
 operational summaries at `GET /v1/metrics`.
+K9 adds an optional Go HTTP adapter to response generation; reference knowledge stays
+separate from memory, person models and beliefs. See [adapter configuration](#reference-knowledge-adapter-k9).
 
 - **Language:** Go
 - **API:** OpenAI-compatible `/v1/responses` endpoint
@@ -273,7 +275,7 @@ PUT  /debug/person/:id       implemented
 }
 ```
 
-Stateless comparison request:
+Memory-disabled comparison request (set `disable_knowledge` as well for a run without retrieved context):
 
 ```json
 {
@@ -542,3 +544,94 @@ The public model alias exposed by the API is `context-agent-1`, which currently 
 Licensed under the Apache License, Version 2.0.
 
 See [`LICENSE`](LICENSE).
+
+## Reference knowledge adapter (K9)
+
+SecondContext uses `internal/knowledge.KnowledgeProvider` and calls only the independent
+service's `POST /v1/search`. It never reads the knowledge database or collection.
+The adapter is disabled by default; neither startup nor `/healthz` needs Python or a
+reachable knowledge service. With it enabled, memory and knowledge retrieval run concurrently
+and either can supply context when the other fails. Retrieval never creates memory items,
+beliefs or person models; response messages retain the context packet as before.
+
+Configure the **SecondContext** environment:
+
+```dotenv
+KNOWLEDGE_ENABLED=true
+KNOWLEDGE_URL=http://localhost:8090
+KNOWLEDGE_TIMEOUT=5s
+KNOWLEDGE_LIMIT=4
+KNOWLEDGE_SUBJECT_TOKENS=dev-user=replace-with-your-knowledge-owner-token
+```
+
+`KNOWLEDGE_SUBJECT_TOKENS` is a comma-separated list of exact SecondContext subject/token
+mappings. Use the token already assigned to the intended owner in the knowledge service's
+`KNOWLEDGE_AUTH_TOKENS`. Subjects and credentials must be unique. An unmapped subject gets
+no knowledge, including service-token subjects such as `oria:<uuid>`; there are no namespace
+wildcards or default shared credentials. With authentication enabled, the resolved authenticated
+subject chooses the mapping. Development mode uses the resolved request/dev subject and should
+remain limited to a trusted environment. A client cannot override the upstream owner or token.
+
+Compose supplies `http://knowledge:8090` as the API container's endpoint; override with
+`KNOWLEDGE_DOCKER_URL` for an external deployment. This adds no `depends_on` relationship:
+starting the ordinary Go stack still works without the `knowledge` profile. Start that
+profile separately when using the local service, and recreate only `api` after configuring it.
+Timeout must be positive and at most 20 seconds; result limit is 1–20 (default 4).
+There is one bounded request per response, with no retries or redirects, no environment proxy,
+a 2 MiB response cap and validation before evidence enters the prompt. Search is hybrid;
+the query is bounded to 1,024 UTF-8 bytes without splitting a code point.
+
+```json
+{
+  "model": "context-agent-1",
+  "input": "How many approvers are needed for production?",
+  "disable_memory": true,
+  "disable_knowledge": false,
+  "knowledge_filters": {
+    "source_ids": ["00000000-0000-0000-0000-000000000001"],
+    "formats": ["markdown", "pdf"]
+  }
+}
+```
+
+`knowledge_filters` optionally accepts `source_ids`, `document_ids` and `formats`
+(`text`, `markdown`, `json`, `yaml`, `pdf`, `docx`, `html`). Omit it to search the owner's
+corpus. Invalid filters return `400 invalid_knowledge_filters`.
+`disable_knowledge: true` is accepted at the top level or in metadata, independently of
+`disable_memory`. To compare ordinary answers with reference-backed answers, repeat a request
+with only `disable_knowledge` changed. `disable_memory` continues to disable memory/person/
+topic/belief assembly and scenario mode; it leaves reference retrieval available.
+
+`metadata.context_packet.knowledge_context` contains the actual prompt evidence: chunk,
+source and document IDs, score, text, title, heading ancestry, URI/source URI, format and
+page/range. The separately labelled reference section tells the model to treat this as source
+material, never instructions, and to cite provenance. Text trimmed for the budget has
+`truncated: true`; citation fields stay intact. Entire items with oversized provenance are
+omitted and counted in `omitted_knowledge`. The same packet is persisted with the assistant
+message and shown in development-only `/debug/context` JSON/HTML. That endpoint also accepts
+`disable_knowledge=true`; its existing memory comparison keeps knowledge constant.
+
+The retrieved-section budget uses UTF-8 byte counts as a conservative token upper bound for
+byte-based tokenizers, rather than claiming exact counts for any configured model. Fixed
+reservations are knowledge 3,000, memory 1,800, people 400, topics 400, beliefs 400, totalling
+6,000; labels, formatting and provenance count toward these limits. Unused reservations stay
+unused. Memory items are omitted from the bottom of the ranking, person/topic/belief lines are
+trimmed, and knowledge text is clipped safely. `context_budget` reports the accounting method
+and used counts. This is a bound on retrieved sections; user input, instructions and fixed
+prompt rules are governed separately, and are not an automatic model context-window check.
+
+A configured search sets `knowledge_status: ready`, including an empty result set. A request
+that disables retrieval sets `disabled`; an unconfigured adapter adds no status.
+Stable degraded statuses are `not_configured`, `timeout`, `canceled`, `unauthorized`,
+`rate_limited`, `invalid_request`, `invalid_response`, and `unavailable`. Failures produce
+no reference evidence and response generation continues normally. Logs contain only the
+stable code, not upstream bodies, query text, tokens or endpoint details.
+
+Validation includes HTTP contract/credential isolation, independent controls, bounded malformed
+responses, timeouts, Unicode/provenance budgets and the mandatory Postgres integration test
+`TestKnowledgeImprovesAnswerWithoutCreatingMemories`. That test uses an HTTP evidence fixture
+and deterministic answer client to prove context-driven improvement without model variability,
+including survival of a memory embedding failure. The existing integration lane requires
+Postgres and Qdrant. Live smoke testing additionally uses the running knowledge service and
+configured embedding/chat provider; this is integration validation, not a retrieval-quality
+benchmark. The standalone service retains its own K6 retrieval corpus and tests.
