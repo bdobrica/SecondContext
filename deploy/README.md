@@ -1,6 +1,95 @@
 # Deploy
 
-This directory is reserved for deployment assets beyond the local `docker-compose.yml` file.
+This directory contains a published-image deployment example alongside the local
+development stack in `docker-compose.yml`.
+
+## Deploying alongside another application
+
+[compose.secondcontext.yml](compose.secondcontext.yml) adds a gateway, a one-shot
+migration service, PostgreSQL and Qdrant to an application's Compose project. Both
+gateway services use `SECOND_CONTEXT_IMAGE`; the migration command is
+`/app/migrate up`, with SQL files bundled at `/app/migrations`. The image's default
+command remains `/app/api` and its working directory is `/app`.
+
+Copy this Compose file into the consuming application's directory. Add values from
+[secondcontext.env.example](secondcontext.env.example) to that application's
+private `.env`, selecting an explicit gateway release tag or digest containing the
+migration packaging fix. Older published images lack these assets; publish a new
+gateway version using the [manual release workflow](../README.md#publishing-docker-images).
+Use dedicated database credentials and a long random service token. The defaults
+use OpenAI, with configurable provider URL, chat/embedding models and vector size;
+the vector size must match the embedding model's output.
+
+For example, in Oria's Compose file, configure the service that calls SecondContext
+(replace `oria` with its actual Compose service name):
+
+```yaml
+services:
+  oria:
+    environment:
+      SECOND_CONTEXT_BASE_URL: http://secondcontext:8080
+      SECOND_CONTEXT_SERVICE_TOKEN: ${SECOND_CONTEXT_SERVICE_TOKEN}
+    depends_on:
+      secondcontext:
+        condition: service_healthy
+```
+
+Use Oria's actual token setting if named differently. It must match the value in
+the gateway's `AUTH_SERVICE_TOKENS`. By default this credential has the `oria:`
+namespace; Oria must send `Authorization: Bearer <token>` and
+`X-SecondContext-Subject: oria:<canonical-lowercase-UUID>` on each service request,
+as specified in the [HTTP contract](../docs/contracts/service-context-v1.md).
+`SECOND_CONTEXT_SERVICE_NAMESPACE` can select another application's namespace.
+
+Start the merged project (substitute the application's primary Compose filename):
+
+```bash
+docker compose -f compose.yml -f compose.secondcontext.yml up -d --wait
+docker compose -f compose.yml -f compose.secondcontext.yml run --rm --no-deps secondcontext-migrate /app/migrate version
+```
+
+The gateway starts after PostgreSQL is healthy, migrations succeed and Qdrant is
+healthy. A failed migration blocks gateway startup. Oria waits for the gateway's
+health check when configured as above. SecondContext's PostgreSQL and Qdrant have
+their own containers and `secondcontext_postgres_data` / `secondcontext_qdrant_data`
+volumes; they do not use Oria's databases or volumes. Neither backend publishes host
+ports, and only the gateway joins the application's default network. Attach the
+calling service to that same network if the application uses custom networks.
+The gateway can reach its model provider through the default network. This example
+keeps the Python knowledge service disabled; its provisioning remains optional.
+
+To try the deployment from this repository without publishing, build
+`docker build -t secondcontext-gateway:local .`, copy the example environment to
+`deploy/.env`, edit its credentials, and set
+`SECOND_CONTEXT_IMAGE=secondcontext-gateway:local`:
+
+```bash
+docker compose --env-file deploy/.env -f deploy/compose.secondcontext.yml up -d --wait
+docker compose --env-file deploy/.env -f deploy/compose.secondcontext.yml exec -T secondcontext wget -q -O - http://127.0.0.1:8080/healthz
+```
+
+No gateway port is published in this example. Add a port mapping or reverse proxy
+in the consuming deployment if host access is needed. The gateway health check
+tests PostgreSQL connectivity; verify a real authenticated response with your model
+configuration before enabling application traffic.
+
+### Upgrades
+
+Back up PostgreSQL and preserve a compatible Qdrant snapshot before upgrading.
+Update `SECOND_CONTEXT_IMAGE` for both services, quiesce calling applications and
+stop existing gateway instances before applying migrations. In the merged project:
+
+```bash
+docker compose -f compose.yml -f compose.secondcontext.yml pull secondcontext secondcontext-migrate
+docker compose -f compose.yml -f compose.secondcontext.yml stop secondcontext
+docker compose -f compose.yml -f compose.secondcontext.yml run --rm --no-deps secondcontext-migrate
+docker compose -f compose.yml -f compose.secondcontext.yml run --rm --no-deps secondcontext-migrate /app/migrate version
+docker compose -f compose.yml -f compose.secondcontext.yml up -d --wait secondcontext
+```
+
+Resume callers after validation. Do not use `down --volumes` during an upgrade;
+that deletes persistent storage. A dirty migration version requires operator
+inspection and recovery before startup, rather than an automatic rollback or force.
 
 ## Security-sensitive configuration
 
@@ -33,6 +122,11 @@ make verify
 ```
 
 Use `make test-unit` for the fast dependency-free lane or `make test-integration` for only the mandatory integration lane. An externally managed isolated database may be selected with `POSTGRES_DSN`; otherwise the integration target creates and removes its own Compose services and volumes.
+
+`make test-docker` builds the gateway image and exercises this deployment against
+fresh isolated volumes, including clean/repeated migrations, a service-authenticated
+request and startup refusal after a migration failure. GitHub Actions runs it as
+a separate required verification job; it uses no model calls or live credentials.
 
 ## Database upgrades and recovery
 

@@ -1,4 +1,4 @@
-# The Go image needs only Go sources. Keep secrets and the optional Python
+# The Go image needs Go sources and SQL migrations. Keep secrets and the optional Python
 # application (including its virtualenv) outside the build context.
 **
 !go.mod
@@ -7,3 +7,5 @@
 !cmd/**
 !internal/
 !internal/**
+!migrations/
+!migrations/*.sql

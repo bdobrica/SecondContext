@@ -80,7 +80,23 @@ those lifecycles explicitly.
 ## Gateway deployment and HTTP controls
 
 Run gateway migrations with `make migrate-up` before the new API; check
-`make migrate-version`. `/healthz` checks configured Postgres, but does not prove
+`make migrate-version` when running from source. Gateway images also include
+`/app/migrate` and `/app/migrations`; the standard Compose stack runs `migrate`
+before `api` and blocks API startup on migration failure. To inspect a container
+deployment's schema:
+
+```bash
+docker compose run --rm --no-deps migrate /app/migrate version
+```
+
+The [application deployment example](../deploy/README.md#deploying-alongside-another-application)
+uses the published image for both gateway and migration services, with dedicated
+PostgreSQL/Qdrant containers and volumes. Its migration service is named
+`secondcontext-migrate`. Choose a newly published image containing the migration
+assets, back up before upgrading, and stop existing writers during migration.
+Publishing an image alone does not change existing deployments.
+
+`/healthz` checks configured Postgres, but does not prove
 Qdrant, inference or the optional knowledge endpoint is usable. Test an
 authenticated retrieval/response path separately.
 

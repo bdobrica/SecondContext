@@ -415,6 +415,16 @@ make migrate-up
 go run ./cmd/api
 ```
 
+To run the gateway entirely in containers, configure `.env` and run
+`docker compose up -d --build`. A one-shot `migrate` service applies the bundled SQL
+before `api` starts; `docker compose run --rm --no-deps migrate /app/migrate version`
+checks the schema. No host Go installation is needed for this deployment.
+
+For a published-image deployment alongside another application such as Oria, use
+the [application Compose example](deploy/README.md#deploying-alongside-another-application).
+It includes dedicated PostgreSQL/Qdrant storage, migration ordering and service
+authentication without requiring the optional Python knowledge service.
+
 Authentication is optional by default. To require bearer tokens, set `AUTH_ENABLED=true` and configure `AUTH_BEARER_TOKENS` as a comma-separated list of `subject=token` pairs, for example `AUTH_BEARER_TOKENS=dev-user=change-me-token`. Every entry must contain a non-empty subject and token; bare tokens, empty entries, duplicate subjects, and duplicate token values make startup fail. Token values may contain `=`, because only the first `=` separates the subject. Configuration errors identify an entry position without printing its token.
 
 Trusted multi-user applications can configure separate `AUTH_SERVICE_TOKENS` with
@@ -490,7 +500,7 @@ images to Quay when a push to `main` increases a committed `current_version`:
 
 | Image | Version file | Contents |
 | --- | --- | --- |
-| `quay.io/bdobrica/secondcontext-gateway` | [`.bumpversion.cfg`](.bumpversion.cfg) | Go API gateway |
+| `quay.io/bdobrica/secondcontext-gateway` | [`.bumpversion.cfg`](.bumpversion.cfg) | Go API gateway, `/app/migrate` and SQL migrations |
 | `quay.io/bdobrica/secondcontext-knowledge` | [service `.bumpversion.cfg`](services/knowledge-bootstrap/.bumpversion.cfg) | Optional knowledge API, worker, migrations and Jinja2 UI |
 
 Each release publishes `MAJOR.MINOR.PATCH` and `latest` tags for `linux/amd64` and
@@ -514,7 +524,7 @@ uv tool install bump2version==1.0.1
 # Gateway only:
 bump2version --config-file .bumpversion.cfg patch
 git add .bumpversion.cfg
-git commit -m "chore(release): bump gateway image to 0.1.1"
+git commit -m "chore(release): bump gateway image to 0.1.2"
 git push origin main
 
 # Knowledge service/UI only (a separate release):
@@ -543,6 +553,11 @@ reruns of old releases, so use version tags or digests for deployments. Publishi
 restart any service or run database migrations. The knowledge service remains optional, and its image requires
 the same explicit migration and runtime configuration described in the
 [knowledge service guide](services/knowledge-bootstrap/README.md).
+
+Gateway releases built from this revision include the migration tool and SQL files.
+Previously published images do not acquire them automatically: manually bump and
+publish a new gateway version before using the
+[published-image Compose example](deploy/compose.secondcontext.yml).
 
 ## End-to-end demo
 

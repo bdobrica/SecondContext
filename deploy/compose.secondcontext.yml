@@ -1,0 +1,86 @@
+# Merge into an application's Compose project. No source checkout or host Go needed.
+services:
+  secondcontext-migrate:
+    image: ${SECOND_CONTEXT_IMAGE:?Set SECOND_CONTEXT_IMAGE to a gateway image tag or digest}
+    command: ["/app/migrate", "up"]
+    environment: &secondcontext-postgres
+      POSTGRES_ENABLED: "true"
+      POSTGRES_HOST: secondcontext-postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: secondcontext
+      POSTGRES_PASSWORD: ${SECOND_CONTEXT_POSTGRES_PASSWORD:?Set SECOND_CONTEXT_POSTGRES_PASSWORD}
+      POSTGRES_DB: secondcontext
+      POSTGRES_SSLMODE: disable
+    depends_on:
+      secondcontext-postgres:
+        condition: service_healthy
+    networks: [secondcontext-backend]
+    restart: "no"
+
+  secondcontext:
+    image: ${SECOND_CONTEXT_IMAGE:?Set SECOND_CONTEXT_IMAGE to a gateway image tag or digest}
+    environment:
+      <<: *secondcontext-postgres
+      APP_ENV: production
+      HTTP_ADDR: :8080
+      HTTP_TRUSTED_PROXY_CIDRS: ""
+      AUTH_ENABLED: "true"
+      AUTH_SERVICE_TOKENS: "${SECOND_CONTEXT_SERVICE_NAMESPACE:-oria}:=${SECOND_CONTEXT_SERVICE_TOKEN:?Set SECOND_CONTEXT_SERVICE_TOKEN}"
+      QDRANT_URL: http://secondcontext-qdrant:6333
+      QDRANT_COLLECTION: memory_items
+      QDRANT_VECTOR_SIZE: ${SECOND_CONTEXT_VECTOR_SIZE:-1536}
+      OPENAI_BASE_URL: ${SECOND_CONTEXT_OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_API_KEY: ${SECOND_CONTEXT_OPENAI_API_KEY:?Set SECOND_CONTEXT_OPENAI_API_KEY}
+      OPENAI_CHAT_MODEL: ${SECOND_CONTEXT_CHAT_MODEL:-gpt-4.1-mini}
+      OPENAI_EMBEDDING_MODEL: ${SECOND_CONTEXT_EMBEDDING_MODEL:-text-embedding-3-small}
+      KNOWLEDGE_ENABLED: "false"
+    depends_on:
+      secondcontext-migrate:
+        condition: service_completed_successfully
+      secondcontext-qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    networks: [default, secondcontext-backend]
+    restart: unless-stopped
+
+  secondcontext-postgres:
+    image: postgres:16.13-alpine
+    environment:
+      POSTGRES_USER: secondcontext
+      POSTGRES_PASSWORD: ${SECOND_CONTEXT_POSTGRES_PASSWORD:?Set SECOND_CONTEXT_POSTGRES_PASSWORD}
+      POSTGRES_DB: secondcontext
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U secondcontext -d secondcontext"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - secondcontext_postgres_data:/var/lib/postgresql/data
+    networks: [secondcontext-backend]
+    restart: unless-stopped
+
+  secondcontext-qdrant:
+    image: qdrant/qdrant:v1.15.5
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ': >/dev/tcp/127.0.0.1/6333'"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - secondcontext_qdrant_data:/qdrant/storage
+    networks: [secondcontext-backend]
+    restart: unless-stopped
+
+networks:
+  default:
+  secondcontext-backend:
+    internal: true
+
+volumes:
+  secondcontext_postgres_data:
+  secondcontext_qdrant_data:

@@ -9,6 +9,13 @@ permissions:
   contents: read
 
 jobs:
+  docker-packaging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify image migrations and application Compose deployment
+        run: make test-docker
+
   verify:
     runs-on: ubuntu-latest
     services:

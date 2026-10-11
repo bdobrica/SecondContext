@@ -15,7 +15,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fatalf("usage: go run ./cmd/migrate <up|down|version> [steps]")
+		fatalf("usage: %s <up|down|version> [steps]", os.Args[0])
 	}
 
 	cfg, err := config.Load()

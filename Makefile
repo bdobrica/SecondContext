@@ -1,6 +1,6 @@
 GO ?= go
 
-.PHONY: run test test-unit test-integration fmt-check vet verify build docker-up docker-down docker-logs migrate-up migrate-down migrate-version seed-dev-user demo eval
+.PHONY: run test test-unit test-integration test-docker fmt-check vet verify build docker-up docker-down docker-logs migrate-up migrate-down migrate-version seed-dev-user demo eval
 
 run:
 	$(GO) run ./cmd/api
@@ -14,6 +14,9 @@ test-unit:
 test-integration:
 	@echo "==> mandatory dependency-backed integration tests (verbose; skips are failures)"
 	./scripts/test-integration.sh
+
+test-docker:
+	bash ./scripts/test-docker.sh
 
 fmt-check:
 	@files="$$(gofmt -l .)"; if [ -n "$$files" ]; then echo "gofmt required for:"; echo "$$files"; exit 1; fi
