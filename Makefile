@@ -13,7 +13,7 @@ test-unit:
 
 test-integration:
 	@echo "==> mandatory dependency-backed integration tests (verbose; skips are failures)"
-	./scripts/test-integration.sh
+	bash ./scripts/test-integration.sh
 
 test-docker:
 	bash ./scripts/test-docker.sh
