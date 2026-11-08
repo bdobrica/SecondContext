@@ -11,6 +11,7 @@ import (
 const defaultPublicModel = "context-agent-1"
 
 type createResponseRequest struct {
+	KnowledgeRefs    []projectionRef   `json:"knowledge_refs,omitempty"`
 	Model            string            `json:"model"`
 	Input            json.RawMessage   `json:"input"`
 	Instructions     string            `json:"instructions,omitempty"`

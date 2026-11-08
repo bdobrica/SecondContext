@@ -128,3 +128,13 @@ Accepted decisions:
 
 These records describe implemented decisions. Remaining work lives in
 [TODO.md](../TODO.md); deployment procedures live in [operations](operations.md).
+
+## Scoped application projections
+
+[Linked-context v1](contracts/linked-context-v1.md) and
+[ADR 0006](adr/0006-linked-context-projections.md) add a separate Postgres-indexed
+lane for application-owned canonical references. It supports bounded salience,
+linked interpretations and exact revision/fence checks, without copying projection
+content into the legacy vector/cognitive pipeline. Linked response sessions are
+tracked before generation; selective erasure removes entire linked sessions and
+dependent projections. Migration000004 and coordinated consumer release are needed.

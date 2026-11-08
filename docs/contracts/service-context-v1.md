@@ -71,3 +71,13 @@ need retries. HTTP cancellation does not clear the durable marker. Backups, old
 index collections, external LLM retention and external application records are
 outside this endpoint. The caller owns user confirmation and application deletion
 orchestration; SecondContext owns erasure of its active stores.
+
+## Additive linked-context extension
+
+[ADR 0006](../adr/0006-linked-context-projections.md) extends the exhaustive service
+allowlist with `/v1/knowledge/upsert`, `/v1/knowledge/query`, `/v1/knowledge/delete`
+and `/v1/knowledge/capabilities` POST routes under the same subject selection and
+fencing. [Linked-context v1](linked-context-v1.md) defines the optional lifecycle
+and `knowledge_refs` response field. Existing clients and legacy ingest semantics
+remain compatible. Full purge also cascades projections, pending operation receipts,
+record fences and session links; the minimal subject fence remains.

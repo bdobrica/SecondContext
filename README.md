@@ -741,3 +741,8 @@ including survival of a memory embedding failure. The existing integration lane 
 Postgres and Qdrant. Live smoke testing additionally uses the running knowledge service and
 configured embedding/chat provider; this is integration validation, not a retrieval-quality
 benchmark. The standalone service retains its own K6 retrieval corpus and tests.
+
+[Linked context projections](docs/contracts/linked-context-v1.md) provide an optional
+scoped lifecycle for application-owned references, salience and interpretation
+memory. Migration000004 and coordinated consumer enablement are required; legacy
+response/memory clients retain their existing behavior.

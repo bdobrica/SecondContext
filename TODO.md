@@ -741,3 +741,10 @@ Current APIs, lifecycle behavior and limitations are recorded in
 - [ ] Cross-encoder/custom knowledge reranking.
 - [ ] Richer derived-knowledge extraction.
 - [ ] Source contradiction analysis.
+
+## Linked application context
+
+- [x] Scoped v1 projection upsert/query/delete/capabilities, durable revision and
+  operation fences, bounded salience and linked response session erasure.
+- [ ] Publish the compatible gateway image and coordinate consumer enablement;
+  source tests do not constitute a live deployment check.

@@ -66,6 +66,17 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(request.KnowledgeRefs) > 0 && authenticatedSubject(r.Context()) == "" {
+		s.projectionFailure(w, r, 401)
+		return
+	}
+	linked, linkErr := s.linkedProjectionInstructions(r.Context(), metadata.UserExternalID, metadata.SessionID, request.KnowledgeRefs)
+	if linkErr != nil {
+		s.projectionFailure(w, r, 409)
+		return
+	}
+	request.Instructions += linked
+
 	messages, err := buildPromptMessages("", request.Input)
 	if err != nil {
 		s.writeAPIError(w, r, http.StatusBadRequest, err.Error(), "invalid_request_error", "invalid_input", "input")
