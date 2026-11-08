@@ -4,7 +4,7 @@ set -euo pipefail
 # Exercise the distributed image and Compose file without host Go, source mounts,
 # model calls, published ports, or any existing application databases/volumes.
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-project_name="secondcontext-docker-smoke-$$"
+project_name="${COMPOSE_PROJECT_NAME:-secondcontext-docker-smoke-$$}"
 export SECOND_CONTEXT_IMAGE="secondcontext-gateway:smoke-$$"
 export SECOND_CONTEXT_POSTGRES_PASSWORD=docker-smoke-only-password
 export SECOND_CONTEXT_SERVICE_NAMESPACE=oria
@@ -26,10 +26,10 @@ docker build --tag "$SECOND_CONTEXT_IMAGE" .
 echo "==> starting the published-image Compose stack against fresh storage"
 "${compose[@]}" up -d --wait --wait-timeout 120
 version=$("${compose[@]}" run --rm --no-deps secondcontext-migrate /app/migrate version)
-[[ "$version" == "version=3 dirty=false" ]]
+[[ "$version" == "version=4 dirty=false" ]]
 
 schema=$("${compose[@]}" exec -T secondcontext-postgres psql -U secondcontext -d secondcontext -Atc \
-	"SELECT to_regclass('memory_items') IS NOT NULL AND to_regclass('interaction_outcomes') IS NOT NULL AND to_regclass('subject_purges') IS NOT NULL")
+	"SELECT to_regclass('memory_items') IS NOT NULL AND to_regclass('interaction_outcomes') IS NOT NULL AND to_regclass('subject_purges') IS NOT NULL AND to_regclass('context_projections') IS NOT NULL AND to_regclass('context_projection_operations') IS NOT NULL AND to_regclass('context_projection_sessions') IS NOT NULL")
 [[ "$schema" == "t" ]]
 "${compose[@]}" exec -T secondcontext wget -q -O - http://127.0.0.1:8080/healthz
 
