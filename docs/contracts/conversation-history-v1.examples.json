@@ -1,0 +1,434 @@
+[
+  {
+    "name": "discovery",
+    "definition": "CapabilitiesRequest",
+    "valid": true,
+    "value": {
+      "user": "oria:11111111-1111-4111-8111-111111111111"
+    }
+  },
+  {
+    "name": "baseline",
+    "definition": "Capabilities",
+    "valid": true,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "implementation": "conversation-history-1",
+      "status": "ready",
+      "generation_endpoints": [
+        "/v1/responses",
+        "/v1/chat/completions"
+      ],
+      "managed_input": "single_user_text",
+      "acceptance_modes": [
+        "generated",
+        "explicit"
+      ],
+      "history_modes": [
+        "off",
+        "recent"
+      ],
+      "finalize_actions": [
+        "accept_generated",
+        "accept_local",
+        "abandon"
+      ],
+      "history_coverage": "linked_sessions",
+      "limits": {
+        "recent_exchanges": 8,
+        "user_characters": 4096,
+        "assistant_characters": 16384,
+        "prompt_input_tokens": 16000,
+        "reserved_output_tokens": 2000,
+        "pending_ttl_seconds": 86400
+      }
+    }
+  },
+  {
+    "name": "generated",
+    "definition": "FinalizeRequest",
+    "valid": true,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "action": "accept_generated",
+      "response_id": "resp_synthetic",
+      "assistant_text": "We can explore the second option."
+    }
+  },
+  {
+    "name": "local",
+    "definition": "FinalizeRequest",
+    "valid": true,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "action": "accept_local",
+      "user_text": "Which option?",
+      "assistant_text": "The second one.",
+      "knowledge_refs": []
+    }
+  },
+  {
+    "name": "abandon",
+    "definition": "FinalizeRequest",
+    "valid": true,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "action": "abandon"
+    }
+  },
+  {
+    "name": "generated_receipt",
+    "definition": "Receipt",
+    "valid": true,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "sequence": 1,
+      "history_coverage": "linked_sessions",
+      "action": "accept_generated",
+      "status": "accepted",
+      "response_id": "resp_synthetic"
+    }
+  },
+  {
+    "name": "local_receipt",
+    "definition": "Receipt",
+    "valid": true,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "sequence": 1,
+      "history_coverage": "linked_sessions",
+      "action": "accept_local",
+      "status": "accepted"
+    }
+  },
+  {
+    "name": "abandon_receipt",
+    "definition": "Receipt",
+    "valid": true,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "sequence": 1,
+      "history_coverage": "linked_sessions",
+      "action": "abandon",
+      "status": "abandoned"
+    }
+  },
+  {
+    "name": "local_sources",
+    "definition": "FinalizeRequest",
+    "valid": true,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "action": "accept_local",
+      "user_text": "Which option?",
+      "assistant_text": "The second one.",
+      "knowledge_refs": [
+        {
+          "kind": "event",
+          "id": "44444444-4444-4444-8444-444444444444",
+          "revision": 2
+        }
+      ]
+    }
+  },
+  {
+    "name": "unknown_field",
+    "definition": "FinalizeRequest",
+    "valid": false,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "action": "accept_generated",
+      "response_id": "resp_synthetic",
+      "assistant_text": "We can explore the second option.",
+      "metadata": {
+        "birth_date": "synthetic"
+      }
+    }
+  },
+  {
+    "name": "mixed_local_generated",
+    "definition": "FinalizeRequest",
+    "valid": false,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "action": "accept_local",
+      "user_text": "Which option?",
+      "assistant_text": "The second one.",
+      "knowledge_refs": [],
+      "response_id": "resp_synthetic"
+    }
+  },
+  {
+    "name": "missing_response",
+    "definition": "FinalizeRequest",
+    "valid": false,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "action": "accept_generated",
+      "assistant_text": "We can explore the second option."
+    }
+  },
+  {
+    "name": "abandon_text",
+    "definition": "FinalizeRequest",
+    "valid": false,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "action": "abandon",
+      "assistant_text": "discard"
+    }
+  },
+  {
+    "name": "blank_reply",
+    "definition": "FinalizeRequest",
+    "valid": false,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "action": "accept_generated",
+      "response_id": "resp_synthetic",
+      "assistant_text": "  \n"
+    }
+  },
+  {
+    "name": "unknown_version",
+    "definition": "FinalizeRequest",
+    "valid": false,
+    "value": {
+      "contract_version": 2,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "action": "accept_generated",
+      "response_id": "resp_synthetic",
+      "assistant_text": "We can explore the second option."
+    }
+  },
+  {
+    "name": "missing_local_sources",
+    "definition": "FinalizeRequest",
+    "valid": false,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "action": "accept_local",
+      "user_text": "Which option?",
+      "assistant_text": "The second one."
+    }
+  },
+  {
+    "name": "wrong_receipt_status",
+    "definition": "Receipt",
+    "valid": false,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "sequence": 1,
+      "history_coverage": "linked_sessions",
+      "action": "abandon",
+      "status": "accepted"
+    }
+  },
+  {
+    "name": "zero_sequence",
+    "definition": "Receipt",
+    "valid": false,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "sequence": 0,
+      "history_coverage": "linked_sessions",
+      "action": "accept_local",
+      "status": "accepted"
+    }
+  },
+  {
+    "name": "unsafe_sequence",
+    "definition": "Receipt",
+    "valid": false,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "sequence": 9007199254740992,
+      "history_coverage": "linked_sessions",
+      "action": "accept_local",
+      "status": "accepted"
+    }
+  },
+  {
+    "name": "foreign_receipt_field",
+    "definition": "Receipt",
+    "valid": false,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "session_id": "22222222-2222-4222-8222-222222222222",
+      "turn_id": "33333333-3333-4333-8333-333333333333",
+      "sequence": 1,
+      "history_coverage": "linked_sessions",
+      "action": "accept_local",
+      "status": "accepted",
+      "response_id": "resp_synthetic"
+    }
+  },
+  {
+    "name": "no_recent_capability",
+    "definition": "Capabilities",
+    "valid": false,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "implementation": "conversation-history-1",
+      "status": "ready",
+      "generation_endpoints": [
+        "/v1/responses",
+        "/v1/chat/completions"
+      ],
+      "managed_input": "single_user_text",
+      "acceptance_modes": [
+        "generated",
+        "explicit"
+      ],
+      "history_modes": [
+        "off",
+        "adaptive"
+      ],
+      "finalize_actions": [
+        "accept_generated",
+        "accept_local",
+        "abandon"
+      ],
+      "history_coverage": "linked_sessions",
+      "limits": {
+        "recent_exchanges": 8,
+        "user_characters": 4096,
+        "assistant_characters": 16384,
+        "prompt_input_tokens": 16000,
+        "reserved_output_tokens": 2000,
+        "pending_ttl_seconds": 86400
+      }
+    }
+  },
+  {
+    "name": "unknown_mode",
+    "definition": "Capabilities",
+    "valid": false,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "implementation": "conversation-history-1",
+      "status": "ready",
+      "generation_endpoints": [
+        "/v1/responses",
+        "/v1/chat/completions"
+      ],
+      "managed_input": "single_user_text",
+      "acceptance_modes": [
+        "generated",
+        "explicit"
+      ],
+      "history_modes": [
+        "off",
+        "recent",
+        "magic"
+      ],
+      "finalize_actions": [
+        "accept_generated",
+        "accept_local",
+        "abandon"
+      ],
+      "history_coverage": "linked_sessions",
+      "limits": {
+        "recent_exchanges": 8,
+        "user_characters": 4096,
+        "assistant_characters": 16384,
+        "prompt_input_tokens": 16000,
+        "reserved_output_tokens": 2000,
+        "pending_ttl_seconds": 86400
+      }
+    }
+  },
+  {
+    "name": "duplicate_mode",
+    "definition": "Capabilities",
+    "valid": false,
+    "value": {
+      "contract_version": 1,
+      "user": "oria:11111111-1111-4111-8111-111111111111",
+      "implementation": "conversation-history-1",
+      "status": "ready",
+      "generation_endpoints": [
+        "/v1/responses",
+        "/v1/chat/completions"
+      ],
+      "managed_input": "single_user_text",
+      "acceptance_modes": [
+        "generated",
+        "explicit"
+      ],
+      "history_modes": [
+        "off",
+        "recent",
+        "recent"
+      ],
+      "finalize_actions": [
+        "accept_generated",
+        "accept_local",
+        "abandon"
+      ],
+      "history_coverage": "linked_sessions",
+      "limits": {
+        "recent_exchanges": 8,
+        "user_characters": 4096,
+        "assistant_characters": 16384,
+        "prompt_input_tokens": 16000,
+        "reserved_output_tokens": 2000,
+        "pending_ttl_seconds": 86400
+      }
+    }
+  }
+]

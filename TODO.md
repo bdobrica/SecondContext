@@ -8,7 +8,10 @@ every broader hardening deliverable is finished.
 
 ## Current priority — OpenAI-compatible conversation history
 
-All tasks are pending. This coordinated track adds ordinary Chat Completions support
+CH1 is complete as a contract/schema slice; runtime CH2–CH7 remain pending.
+The accepted [history contract](docs/contracts/conversation-history-v1.md) and
+[ADR 0007](docs/adr/0007-conversation-history.md) define the boundary.
+This coordinated track adds ordinary Chat Completions support
 and optional reliable transcript replay; current stable sessions/semantic memories
 do not provide it. Detailed local execution design is in
 [PLAN.md](PLAN.md); companion
@@ -17,20 +20,20 @@ cover consent, accepted replies and delivery. Sibling checkout: `../OriaEngine/`
 
 ### CH1 — Freeze ownership and additive API contracts
 
-- [ ] Add a new ADR and versioned `conversation-history-1` contract; preserve
+- [x] Add a new ADR and versioned `conversation-history-1` contract; preserve
   accepted ADRs, existing Responses clients, service identity and deletion fences.
-- [ ] Specify standard client-supplied dialogue versus opt-in server-managed history;
+- [x] Specify standard client-supplied dialogue versus opt-in server-managed history;
   never infer a conversation from subject identity or silently combine both sources.
-- [ ] Define proposed `X-SecondContext-Session`, `-History`, `-Turn`, `-Acceptance`
+- [x] Define `X-SecondContext-Session`, `-History`, `-Turn`, `-Acceptance`
   headers, existing metadata compatibility, defaults, allowed combinations and errors.
-- [ ] Define scoped `POST /v1/context/capabilities` and
+- [x] Define scoped `POST /v1/context/capabilities` and
   `POST /v1/context/turns/finalize`; explicitly extend service authorization for
   those routes and `/v1/chat/completions`, without granting general transcript CRUD.
-- [ ] Specify immutable turn/request binding, sequence/snapshot, generated versus
+- [x] Specify immutable turn/request binding, sequence/snapshot, generated versus
   explicit acceptance, exact retry receipts, conflict detection and incomplete-turn recovery.
-- [ ] Define application-origin prepared local exchanges, source dependencies,
+- [x] Define application-origin prepared local exchanges, source dependencies,
   correction/erasure, receipt retention and the distinction from confirmed delivery.
-- [ ] Agree schemas and disclosure implications with OCH1; no new behavior is live
+- [x] Agree schemas and disclosure implications with OCH1; no new behavior is live
   merely because this plan or a health endpoint exists.
 
 ### CH2 — Standard OpenAI Chat Completions (depends on CH1)

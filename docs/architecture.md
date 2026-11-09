@@ -138,3 +138,13 @@ linked interpretations and exact revision/fence checks, without copying projecti
 content into the legacy vector/cognitive pipeline. Linked response sessions are
 tracked before generation; selective erasure removes entire linked sessions and
 dependent projections. Migration000004 and coordinated consumer release are needed.
+
+## Accepted conversation-history boundary (implementation pending)
+
+[ADR 0007](adr/0007-conversation-history.md) and [history v1](contracts/conversation-history-v1.md)
+separate supplied dialogue from optional managed replay. SecondContext owns ordered
+accepted turns and prompt assembly; consumers own consent, current facts, acceptance
+and delivery. Finalize supports accepted replacements, prepared local exchanges and
+pending abandonment. Linked erasure includes the new state with payload-free session
+fences against delayed recreation. This accepted decision is not implemented yet;
+CH2/CH3 add runtime compatibility and recent history before capability advertisement.

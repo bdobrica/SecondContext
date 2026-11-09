@@ -1,0 +1,502 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bdobrica/SecondContext/raw/main/docs/contracts/conversation-history-v1.schema.json",
+  "title": "SecondContext conversation-history-1 context endpoint bodies",
+  "$comment": "Authored contract source. Structural validation does not prove authorization, state transitions or erasure. Select the endpoint definition via $defs.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/CapabilitiesRequest"
+    },
+    {
+      "$ref": "#/$defs/Capabilities"
+    },
+    {
+      "$ref": "#/$defs/FinalizeRequest"
+    },
+    {
+      "$ref": "#/$defs/Receipt"
+    }
+  ],
+  "$defs": {
+    "Subject": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "\\S"
+    },
+    "UUID": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "minLength": 36,
+      "maxLength": 36
+    },
+    "SessionID": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "not": {
+        "pattern": "\\s"
+      }
+    },
+    "ResponseID": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "\\S"
+    },
+    "RecordRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "revision"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "entity",
+            "event",
+            "reading"
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "CapabilitiesRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "user"
+      ],
+      "properties": {
+        "user": {
+          "$ref": "#/$defs/Subject"
+        }
+      }
+    },
+    "Capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "user",
+        "implementation",
+        "status",
+        "generation_endpoints",
+        "managed_input",
+        "acceptance_modes",
+        "history_modes",
+        "finalize_actions",
+        "history_coverage",
+        "limits"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "user": {
+          "$ref": "#/$defs/Subject"
+        },
+        "implementation": {
+          "const": "conversation-history-1"
+        },
+        "status": {
+          "const": "ready"
+        },
+        "generation_endpoints": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "/v1/responses",
+              "/v1/chat/completions"
+            ]
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true
+        },
+        "managed_input": {
+          "const": "single_user_text"
+        },
+        "acceptance_modes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "generated",
+              "explicit"
+            ]
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true
+        },
+        "history_modes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "off",
+              "recent",
+              "adaptive"
+            ]
+          },
+          "minItems": 2,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "allOf": [
+            {
+              "contains": {
+                "const": "off"
+              }
+            },
+            {
+              "contains": {
+                "const": "recent"
+              }
+            }
+          ]
+        },
+        "finalize_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "accept_generated",
+              "accept_local",
+              "abandon"
+            ]
+          },
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true
+        },
+        "history_coverage": {
+          "const": "linked_sessions"
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "recent_exchanges",
+            "user_characters",
+            "assistant_characters",
+            "prompt_input_tokens",
+            "reserved_output_tokens",
+            "pending_ttl_seconds"
+          ],
+          "properties": {
+            "recent_exchanges": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "user_characters": {
+              "const": 4096
+            },
+            "assistant_characters": {
+              "const": 16384
+            },
+            "prompt_input_tokens": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "reserved_output_tokens": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "pending_ttl_seconds": {
+              "const": 86400
+            }
+          }
+        }
+      }
+    },
+    "AcceptGenerated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "user",
+        "session_id",
+        "turn_id",
+        "action",
+        "response_id",
+        "assistant_text"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "user": {
+          "$ref": "#/$defs/Subject"
+        },
+        "session_id": {
+          "$ref": "#/$defs/SessionID"
+        },
+        "turn_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "action": {
+          "const": "accept_generated"
+        },
+        "response_id": {
+          "$ref": "#/$defs/ResponseID"
+        },
+        "assistant_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "AcceptLocal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "user",
+        "session_id",
+        "turn_id",
+        "action",
+        "user_text",
+        "assistant_text",
+        "knowledge_refs"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "user": {
+          "$ref": "#/$defs/Subject"
+        },
+        "session_id": {
+          "$ref": "#/$defs/SessionID"
+        },
+        "turn_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "action": {
+          "const": "accept_local"
+        },
+        "user_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        },
+        "assistant_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384,
+          "pattern": "\\S"
+        },
+        "knowledge_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RecordRef"
+          },
+          "minItems": 0,
+          "maxItems": 20,
+          "uniqueItems": true
+        }
+      }
+    },
+    "Abandon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "user",
+        "session_id",
+        "turn_id",
+        "action"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "user": {
+          "$ref": "#/$defs/Subject"
+        },
+        "session_id": {
+          "$ref": "#/$defs/SessionID"
+        },
+        "turn_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "action": {
+          "const": "abandon"
+        }
+      }
+    },
+    "FinalizeRequest": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AcceptGenerated"
+        },
+        {
+          "$ref": "#/$defs/AcceptLocal"
+        },
+        {
+          "$ref": "#/$defs/Abandon"
+        }
+      ]
+    },
+    "GeneratedReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "user",
+        "session_id",
+        "turn_id",
+        "sequence",
+        "history_coverage",
+        "action",
+        "status",
+        "response_id"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "user": {
+          "$ref": "#/$defs/Subject"
+        },
+        "session_id": {
+          "$ref": "#/$defs/SessionID"
+        },
+        "turn_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "history_coverage": {
+          "const": "linked_sessions"
+        },
+        "action": {
+          "const": "accept_generated"
+        },
+        "status": {
+          "const": "accepted"
+        },
+        "response_id": {
+          "$ref": "#/$defs/ResponseID"
+        }
+      }
+    },
+    "LocalReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "user",
+        "session_id",
+        "turn_id",
+        "sequence",
+        "history_coverage",
+        "action",
+        "status"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "user": {
+          "$ref": "#/$defs/Subject"
+        },
+        "session_id": {
+          "$ref": "#/$defs/SessionID"
+        },
+        "turn_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "history_coverage": {
+          "const": "linked_sessions"
+        },
+        "action": {
+          "const": "accept_local"
+        },
+        "status": {
+          "const": "accepted"
+        }
+      }
+    },
+    "AbandonReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "user",
+        "session_id",
+        "turn_id",
+        "sequence",
+        "history_coverage",
+        "action",
+        "status"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": 1
+        },
+        "user": {
+          "$ref": "#/$defs/Subject"
+        },
+        "session_id": {
+          "$ref": "#/$defs/SessionID"
+        },
+        "turn_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "history_coverage": {
+          "const": "linked_sessions"
+        },
+        "action": {
+          "const": "abandon"
+        },
+        "status": {
+          "const": "abandoned"
+        }
+      }
+    },
+    "Receipt": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/GeneratedReceipt"
+        },
+        {
+          "$ref": "#/$defs/LocalReceipt"
+        },
+        {
+          "$ref": "#/$defs/AbandonReceipt"
+        }
+      ]
+    }
+  }
+}
