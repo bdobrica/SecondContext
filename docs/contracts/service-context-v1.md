@@ -82,13 +82,15 @@ and `knowledge_refs` response field. Existing clients and legacy ingest semantic
 remain compatible. Full purge also cascades projections, pending operation receipts,
 record fences and session links; the minimal subject fence remains.
 
-## Conversation-history extension (managed lifecycle pending)
+## Conversation-history extension
 
 [ADR 0007](../adr/0007-conversation-history.md) additionally authorizes POST
 `/v1/chat/completions`, `/v1/context/capabilities` and `/v1/context/turns/finalize`
 under the existing subject selection and locks. The [history v1 contract](conversation-history-v1.md)
 defines the new schemas, exact receipts, managed opt-in and session erasure fences.
-CH2 implements only the Chat Completions POST route with the existing scope/fences;
-see its [compatibility matrix](chat-completions-v1.md). Context capabilities/finalization
-and managed replay remain CH3 work; verified capability must precede their use.
+CH2/CH3 implement all three POST routes with the existing scope/fences; see the
+[compatibility matrix](chat-completions-v1.md). Managed replay is opt-in and requires
+migration 000005 and verified capability. Full subject purge also cascades managed
+turns, results, receipts and session fences. Finalize/abandon of existing turns and
+erasure remain available while new capture is disabled.
 No other route or transcript CRUD is granted.

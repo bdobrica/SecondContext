@@ -242,6 +242,9 @@ func (s *Server) handleProjection(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			_, err = tx.Exec(r.Context(), `INSERT INTO context_projections(user_id,kind,record_id,revision,payload,deleted) VALUES($1,$2,$3,$4,NULL,true) ON CONFLICT(user_id,kind,record_id) DO UPDATE SET revision=EXCLUDED.revision,payload=NULL,deleted=true`, user.ID, ref.Kind, ref.ID, ref.Revision)
 		}
+		if err == nil {
+			err = fenceProjectionSessions(r.Context(), tx, user.ID, ref)
+		}
 		if err != nil || tx.Commit(r.Context()) != nil {
 			s.projectionFailure(w, r, 503)
 			return
@@ -290,6 +293,9 @@ func (s *Server) projectionReceipt(w http.ResponseWriter, request projectionRequ
 }
 
 func (s *Server) invalidateProjection(ctx context.Context, tx pgx.Tx, user string, ref projectionRef, erasing bool) error {
+	if err := fenceProjectionSessions(ctx, tx, user, ref); err != nil {
+		return err
+	}
 	// All reading sources are flattened canonical dependencies by the consumer.
 	// Corrections invalidate dependent summaries without permanently deleting their UUID;
 	// deletion fences those derived UUIDs as well.
@@ -477,6 +483,9 @@ func (s *Server) queryProjections(w http.ResponseWriter, r *http.Request, reques
 // Exact references were rehydrated by Oria. The subject lock protects this final
 // verification, session linkage and generation against remote correction/erasure.
 func (s *Server) linkedProjectionInstructions(ctx context.Context, subject, session string, refs []projectionRef) (string, error) {
+	if err := s.checkLinkedSession(ctx, subject, session); err != nil {
+		return "", err
+	}
 	if len(refs) == 0 {
 		return "", nil
 	}
@@ -510,11 +519,46 @@ func (s *Server) linkedProjectionInstructions(ctx context.Context, subject, sess
 		}
 		text += p.KnowledgeKind + ": " + p.Summary + "\n"
 		for _, source := range append([]projectionRef{ref}, p.Sources...) {
-			_, err = s.dbPool.Exec(ctx, "INSERT INTO context_projection_sessions(user_id,session_external_id,kind,record_id) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING", user.ID, session, source.Kind, source.ID)
+			_, err = s.dbPool.Exec(ctx, "INSERT INTO context_projection_sessions(user_id,session_external_id,kind,record_id,revision) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING", user.ID, session, source.Kind, source.ID, source.Revision)
 			if err != nil {
 				return "", err
 			}
 		}
 	}
 	return text, nil
+}
+
+// Deletion commits these payload-free fences before attempting physical cleanup.
+// Correction inserts them in its atomic invalidation transaction; a failed
+// correction keeps the previous canonical revision and no new success receipt.
+func fenceProjectionSessions(ctx context.Context, tx pgx.Tx, user string, ref projectionRef) error {
+	match, _ := json.Marshal([]map[string]any{{"kind": ref.Kind, "id": ref.ID}})
+	_, err := tx.Exec(ctx, `INSERT INTO context_session_fences(user_id,session_external_id)
+ SELECT DISTINCT l.user_id,l.session_external_id FROM context_projection_sessions l
+ LEFT JOIN context_projections p ON p.user_id=l.user_id AND p.kind=l.kind AND p.record_id=l.record_id
+ WHERE l.user_id=$1 AND ((l.kind=$2 AND l.record_id=$3) OR p.payload->'sources' @> $4::jsonb)
+ ON CONFLICT DO NOTHING`, user, ref.Kind, ref.ID, match)
+	return err
+}
+func (s *Server) checkLinkedSession(ctx context.Context, subject, session string) error {
+	if s.dbPool == nil || subject == "" || session == "" {
+		return nil
+	}
+	var owner string
+	err := s.dbPool.QueryRow(ctx, `SELECT u.external_id FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.external_id=$1`, session).Scan(&owner)
+	if err == nil && owner != subject {
+		return db.HistoryError("session_not_found")
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	var user string
+	err = s.dbPool.QueryRow(ctx, "SELECT id::text FROM users WHERE external_id=$1", subject).Scan(&user)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return db.CheckHistorySession(ctx, s.dbPool, user, session)
 }

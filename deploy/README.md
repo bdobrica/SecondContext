@@ -154,3 +154,12 @@ versions. The [publication workflow](../README.md#publishing-docker-images) push
 to Quay only for committed version increases on `main`. Publication does not
 deploy an application or apply its migrations. Use explicit versions/digests and
 run each application's migration command during deployment.
+
+### Managed history (CH3)
+
+The Compose fragment exposes `SECOND_CONTEXT_HISTORY_*` settings and defaults
+capture to disabled. Publish a compatible image, apply migration 000005 with writers
+stopped, and follow [history rollout/recovery](../docs/conversation-history.md).
+Verify the scoped capability before enabling a consumer. Oria's OCH2/OCH3 adapter,
+accepted-reply outbox and new disclosure remain separate release prerequisites.
+Do not downgrade the schema or run an older image that ignores session fences.

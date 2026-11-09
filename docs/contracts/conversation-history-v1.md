@@ -1,10 +1,11 @@
 # Conversation history — v1
 
-Status: accepted contract, 2026-11-09; **managed history not implemented or advertised yet**.
-CH2 implements the ordinary [Chat Completions subset](chat-completions-v1.md); CH3
-remains responsible for managed capture/replay, capabilities and finalization.
+Status: implemented by CH3, 2026-11-09; disabled by default until configured.
+CH2 implements the ordinary [Chat Completions subset](chat-completions-v1.md).
+CH3 implements managed capture/replay, capabilities and finalization; see
+[configuration, recovery and rollout](../conversation-history.md).
 [ADR 0007](../adr/0007-conversation-history.md) authorizes this additive boundary.
-CH2/CH3 implement it; CH4–CH6 gate Decisions/adaptive behavior independently.
+CH4–CH6 gate Decisions/adaptive behavior independently.
 The authored [JSON Schema](conversation-history-v1.schema.json) defines closed
 context endpoint bodies. [Conformance cases](conversation-history-v1.examples.json)
 are synthetic structural fixtures, not evidence of server lifecycle behavior.

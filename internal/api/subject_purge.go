@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type subjectConnectionKey struct{}
+
 // Hold a cross-process subject lock for the complete HTTP operation, including
 // remote index/LLM calls. A dedicated connection avoids exhausting the repository
 // pool with lock waiters. Closing it releases the lock even after cancellation.
@@ -30,7 +32,16 @@ func (s *Server) subjectFence(next http.Handler) http.Handler {
 			defer cancel()
 			_ = conn.Close(ctx)
 		}()
-		_, err = conn.Exec(r.Context(), "SELECT pg_advisory_lock(hashtextextended($1, 0))", "secondcontext:subject:"+subject)
+		if r.Header.Get("X-SecondContext-Turn") != "" && (r.URL.Path == "/v1/responses" || r.URL.Path == "/v1/chat/completions") {
+			var acquired bool
+			err = conn.QueryRow(r.Context(), "SELECT pg_try_advisory_lock(hashtextextended($1, 0))", "secondcontext:subject:"+subject).Scan(&acquired)
+			if err == nil && !acquired {
+				s.historyBusy(w, r, conn, subject)
+				return
+			}
+		} else {
+			_, err = conn.Exec(r.Context(), "SELECT pg_advisory_lock(hashtextextended($1, 0))", "secondcontext:subject:"+subject)
+		}
 		if err != nil {
 			s.writeAPIError(w, r, 503, "subject storage unavailable", "server_error", "subject_unavailable", "")
 			return
@@ -45,7 +56,7 @@ func (s *Server) subjectFence(next http.Handler) http.Handler {
 			s.writeAPIError(w, r, 410, "subject has been deleted or is being deleted", "invalid_request_error", "subject_deleted", "")
 			return
 		}
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), subjectConnectionKey{}, conn)))
 	})
 }
 

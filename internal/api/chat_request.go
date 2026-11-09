@@ -462,45 +462,8 @@ var chatSessionPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$
 var chatTurnPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 func chatHistoryHeaders(r *http.Request, metadata map[string]any) (string, *chatRequestError) {
-	values := map[string]string{}
-	for _, key := range []string{"Session", "History", "Turn", "Acceptance"} {
-		name := "X-SecondContext-" + key
-		headers := r.Header.Values(name)
-		if len(headers) == 0 {
-			continue
-		}
-		if len(headers) != 1 {
-			return "", &chatRequestError{"invalid_history_request", name}
-		}
-		v := strings.Trim(headers[0], " \t")
-		valid := false
-		switch key {
-		case "Session":
-			valid = chatSessionPattern.MatchString(v)
-		case "History":
-			valid = v == "off" || v == "recent" || v == "adaptive"
-		case "Turn":
-			valid = chatTurnPattern.MatchString(v)
-		case "Acceptance":
-			valid = v == "generated" || v == "explicit"
-		}
-		if !valid {
-			return "", &chatRequestError{"invalid_history_request", name}
-		}
-		values[key] = v
-	}
-	session := stringFromMap(metadata, "session_id")
-	if value, ok := values["Session"]; ok {
-		rawSession, _ := metadata["session_id"].(string)
-		if rawSession != "" && rawSession != value {
-			return "", &chatRequestError{"session_conflict", "metadata.session_id"}
-		}
-		session = value
-	}
-	if (values["History"] != "" && values["History"] != "off") || values["Acceptance"] == "explicit" || values["Turn"] != "" {
-		return "", unsupportedChat("history")
-	}
-	return session, nil
+	h, err := parseHistoryHeaders(r, metadata)
+	return h.Session, err
 }
 
 // Reject ambiguous JSON only on the new endpoint; legacy Responses keeps its

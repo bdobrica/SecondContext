@@ -81,6 +81,8 @@ func (s *Server) Handler() http.Handler {
 	router.Get("/v1/models", s.handleListModels)
 	router.Post("/v1/responses", s.handleCreateResponse)
 	router.Post("/v1/chat/completions", s.handleChatCompletion)
+	router.Post("/v1/context/capabilities", s.handleHistoryCapabilities)
+	router.Post("/v1/context/turns/finalize", s.handleHistoryFinalize)
 	router.Post("/v1/subjects/purge", s.handlePurgeSubject)
 	router.Post("/v1/knowledge/upsert", s.handleProjection)
 	router.Post("/v1/knowledge/query", s.handleProjection)

@@ -14,6 +14,9 @@ import (
 )
 
 func (s *Server) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
+	if s.handleHistoryGeneration(w, r) {
+		return
+	}
 	var raw json.RawMessage
 	if !s.decodeJSONRequest(w, r, &raw, false) {
 		return
@@ -49,6 +52,10 @@ func (s *Server) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.dbPool == nil {
 		s.writeAPIError(w, r, 503, "subject storage unavailable", "server_error", "subject_unavailable", "")
+		return
+	}
+	if err := s.checkLinkedSession(r.Context(), metadata.UserExternalID, session); err != nil {
+		s.historyFailure(w, r, err)
 		return
 	}
 	// A supplied session can scope the request, but cannot select another owner's

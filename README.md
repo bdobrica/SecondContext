@@ -17,6 +17,11 @@ The project explores whether an LLM can behave more like a situated expert when 
 
 The first version intentionally avoids custom predictive models such as LightGBM. The MVP uses LLM-based extraction, transparent scoring rules, Qdrant for retrieval, and Postgres for canonical structured state.
 
+Optional [managed conversation history](docs/conversation-history.md) supports
+bounded recent replay, durable retries and accepted replies on Responses and Chat
+Completions. It requires migration 000005 and explicit enablement; ordinary OpenAI
+clients can continue supplying their own chat history.
+
 ## Why this exists
 
 Modern LLMs have broad general knowledge, but they lack the evolving context that humans accumulate from daily experience.

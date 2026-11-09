@@ -140,7 +140,7 @@ content into the legacy vector/cognitive pipeline. Linked response sessions are
 tracked before generation; selective erasure removes entire linked sessions and
 dependent projections. Migration000004 and coordinated consumer release are needed.
 
-## Conversation-history boundary (managed lifecycle pending)
+## Conversation-history boundary
 
 [ADR 0007](adr/0007-conversation-history.md) and [history v1](contracts/conversation-history-v1.md)
 separate supplied dialogue from optional managed replay. SecondContext owns ordered
@@ -149,5 +149,11 @@ and delivery. Finalize supports accepted replacements, prepared local exchanges 
 pending abandonment. Linked erasure includes the new state with payload-free session
 fences against delayed recreation. CH2 implements the ordinary supplied-history
 Chat Completions subset; it shares retrieval and preserves wire messages without
-archiving client transcripts. CH3 must implement managed lifecycle/recent history
-before capability advertisement. Existing Responses persistence remains unchanged.
+archiving client transcripts. CH3 adds separate canonical `conversation_turns`,
+per-session sequence/snapshot state and terminal `context_session_fences`. Old
+message drafts are never backfilled. A dedicated subject-lock connection owns all
+managed mutations, preventing a worker that loses its lock from committing later.
+Accepted whole exchanges replay chronologically with conservative whole-prompt
+limits. New capture is disabled by default; finalize/abandon/erasure recovery remains
+available when capture is disabled. Existing unextended Responses persistence is
+unchanged. See [managed history operations](conversation-history.md).

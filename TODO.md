@@ -8,8 +8,9 @@ every broader hardening deliverable is finished.
 
 ## Current priority — OpenAI-compatible conversation history
 
-CH1 and CH2 are complete: contracts and supplied-history Chat Completions.
-Managed lifecycle/replay (CH3) and CH4–CH7 remain pending. See the
+CH1–CH3 are complete: contracts, supplied-history Chat Completions and opt-in
+managed recent history/finalization. CH4–CH7 remain pending; consumer OCH2/OCH3 and
+coordinated release are still required. See the
 [implemented API matrix](docs/contracts/chat-completions-v1.md).
 The accepted [history contract](docs/contracts/conversation-history-v1.md) and
 [ADR 0007](docs/adr/0007-conversation-history.md) define the boundary.
@@ -53,23 +54,23 @@ cover consent, accepted replies and delivery. Sibling checkout: `../OriaEngine/`
 
 ### CH3 — Reliable managed history and finalization (depends on CH1)
 
-- [ ] Add migration/repositories for durable turn ordering, request hashes, response
+- [x] Add migration/repositories for durable turn ordering, request hashes, response
   binding, completion/acceptance, history snapshots and bounded retry receipts.
-- [ ] Query latest eligible owner/session turns and return chronological groups;
+- [x] Query latest eligible owner/session turns and return chronological groups;
   do not reuse oldest-first `ListBySession` as the recent-history implementation.
-- [ ] Persist only new inbound content; assembled/replayed context must not duplicate
+- [x] Persist only new inbound content; assembled/replayed context must not duplicate
   transcript rows. Avoid arbitrary text deduplication of legitimate repeated messages.
-- [ ] Implement capability/finalize endpoints; identical retries converge, conflicting
+- [x] Implement capability/finalize endpoints; identical retries converge, conflicting
   reuse fails, and foreign response/session/turn IDs cannot select another account.
-- [ ] Replay completed generated turns or explicitly finalized accepted replacements
+- [x] Replay completed generated turns or explicitly finalized accepted replacements
   according to mode; exclude rejected/pending drafts and incomplete streams.
-- [ ] Define pending-turn barriers, failure recovery and legacy-history rollout;
+- [x] Define pending-turn barriers, failure recovery and legacy-history rollout;
   never automatically promote old drafts or promise exactly-once provider calls.
-- [ ] Bound recent turns and whole prompt size, preserving tool groups and reserving
+- [x] Bound recent turns and whole prompt size, preserving tool groups and reserving
   instructions/current facts/output; evaluate an initial eight-exchange window.
-- [ ] Enforce deletion/revision fences before classifier/generator access, including
+- [x] Enforce deletion/revision fences before classifier/generator access, including
   requests without new knowledge refs; cover all new rows in selective/full erasure.
-- [ ] Test concurrent ordering, restart, retries, local turns, replacement, limits,
+- [x] Test concurrent ordering, restart, retries, local turns, replacement, limits,
   ownership, delayed finalize after purge and pending linked-session cleanup.
 
 ### CH4 — OpenAI Decisions observation (depends on CH3 and working Oria baseline)
@@ -263,11 +264,11 @@ interaction_outcomes
 
 - [x] Implement `GET /v1/models`.
 - [x] Implement basic `POST /v1/responses`.
-- [ ] Implement `POST /v1/chat/completions` through the current CH2 compatibility track.
+- [x] Implement `POST /v1/chat/completions` through the CH2 compatibility track.
 - [x] Define request/response structs.
 - [x] Add upstream LLM client.
 - [x] Support non-streaming responses.
-- [ ] Support Chat Completions streaming through CH2; specify Responses streaming separately in the support matrix.
+- [x] Support Chat Completions streaming through CH2; Responses streaming remains unsupported in the support matrix.
 - [x] Persist inbound user messages.
 - [x] Persist assistant responses.
 - [x] Add basic error handling.

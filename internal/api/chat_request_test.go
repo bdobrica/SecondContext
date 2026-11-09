@@ -99,10 +99,10 @@ func TestChatSuppliedToolHistory(t *testing.T) {
 func TestChatHistoryHeaders(t *testing.T) {
 	for _, tc := range []struct{ key, value, code string }{
 		{"Session", "session-1", ""}, {"Session", "bad/id", "invalid_history_request"},
-		{"History", " off ", ""}, {"History", "recent", "unsupported_feature"}, {"History", "adaptive", "unsupported_feature"},
+		{"History", " off ", ""}, {"History", "recent", "invalid_history_request"}, {"History", "adaptive", "invalid_history_request"},
 		{"History", "OFF", "invalid_history_request"}, {"History", "off,recent", "invalid_history_request"}, {"History", "", "invalid_history_request"},
-		{"Acceptance", "generated", ""}, {"Acceptance", "explicit", "unsupported_feature"},
-		{"Turn", "00000000-0000-4000-8000-000000000001", "unsupported_feature"}, {"Turn", "NOT-A-UUID", "invalid_history_request"},
+		{"Acceptance", "generated", ""}, {"Acceptance", "explicit", "invalid_history_request"},
+		{"Turn", "00000000-0000-4000-8000-000000000001", "invalid_history_request"}, {"Turn", "NOT-A-UUID", "invalid_history_request"},
 	} {
 		t.Run(tc.key+tc.value, func(t *testing.T) {
 			r := httptest.NewRequest("POST", "/v1/chat/completions", nil)

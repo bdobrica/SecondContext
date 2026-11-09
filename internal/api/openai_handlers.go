@@ -42,6 +42,9 @@ func (s *Server) handleListModels(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
+	if s.handleHistoryGeneration(w, r) {
+		return
+	}
 	var request createResponseRequest
 	if !s.decodeJSONRequest(w, r, &request, false) {
 		return
@@ -72,6 +75,10 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	linked, linkErr := s.linkedProjectionInstructions(r.Context(), metadata.UserExternalID, metadata.SessionID, request.KnowledgeRefs)
 	if linkErr != nil {
+		if _, ok := linkErr.(db.HistoryError); ok {
+			s.historyFailure(w, r, linkErr)
+			return
+		}
 		s.projectionFailure(w, r, 409)
 		return
 	}

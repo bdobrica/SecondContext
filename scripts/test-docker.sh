@@ -26,7 +26,7 @@ docker build --tag "$SECOND_CONTEXT_IMAGE" .
 echo "==> starting the published-image Compose stack against fresh storage"
 "${compose[@]}" up -d --wait --wait-timeout 120
 version=$("${compose[@]}" run --rm --no-deps secondcontext-migrate /app/migrate version)
-[[ "$version" == "version=4 dirty=false" ]]
+[[ "$version" == "version=5 dirty=false" ]]
 
 schema=$("${compose[@]}" exec -T secondcontext-postgres psql -U secondcontext -d secondcontext -Atc \
 	"SELECT to_regclass('memory_items') IS NOT NULL AND to_regclass('interaction_outcomes') IS NOT NULL AND to_regclass('subject_purges') IS NOT NULL AND to_regclass('context_projections') IS NOT NULL AND to_regclass('context_projection_operations') IS NOT NULL AND to_regclass('context_projection_sessions') IS NOT NULL")

@@ -3,7 +3,7 @@
 Implemented by CH2 under [ADR 0007](../adr/0007-conversation-history.md).
 This is a supported subset of the [OpenAI Chat Completions API](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)
 and [streaming events](https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events),
-reviewed 2026-11-09. It does not advertise `conversation-history-1` readiness.
+reviewed 2026-11-09. Managed readiness is separately discovered through CH3 capabilities.
 
 ## Endpoint and identity
 
@@ -16,7 +16,8 @@ Responses calls remain available. Service credentials additionally carry their
 existing `X-SecondContext-Subject`; body identity selectors must match that subject.
 The complete operation, including streaming, holds the existing subject lock and
 checks the durable purge fence. Service credentials gain only this POST route in
-CH2, not model discovery, completion CRUD or unimplemented context endpoints.
+CH2. CH3 also authorizes its two context POST routes; no service model discovery
+or completion CRUD is granted.
 
 The caller supplies the entire conversation. Original message order, roles,
 content whitespace, text parts, names, tool IDs and tool argument strings survive
@@ -29,8 +30,8 @@ CH2 does not archive supplied Chat Completions transcripts or generated results,
 including successful streams. This avoids copying a full client transcript into
 storage on every request. Retrieval may create the normal subject identity row;
 it does not extract new memories from chat. Responses persistence is unchanged.
-Managed capture, accepted turns, replay and durable retries belong to CH3. Ordinary
-Chat Completions retries can execute the provider again.
+CH3 adds optional managed capture, accepted turns, replay and durable retries.
+Ordinary Chat Completions retries can execute the provider again.
 
 ## Model and parameter matrix
 
@@ -89,13 +90,22 @@ parameters. Ordinary SDK clients need none of them.
 
 `X-SecondContext-Session` and matching `metadata.session_id` can select an existing
 session's ownership boundary. A foreign session returns 404 `session_not_found`.
-No session selector retrieves history or creates a session in CH2. Legacy metadata-only
-session syntax remains accepted. Explicit headers follow the history contract's
-ASCII/whitespace/duplicate rules. `History: off` and `Acceptance: generated` are the
-only supported values. Turn IDs, recent/adaptive history and explicit acceptance
-return 400 `unsupported_feature`; malformed headers return `invalid_history_request`
-and conflicting session selectors return `session_conflict`. `knowledge_refs` remains
-on Responses; it is unsupported here until the managed lifecycle is implemented.
+Without a turn ID no session selector retrieves history or creates a session.
+Legacy metadata-only syntax remains accepted. Explicit headers follow the history
+contract's ASCII/whitespace/duplicate rules; malformed combinations return
+`invalid_history_request`, conflicting selectors `session_conflict`.
+
+CH3 implements `off`/`recent` and `generated`/`explicit` with a session and turn ID.
+Managed requests require `HISTORY_ENABLED`, one current user string, optional
+preceding system/developer text instructions, and non-streaming generation. They
+reject supplied prior dialogue, tools and multimodal content with
+`unsupported_history_input`. `knowledge_refs` is supported only on this managed
+Chat path (and existing Responses), with the same exact revision checks/linking.
+Adaptive mode remains `unsupported_feature`. See [history v1](conversation-history-v1.md)
+and [runtime limits](../conversation-history.md). The managed model must resolve to
+`OPENAI_CHAT_MODEL`; its configured input/output ceilings cannot safely apply to an
+arbitrary model. Managed results use a gateway-generated standard completion ID,
+which uniquely binds the saved result to the owner/session/turn.
 
 ## Results, streaming and bounds
 

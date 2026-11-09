@@ -12,6 +12,7 @@ import (
 )
 
 type Config struct {
+	History   HistoryConfig
 	App       AppConfig
 	Auth      AuthConfig
 	Dev       DevConfig
@@ -113,6 +114,10 @@ type ScoringConfig struct {
 }
 
 func Load() (Config, error) {
+	history, err := loadHistoryConfig()
+	if err != nil {
+		return Config{}, err
+	}
 	knowledge, err := loadKnowledgeConfig()
 	if err != nil {
 		return Config{}, err
@@ -236,6 +241,7 @@ func Load() (Config, error) {
 
 	return Config{
 		Knowledge: knowledge,
+		History:   history,
 		App: AppConfig{
 			Name: getEnv("APP_NAME", "second-context"),
 			Env:  getEnv("APP_ENV", "development"),

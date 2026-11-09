@@ -294,3 +294,12 @@ creation do not. The workflow publishes version tags and `latest` for amd64/arm6
 after the configured `QUAY_AUTH` credential is available. Pin versions/digests
 for deployments; publishing does not migrate or restart services. See
 [the release workflow](../README.md#publishing-docker-images).
+
+## Managed conversation history
+
+CH3 requires migration **000005** and `HISTORY_ENABLED=true` before scoped
+`POST /v1/context/capabilities` advertises readiness. See the
+[history operations guide](conversation-history.md) for model budgets, pending-turn
+recovery, retention and rollback. Default deployments remain disabled. Finalization
+of existing turns and erasure stay available while new capture is disabled.
+Never roll back to an image that ignores session fences after enabling this feature.
