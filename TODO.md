@@ -6,6 +6,116 @@ and the [knowledge-base guide](docs/knowledge-base.md). This checklist retains t
 development history and remaining work; completed tasks are not a promise that
 every broader hardening deliverable is finished.
 
+## Current priority — OpenAI-compatible conversation history
+
+All tasks are pending. This coordinated track adds ordinary Chat Completions support
+and optional reliable transcript replay; current stable sessions/semantic memories
+do not provide it. Detailed local execution design is in
+[PLAN.md](PLAN.md); companion
+[Oria OCH1–OCH5 tasks](https://github.com/bdobrica/OriaEngine/blob/main/TODO.md#current-priority--conversation-history)
+cover consent, accepted replies and delivery. Sibling checkout: `../OriaEngine/`.
+
+### CH1 — Freeze ownership and additive API contracts
+
+- [ ] Add a new ADR and versioned `conversation-history-1` contract; preserve
+  accepted ADRs, existing Responses clients, service identity and deletion fences.
+- [ ] Specify standard client-supplied dialogue versus opt-in server-managed history;
+  never infer a conversation from subject identity or silently combine both sources.
+- [ ] Define proposed `X-SecondContext-Session`, `-History`, `-Turn`, `-Acceptance`
+  headers, existing metadata compatibility, defaults, allowed combinations and errors.
+- [ ] Define scoped `POST /v1/context/capabilities` and
+  `POST /v1/context/turns/finalize`; explicitly extend service authorization for
+  those routes and `/v1/chat/completions`, without granting general transcript CRUD.
+- [ ] Specify immutable turn/request binding, sequence/snapshot, generated versus
+  explicit acceptance, exact retry receipts, conflict detection and incomplete-turn recovery.
+- [ ] Define application-origin prepared local exchanges, source dependencies,
+  correction/erasure, receipt retention and the distinction from confirmed delivery.
+- [ ] Agree schemas and disclosure implications with OCH1; no new behavior is live
+  merely because this plan or a health endpoint exists.
+
+### CH2 — Standard OpenAI Chat Completions (depends on CH1)
+
+- [ ] Implement `/v1/chat/completions` using the shared pipeline while preserving
+  existing `/v1/responses` behavior and `/v1/models` discovery.
+- [ ] Preserve supplied message ordering/roles and supported tool call/result IDs;
+  no custom turn/session/finalize request is required for ordinary clients.
+- [ ] Implement standard completion and SSE chunk formats, finish reasons, usage,
+  error handling, streaming cancellation and incomplete-stream semantics.
+- [ ] Publish/test the supported parameter, tool, structured-output and modality
+  matrix; reject unsupported behavior-affecting fields rather than silently dropping them.
+- [ ] Verify an unchanged OpenAI SDK client with only endpoint/credential/model
+  configuration, including multi-turn chat, streaming, tools and separate chats per subject.
+
+### CH3 — Reliable managed history and finalization (depends on CH1)
+
+- [ ] Add migration/repositories for durable turn ordering, request hashes, response
+  binding, completion/acceptance, history snapshots and bounded retry receipts.
+- [ ] Query latest eligible owner/session turns and return chronological groups;
+  do not reuse oldest-first `ListBySession` as the recent-history implementation.
+- [ ] Persist only new inbound content; assembled/replayed context must not duplicate
+  transcript rows. Avoid arbitrary text deduplication of legitimate repeated messages.
+- [ ] Implement capability/finalize endpoints; identical retries converge, conflicting
+  reuse fails, and foreign response/session/turn IDs cannot select another account.
+- [ ] Replay completed generated turns or explicitly finalized accepted replacements
+  according to mode; exclude rejected/pending drafts and incomplete streams.
+- [ ] Define pending-turn barriers, failure recovery and legacy-history rollout;
+  never automatically promote old drafts or promise exactly-once provider calls.
+- [ ] Bound recent turns and whole prompt size, preserving tool groups and reserving
+  instructions/current facts/output; evaluate an initial eight-exchange window.
+- [ ] Enforce deletion/revision fences before classifier/generator access, including
+  requests without new knowledge refs; cover all new rows in selective/full erasure.
+- [ ] Test concurrent ordering, restart, retries, local turns, replacement, limits,
+  ownership, delayed finalize after purge and pending linked-session cleanup.
+
+### CH4 — OpenAI Decisions observation (depends on CH3 and working Oria baseline)
+
+- [ ] Add bounded `/v1/decisions` HTTP integration, validated typed results, recipe/model
+  configuration and provider capability/access checks; keep credentials in SecondContext.
+- [ ] Evaluate recent-dialogue dependence and older-discussion reference separately
+  using prepared current input and bounded eligible history.
+- [ ] Observe routing while generation still uses recent history; label synthetic
+  cases for follow-ups, corrections, topic switches, local exchanges and older references.
+- [ ] On classifier uncertainty/refusal/timeout/malformed response, use recent history;
+  never substitute that fallback for failed auth, deletion or canonical validation.
+- [ ] Keep legacy memory salience unchanged; routing decisions confer no authority.
+
+### CH5 — Cache economics and diagnostics (depends on CH4)
+
+- [ ] Use stable shared-input prefixes, newest content last, appropriate explicit
+  breakpoints and bounded segment rotation; partition opaque keys by subject/session/version.
+- [ ] Respect the documented 1,024-token minimum and exclusion of question content;
+  do not pad requests or assume cache sharing with generation. Recheck current API docs.
+- [ ] Invalidate eligible content/context generation after correction/erasure; always
+  revalidate canonical state and never claim local deletion purges provider caches.
+- [ ] Measure cache reads/writes, total cost, latency and fallbacks on cold/warm
+  short/long conversations; keep transcript text and private IDs out of routine telemetry.
+
+### CH6 — Enable evaluated adaptive selection (depends on CH4/CH5 and OCH4)
+
+- [ ] Calibrate thresholds against recent-history baseline; prioritize avoiding missed
+  context and demonstrate end-to-end quality plus useful latency/cost results.
+- [ ] Add independent adaptive enable/rollback controls; omit recent dialogue only
+  for supported standalone decisions and preserve memory/knowledge independence.
+- [ ] If justified by evaluation, retrieve bounded older turns within the same
+  session with canonical hydration, chronological excerpts and erasure coverage.
+- [ ] Keep cross-session replay, summaries, transcript embeddings and automatic
+  transcript-to-memory extraction deferred pending explicit provenance/lifecycle design.
+
+### CH7 — Cross-repository release and evidence (depends on CH2/CH3 and OCH4)
+
+- [ ] Run focused tests, root `make verify`, relevant race tests and Oria contracts/
+  replays; record exact checks and limitations in `docs/evidence/`.
+- [ ] Update architecture, API support matrix, operations, config examples and public
+  contracts with each slice; preserve the local PLAN execution-record convention.
+- [ ] Release recent history first; Decisions observation may accompany it, while
+  adaptive routing waits for CH6. Keep unsupported/deferred capabilities explicit.
+- [ ] Publish versioned digest-pinned images and coordinate capability/disclosure
+  checks and OCH5 rollout; verify migrations and rollback compatibility.
+- [ ] Verify real-provider generation/continuity and erasure separately from health;
+  restrict live changes to `oria-live-test` and keep external `KNOWLEDGE_ENABLED` disabled.
+- [ ] Verify rollback preserves accepted-turn recovery and deletion; no host-wide
+  cleanup, unpublished live image references or automatic deployment from this plan.
+
 ## Stage 0 — Project Definition
 
 ### Goals
@@ -148,11 +258,11 @@ interaction_outcomes
 
 - [x] Implement `GET /v1/models`.
 - [x] Implement basic `POST /v1/responses`.
-- [ ] Optionally implement `POST /v1/chat/completions`.
+- [ ] Implement `POST /v1/chat/completions` through the current CH2 compatibility track.
 - [x] Define request/response structs.
 - [x] Add upstream LLM client.
 - [x] Support non-streaming responses.
-- [ ] Optionally support streaming responses.
+- [ ] Support Chat Completions streaming through CH2; specify Responses streaming separately in the support matrix.
 - [x] Persist inbound user messages.
 - [x] Persist assistant responses.
 - [x] Add basic error handling.
