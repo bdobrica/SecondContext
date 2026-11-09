@@ -1,7 +1,8 @@
 # Architecture
 
 SecondContext is a Go gateway that adds persistent context to an upstream
-OpenAI-compatible model. It supports non-streaming `/v1/responses`, memory
+OpenAI-compatible model. It supports non-streaming `/v1/responses`, supplied-history
+[`/v1/chat/completions`](contracts/chat-completions-v1.md) with tools and SSE, memory
 ingestion/search, topic-specific person models, belief tracking, communication
 strategies and outcome feedback. The optional knowledge base adds documentary
 evidence through HTTP and runs independently.
@@ -139,12 +140,14 @@ content into the legacy vector/cognitive pipeline. Linked response sessions are
 tracked before generation; selective erasure removes entire linked sessions and
 dependent projections. Migration000004 and coordinated consumer release are needed.
 
-## Accepted conversation-history boundary (implementation pending)
+## Conversation-history boundary (managed lifecycle pending)
 
 [ADR 0007](adr/0007-conversation-history.md) and [history v1](contracts/conversation-history-v1.md)
 separate supplied dialogue from optional managed replay. SecondContext owns ordered
 accepted turns and prompt assembly; consumers own consent, current facts, acceptance
 and delivery. Finalize supports accepted replacements, prepared local exchanges and
 pending abandonment. Linked erasure includes the new state with payload-free session
-fences against delayed recreation. This accepted decision is not implemented yet;
-CH2/CH3 add runtime compatibility and recent history before capability advertisement.
+fences against delayed recreation. CH2 implements the ordinary supplied-history
+Chat Completions subset; it shares retrieval and preserves wire messages without
+archiving client transcripts. CH3 must implement managed lifecycle/recent history
+before capability advertisement. Existing Responses persistence remains unchanged.

@@ -8,7 +8,9 @@ every broader hardening deliverable is finished.
 
 ## Current priority — OpenAI-compatible conversation history
 
-CH1 is complete as a contract/schema slice; runtime CH2–CH7 remain pending.
+CH1 and CH2 are complete: contracts and supplied-history Chat Completions.
+Managed lifecycle/replay (CH3) and CH4–CH7 remain pending. See the
+[implemented API matrix](docs/contracts/chat-completions-v1.md).
 The accepted [history contract](docs/contracts/conversation-history-v1.md) and
 [ADR 0007](docs/adr/0007-conversation-history.md) define the boundary.
 This coordinated track adds ordinary Chat Completions support
@@ -38,15 +40,15 @@ cover consent, accepted replies and delivery. Sibling checkout: `../OriaEngine/`
 
 ### CH2 — Standard OpenAI Chat Completions (depends on CH1)
 
-- [ ] Implement `/v1/chat/completions` using the shared pipeline while preserving
+- [x] Implement `/v1/chat/completions` using the shared pipeline while preserving
   existing `/v1/responses` behavior and `/v1/models` discovery.
-- [ ] Preserve supplied message ordering/roles and supported tool call/result IDs;
+- [x] Preserve supplied message ordering/roles and supported tool call/result IDs;
   no custom turn/session/finalize request is required for ordinary clients.
-- [ ] Implement standard completion and SSE chunk formats, finish reasons, usage,
+- [x] Implement standard completion and SSE chunk formats, finish reasons, usage,
   error handling, streaming cancellation and incomplete-stream semantics.
-- [ ] Publish/test the supported parameter, tool, structured-output and modality
+- [x] Publish/test the supported parameter, tool, structured-output and modality
   matrix; reject unsupported behavior-affecting fields rather than silently dropping them.
-- [ ] Verify an unchanged OpenAI SDK client with only endpoint/credential/model
+- [x] Verify an unchanged OpenAI SDK client with only endpoint/credential/model
   configuration, including multi-turn chat, streaming, tools and separate chats per subject.
 
 ### CH3 — Reliable managed history and finalization (depends on CH1)

@@ -255,10 +255,13 @@ OpenAI-compatible endpoints:
 
 ```text
 GET  /v1/models                implemented
-POST /v1/responses            implemented
+POST /v1/responses            implemented (non-streaming)
+POST /v1/chat/completions     implemented (text, function tools, SSE)
 ```
 
-Streaming and `POST /v1/chat/completions` remain deferred.
+Chat Completions supports supplied multi-turn dialogue, function tools and SSE. See the
+[supported API matrix](docs/contracts/chat-completions-v1.md). Managed transcript replay
+and Responses streaming remain deferred.
 
 Internal/debug endpoints:
 
@@ -321,6 +324,7 @@ Current capabilities include:
 - Postgres-backed schema and repositories;
 - `GET /v1/models`;
 - non-streaming `POST /v1/responses`;
+- supplied-history `POST /v1/chat/completions` with text, function tools and SSE;
 - an upstream OpenAI-compatible chat client;
 - persistence of inbound user messages and assistant replies;
 - manual memory ingest, list, and delete endpoints;
@@ -360,8 +364,8 @@ Current capabilities include:
 
 Not implemented yet:
 
-- streaming responses;
-- `POST /v1/chat/completions`.
+- streaming on `/v1/responses`;
+- opt-in managed transcript capture, replay and finalization (CH3).
 
 See:
 
@@ -479,7 +483,7 @@ Integration output is verbose so tenant-isolation regressions—including `TestA
 
 ### API resource limits
 
-JSON request bodies are limited to 1 MiB and must contain exactly one JSON value. Internal mutation endpoints reject unknown fields; the OpenAI-compatible `/v1/responses` endpoint accepts unknown fields for client compatibility. Within a response request, `input` is limited to 256 KiB of encoded JSON and `metadata` to 64 KiB.
+JSON request bodies are limited to 1 MiB and must contain exactly one JSON value. Internal mutation endpoints reject unknown fields; the OpenAI-compatible `/v1/responses` endpoint accepts unknown fields for client compatibility. Within a response request, `input` is limited to 256 KiB of encoded JSON and `metadata` to 64 KiB. The new Chat Completions route requires authenticated storage and validates its documented subset, rejecting unsupported fields; its encoded `messages` has the same 256 KiB bound. See [compatibility and streaming limits](docs/contracts/chat-completions-v1.md).
 
 Memory and belief list endpoints accept `limit` values from 1 through 100. Memory search defaults to 10 results when `limit` is omitted and accepts explicit values from 1 through 50. Retrieval expands a request to at most 200 Qdrant candidates and 600 hybrid-prefetch candidates. Upstream OpenAI responses are limited to 8 MiB and Qdrant responses to 16 MiB; oversized responses fail with a bounded generic error rather than being included in API output.
 

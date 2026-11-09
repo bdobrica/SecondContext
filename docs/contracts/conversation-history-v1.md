@@ -1,6 +1,8 @@
 # Conversation history — v1
 
-Status: accepted contract, 2026-11-09; **not implemented or advertised yet**.
+Status: accepted contract, 2026-11-09; **managed history not implemented or advertised yet**.
+CH2 implements the ordinary [Chat Completions subset](chat-completions-v1.md); CH3
+remains responsible for managed capture/replay, capabilities and finalization.
 [ADR 0007](../adr/0007-conversation-history.md) authorizes this additive boundary.
 CH2/CH3 implement it; CH4–CH6 gate Decisions/adaptive behavior independently.
 The authored [JSON Schema](conversation-history-v1.schema.json) defines closed

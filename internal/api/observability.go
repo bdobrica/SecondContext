@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -363,4 +364,15 @@ func (c *observedLLMClient) record(ctx context.Context, operation, model string,
 		return
 	}
 	c.logger.Info("upstream llm request", args...)
+}
+
+func (c *observedLLMClient) Chat(ctx context.Context, request llm.ChatRequest, emit func(json.RawMessage) error) (llm.ChatResult, error) {
+	started := time.Now()
+	client, ok := c.next.(llm.ChatClient)
+	if !ok {
+		return llm.ChatResult{}, &llm.Error{StatusCode: 503, Message: "chat completion provider unavailable", Type: "server_error", Code: "chat_unavailable"}
+	}
+	result, err := client.Chat(ctx, request, emit)
+	c.record(ctx, "chat", request.Model, time.Since(started), result.Usage, err)
+	return result, err
 }
