@@ -262,3 +262,6 @@ budget omission; missing/foreign IDs; failed streams; purge and selective erasur
 races; old-generation retries after fences; privacy commands through consumer
 barriers; delivery failure with accepted history; no legacy draft backfill. JSON
 schema checks alone cannot prove any storage, ordering, scope or erasure invariant.
+
+The [CH7 release checklist](../conversation-history-release.md) records the recent-only release boundary,
+coordinated consumer gates and rollback requirements; adaptive remains deferred.

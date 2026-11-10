@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: secondcontext
       POSTGRES_DB: secondcontext_integration
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U secondcontext -d secondcontext_integration"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U secondcontext -d secondcontext_integration"]
       interval: 2s
       timeout: 5s
       retries: 30

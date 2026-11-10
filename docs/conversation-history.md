@@ -113,8 +113,9 @@ Back up canonical storage and stop existing gateway writers. Apply migration 000
 verify its clean version, and deploy only instances implementing the same fences.
 The migration backfills existing link revisions, never accepted dialogue. Confirm
 scoped capabilities with the intended model ceilings before consumer enablement.
-Oria still needs OCH2/OCH3 capability gating, consent/disclosure changes and durable
-accepted-turn work; CH3 alone does not activate Oria conversation history.
+Oria OCH2–OCH4 implements capability gating, disclosure, durable accepted-turn
+work and cross-service verification. These source changes do not activate live
+conversation history; use the [CH7 release checklist](conversation-history-release.md).
 
 To roll back capture, set `HISTORY_ENABLED=false` while retaining this implementation
 and migration. Existing finalization/abandon/erasure work continues. Do not downgrade
@@ -123,3 +124,6 @@ script deliberately refuses destructive removal of those fences; a failed attemp
 down migration requires the normal operator dirty-version recovery procedure.
 Publication, live migration, provider continuity/quality checks and application
 rollout are separate CH7/OCH5 work. See [CH3 evidence](evidence/conversation-history-ch3.md).
+
+See the [CH7 release checklist](conversation-history-release.md) for coordinated
+versions, independent capture controls, live checks and rollback ordering.

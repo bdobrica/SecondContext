@@ -157,3 +157,6 @@ Accepted whole exchanges replay chronologically with conservative whole-prompt
 limits. New capture is disabled by default; finalize/abandon/erasure recovery remains
 available when capture is disabled. Existing unextended Responses persistence is
 unchanged. See [managed history operations](conversation-history.md).
+
+The [CH7 release checklist](conversation-history-release.md) records the recent-only release boundary,
+coordinated consumer gates and rollback requirements; adaptive remains deferred.

@@ -167,3 +167,6 @@ It makes no paid model calls and uses no production credentials. The SDK is a te
 environment dependency, not a Go gateway dependency. Without the environment variable,
 the integration log explicitly reports that the SDK check was not requested.
 See [CH2 evidence](../evidence/chat-completions-ch2.md) for executed checks and limits.
+
+The [CH7 release checklist](../conversation-history-release.md) records the recent-only release boundary,
+coordinated consumer gates and rollback requirements; adaptive remains deferred.

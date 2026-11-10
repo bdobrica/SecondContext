@@ -9,8 +9,9 @@ every broader hardening deliverable is finished.
 ## Current priority — OpenAI-compatible conversation history
 
 CH1–CH3 are complete: contracts, supplied-history Chat Completions and opt-in
-managed recent history/finalization. CH4–CH7 remain pending; consumer OCH2/OCH3 and
-coordinated release are still required. See the
+managed recent history/finalization. Consumer OCH2–OCH4 are complete. CH7 release
+preparation and synthetic rollback checks are implemented; publication/live rollout
+remain pending. CH4–CH6 Decisions/adaptive work remains deferred. See the
 [implemented API matrix](docs/contracts/chat-completions-v1.md).
 The accepted [history contract](docs/contracts/conversation-history-v1.md) and
 [ADR 0007](docs/adr/0007-conversation-history.md) define the boundary.
@@ -109,9 +110,13 @@ cover consent, accepted replies and delivery. Sibling checkout: `../OriaEngine/`
 
 ### CH7 — Cross-repository release and evidence (depends on CH2/CH3 and OCH4)
 
-- [ ] Run focused tests, root `make verify`, relevant race tests and Oria contracts/
+See the [recent-history release checklist](docs/conversation-history-release.md)
+and [CH7 evidence](docs/evidence/conversation-history-ch7.md). Gateway candidate
+0.2.2 coordinates with Oria/MCP 0.2.1; unpublished versions are not live references.
+
+- [x] Run focused tests, root `make verify`, relevant race tests and Oria contracts/
   replays; record exact checks and limitations in `docs/evidence/`.
-- [ ] Update architecture, API support matrix, operations, config examples and public
+- [x] Update architecture, API support matrix, operations, config examples and public
   contracts with each slice; preserve the local PLAN execution-record convention.
 - [ ] Release recent history first; Decisions observation may accompany it, while
   adaptive routing waits for CH6. Keep unsupported/deferred capabilities explicit.
@@ -119,8 +124,10 @@ cover consent, accepted replies and delivery. Sibling checkout: `../OriaEngine/`
   checks and OCH5 rollout; verify migrations and rollback compatibility.
 - [ ] Verify real-provider generation/continuity and erasure separately from health;
   restrict live changes to `oria-live-test` and keep external `KNOWLEDGE_ENABLED` disabled.
-- [ ] Verify rollback preserves accepted-turn recovery and deletion; no host-wide
-  cleanup, unpublished live image references or automatic deployment from this plan.
+- [x] Verify rollback preserves accepted-turn recovery and deletion in real-gateway
+  replay and packaged-image tests; do not treat synthetic checks as a live drill.
+- [ ] Record the live rollback drill; no host-wide cleanup, unpublished live image
+  references or automatic deployment from this plan.
 
 ## Stage 0 — Project Definition
 

@@ -10,6 +10,7 @@ export SECOND_CONTEXT_POSTGRES_PASSWORD=docker-smoke-only-password
 export SECOND_CONTEXT_SERVICE_NAMESPACE=oria
 export SECOND_CONTEXT_SERVICE_TOKEN=docker-smoke-only-service-token
 export SECOND_CONTEXT_OPENAI_API_KEY=docker-smoke-no-model-calls
+export SECOND_CONTEXT_HISTORY_ENABLED=true
 compose=(docker compose --env-file /dev/null -p "$project_name" -f deploy/compose.secondcontext.yml)
 
 cleanup() {
@@ -29,18 +30,47 @@ version=$("${compose[@]}" run --rm --no-deps secondcontext-migrate /app/migrate 
 [[ "$version" == "version=5 dirty=false" ]]
 
 schema=$("${compose[@]}" exec -T secondcontext-postgres psql -U secondcontext -d secondcontext -Atc \
-	"SELECT to_regclass('memory_items') IS NOT NULL AND to_regclass('interaction_outcomes') IS NOT NULL AND to_regclass('subject_purges') IS NOT NULL AND to_regclass('context_projections') IS NOT NULL AND to_regclass('context_projection_operations') IS NOT NULL AND to_regclass('context_projection_sessions') IS NOT NULL")
+	"SELECT to_regclass('memory_items') IS NOT NULL AND to_regclass('interaction_outcomes') IS NOT NULL AND to_regclass('subject_purges') IS NOT NULL AND to_regclass('context_projections') IS NOT NULL AND to_regclass('context_projection_operations') IS NOT NULL AND to_regclass('context_projection_sessions') IS NOT NULL AND to_regclass('conversation_turns') IS NOT NULL AND to_regclass('context_session_fences') IS NOT NULL")
 [[ "$schema" == "t" ]]
 "${compose[@]}" exec -T secondcontext wget -q -O - http://127.0.0.1:8080/healthz
 
-echo "==> checking the Oria service credential against a migrated endpoint"
+echo "==> checking history capability and receipts in the packaged runtime"
 subject=oria:00000000-0000-4000-8000-000000000001
+post_history() {
+    "${compose[@]}" exec -T secondcontext wget -S -q -O - \
+        --header="Authorization: Bearer $SECOND_CONTEXT_SERVICE_TOKEN" \
+        --header="X-SecondContext-Subject: $subject" \
+        --header='Content-Type: application/json' --post-data="$2" \
+        "http://127.0.0.1:8080$1" 2>&1 || true
+}
+capability=$(post_history /v1/context/capabilities "{\"user\":\"$subject\"}")
+[[ "$capability" == *"HTTP/1.1 200"* && "$capability" == *'"implementation":"conversation-history-1"'* && "$capability" == *'"history_modes":["off","recent"]'* ]]
+local_turn="{\"contract_version\":1,\"user\":\"$subject\",\"session_id\":\"packaged-history-check\",\"turn_id\":\"00000000-0000-4000-8000-000000000001\",\"action\":\"accept_local\",\"user_text\":\"Synthetic local question\",\"assistant_text\":\"Synthetic local answer\",\"knowledge_refs\":[]}"
+receipt=$(post_history /v1/context/turns/finalize "$local_turn")
+[[ "$receipt" == *"HTTP/1.1 200"* && "$receipt" == *'"status":"accepted"'* && "$receipt" == *'"sequence":1'* ]]
+
+echo "==> capture rollback preserves receipts and purge on schema 5"
+export SECOND_CONTEXT_HISTORY_ENABLED=false
+"${compose[@]}" up -d --wait --wait-timeout 120 secondcontext
+capability=$(post_history /v1/context/capabilities "{\"user\":\"$subject\"}")
+[[ "$capability" == *"HTTP/1.1 503"* ]]
+retry=$(post_history /v1/context/turns/finalize "$local_turn")
+compact_retry="${retry//[[:space:]]/}"
+[[ "$retry" == *"HTTP/1.1 200"* && "$compact_retry" == *'"status":"accepted"'* && "$compact_retry" == *'"sequence":1'* ]]
+# Use another turn in the existing session: new local capture is disabled.
+new_turn="${local_turn/00000000-0000-4000-8000-000000000001\",\"action/00000000-0000-4000-8000-000000000002\",\"action}"
+rejected=$(post_history /v1/context/turns/finalize "$new_turn")
+[[ "$rejected" == *"HTTP/1.1 503"* ]]
+
+echo "==> checking the Oria service credential against a migrated endpoint"
 response=$("${compose[@]}" exec -T secondcontext wget -S -q -O - \
 	--header="Authorization: Bearer $SECOND_CONTEXT_SERVICE_TOKEN" \
 	--header="X-SecondContext-Subject: $subject" \
 	--header='Content-Type: application/json' --post-data="{\"user\":\"$subject\"}" \
 	http://127.0.0.1:8080/v1/subjects/purge 2>&1)
 [[ "$response" == *"HTTP/1.1 200"* && "$response" == *'"status":"completed"'* ]]
+delayed=$(post_history /v1/context/turns/finalize "$local_turn")
+[[ "$delayed" == *"HTTP/1.1 410"* ]]
 
 echo "==> applying migrations again preserves existing state"
 "${compose[@]}" run --rm --no-deps secondcontext-migrate

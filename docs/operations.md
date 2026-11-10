@@ -303,3 +303,6 @@ CH3 requires migration **000005** and `HISTORY_ENABLED=true` before scoped
 recovery, retention and rollback. Default deployments remain disabled. Finalization
 of existing turns and erasure stay available while new capture is disabled.
 Never roll back to an image that ignores session fences after enabling this feature.
+
+The [CH7 release checklist](conversation-history-release.md) records the recent-only release boundary,
+coordinated consumer gates and rollback requirements; adaptive remains deferred.

@@ -59,7 +59,7 @@ services:
       POSTGRES_PASSWORD: ${SECOND_CONTEXT_POSTGRES_PASSWORD:?Set SECOND_CONTEXT_POSTGRES_PASSWORD}
       POSTGRES_DB: secondcontext
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U secondcontext -d secondcontext"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U secondcontext -d secondcontext"]
       interval: 2s
       timeout: 5s
       retries: 30
