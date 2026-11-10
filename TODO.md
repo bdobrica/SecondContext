@@ -9,9 +9,12 @@ every broader hardening deliverable is finished.
 ## Current priority — OpenAI-compatible conversation history
 
 CH1–CH3 are complete: contracts, supplied-history Chat Completions and opt-in
-managed recent history/finalization. Consumer OCH2–OCH4 are complete. CH7 release
-preparation and synthetic rollback checks are implemented; publication/live rollout
-remain pending. CH4–CH6 Decisions/adaptive work remains deferred. See the
+managed recent history/finalization. Consumer OCH2–OCH4 are complete. The CH7
+recent baseline is published and enabled in `oria-live-test`; live continuity,
+erasure and capture rollback passed. Private Telegram review confirmed policy/deletion but failed conversation continuity.
+Oria 0.2.2’s source-readiness/budget correction is deployed and live synthetic
+reading/follow-up/date probes passed. Private Telegram retest remains.
+CH4–CH6 Decisions/adaptive work remains deferred. See the
 [implemented API matrix](docs/contracts/chat-completions-v1.md).
 The accepted [history contract](docs/contracts/conversation-history-v1.md) and
 [ADR 0007](docs/adr/0007-conversation-history.md) define the boundary.
@@ -111,23 +114,26 @@ cover consent, accepted replies and delivery. Sibling checkout: `../OriaEngine/`
 ### CH7 — Cross-repository release and evidence (depends on CH2/CH3 and OCH4)
 
 See the [recent-history release checklist](docs/conversation-history-release.md)
-and [CH7 evidence](docs/evidence/conversation-history-ch7.md). Gateway candidate
-0.2.2 coordinates with Oria/MCP 0.2.1; unpublished versions are not live references.
+and [CH7 evidence](docs/evidence/conversation-history-ch7.md). Gateway
+0.2.2 is deployed with Oria 0.2.2 and MCP 0.2.1, using verified immutable digests.
 
 - [x] Run focused tests, root `make verify`, relevant race tests and Oria contracts/
   replays; record exact checks and limitations in `docs/evidence/`.
 - [x] Update architecture, API support matrix, operations, config examples and public
   contracts with each slice; preserve the local PLAN execution-record convention.
-- [ ] Release recent history first; Decisions observation may accompany it, while
+- [x] Release recent history first; Decisions observation may accompany it, while
   adaptive routing waits for CH6. Keep unsupported/deferred capabilities explicit.
-- [ ] Publish versioned digest-pinned images and coordinate capability/disclosure
+- [x] Publish versioned digest-pinned images and coordinate capability/disclosure
   checks and OCH5 rollout; verify migrations and rollback compatibility.
-- [ ] Verify real-provider generation/continuity and erasure separately from health;
+- [x] Verify real-provider generation/continuity and erasure separately from health;
   restrict live changes to `oria-live-test` and keep external `KNOWLEDGE_ENABLED` disabled.
 - [x] Verify rollback preserves accepted-turn recovery and deletion in real-gateway
   replay and packaged-image tests; do not treat synthetic checks as a live drill.
-- [ ] Record the live rollback drill; no host-wide cleanup, unpublished live image
-  references or automatic deployment from this plan.
+- [x] Record the live provider capture rollback drill with generated acceptance,
+  local receipt recovery, legacy generation and erasure; preserve all live storage.
+- [x] Record the participating user's policy acceptance and account-deletion pass.
+- [ ] Retest private Telegram continuity after the Oria 0.2.2 correction.
+  Follow the companion OCH5 evidence. No automatic deployment follows from this plan.
 
 ## Stage 0 — Project Definition
 
