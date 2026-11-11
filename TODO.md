@@ -118,17 +118,17 @@ remain deferred under ADR 0007.
 - [ ] Before production enablement, establish useful aggregate workload economics and
   quality; the 24-case synthetic comparison preserved context but increased overall
   cost and latency. Selective long-request savings are not an all-traffic benefit.
-- [ ] Publish a compatible provider image; coordinate a separately configured consumer
-  adaptive opt-in with durable header binding. Oria currently requests recent.
+- [ ] Coordinate a separately configured consumer adaptive opt-in with durable
+  header binding. Provider 0.2.3 is published; Oria currently requests recent.
 
 ### CH7 — Cross-repository release and evidence (depends on CH2/CH3 and OCH4)
 
 See the [recent-history release checklist](docs/conversation-history-release.md)
 and [CH7 evidence](docs/evidence/conversation-history-ch7.md). Gateway
-0.2.2 is deployed with Oria 0.2.3 and MCP 0.2.1, using verified immutable digests.
+0.2.3 is deployed with Oria 0.2.4 and MCP 0.2.1, using verified immutable digests.
 The [CH4–CH6 repeat release](docs/evidence/conversation-history-ch7-repeat.md)
-prepares gateway 0.2.3 with Oria 0.2.4. Publication/live gates are pending;
-observation and adaptive stay disabled.
+passed publication, live continuity/topic checks, erasure and capture rollback.
+Observation and adaptive stay disabled; private Telegram review remains pending.
 
 - [x] Run focused tests, root `make verify`, relevant race tests and Oria contracts/
   replays; record exact checks and limitations in `docs/evidence/`.

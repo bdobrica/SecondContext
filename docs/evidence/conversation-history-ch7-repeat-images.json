@@ -1,0 +1,32 @@
+{
+  "SECOND_CONTEXT_IMAGE": {
+    "image": "quay.io/bdobrica/secondcontext-gateway@sha256:14c686aae83288469788ca41d2f523d69c8ebe9096388a0c2c9ba72eb2d74127",
+    "revision": "98328e1139e76ed93a62543caa537f6a632443eb",
+    "version": "0.2.3",
+    "source": "https://github.com/bdobrica/SecondContext",
+    "platforms": {
+      "linux/amd64": "sha256:6be8dfced4e3d986768a27f29208d854a2fc991fc29b72e8b1c73db546fdb726",
+      "linux/arm64": "sha256:6b6b7047dc98f2dd15cbfa31d38eece11f1be7ebece10e2d7fcaae1ab7461200"
+    }
+  },
+  "ORIA_APP_IMAGE": {
+    "image": "quay.io/bdobrica/oria-engine@sha256:5a58bef3c465b962d13097172649481820ed1f253893fca3cac0d22a5c123037",
+    "revision": "167f7c6296ab04dbb943e74a85c303421ce81f8e",
+    "version": "0.2.4",
+    "source": "https://github.com/bdobrica/OriaEngine",
+    "platforms": {
+      "linux/amd64": "sha256:fad345f5d0b9852a6926bf58ebf9b1ec88a09469f37f9bb5388dcb6b1796d5f9",
+      "linux/arm64": "sha256:3c6b8a258b6612703800eebc66acd44be59453f21aff996e306d5f4788617ea0"
+    }
+  },
+  "ORIA_ASTROLOGY_IMAGE": {
+    "image": "quay.io/bdobrica/oria-astrology-mcp@sha256:00953d1f67836dde5386ccca483d47b7c6007e08a77439956f429286e637abb4",
+    "revision": "6439c6f1ed02d4ef49403f27cbb129a1ead00384",
+    "version": "0.2.1",
+    "source": "https://github.com/bdobrica/OriaEngine",
+    "platforms": {
+      "linux/amd64": "sha256:4fccce58c0eda945b89d9dee065a3d8ba9e26f1f352c6063df4acfe4d452f849",
+      "linux/arm64": "sha256:c9035e7836c6b2f26818b75bd7b7e99fcf1854e34ffac36dd1ea62f844bfad57"
+    }
+  }
+}

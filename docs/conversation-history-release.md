@@ -1,8 +1,9 @@
 # CH7 recent-history release
 
-The next gateway version is **0.2.3**, coordinated with Oria application
+The released gateway version is **0.2.3**, coordinated with Oria application
 **0.2.4** and unchanged astrology MCP **0.2.1**.
-See [repeat-release evidence](evidence/conversation-history-ch7-repeat.md) for CH4–CH6 publication and rollout. Version metadata does not establish image publication or
+See [repeat-release evidence](evidence/conversation-history-ch7-repeat.md) for CH4–CH6
+publication and rollout. Version metadata does not establish image publication or
 live deployment. [Release evidence](evidence/conversation-history-ch7.md) records
 executed gates and remaining operational work. The authoritative rollout sequence
 is Oria's [coordinated checklist](https://github.com/bdobrica/OriaEngine/blob/main/docs/conversation-history-release.md).
@@ -17,12 +18,11 @@ local prepared exchanges and terminal session/subject fences are implemented.
 Legacy drafts are not backfilled. No schema or wire-shape change is introduced by
 this release preparation.
 
-The deployed baseline has no Decisions observation or adaptive selection. CH4/CH5
-are now implemented in source and disabled by default; see the optional observation
-gate below. Advertise/request adaptive only under the [CH6 gates](adaptive-history.md). Provider generation/embedding
-credentials and Decisions configuration
-remain solely in SecondContext. External `KNOWLEDGE_ENABLED` stays disabled in the
-Oria deployment; linked projections use the independent local owning-service lane.
+The deployed provider contains CH4/CH5 observation/cache diagnostics and CH6
+adaptive selection, with both switches disabled. See the optional observation gate
+below and the [CH6 gates](adaptive-history.md). Credentials and Decisions
+configuration remain solely in SecondContext. External `KNOWLEDGE_ENABLED` stays
+disabled; linked projections use the independent local owning-service lane.
 
 Before enabling capture, choose `HISTORY_RECENT_EXCHANGES`,
 `HISTORY_PROMPT_INPUT_TOKENS` and `HISTORY_RESERVED_OUTPUT_TOKENS` within the configured
@@ -56,7 +56,8 @@ do not conflate the two controls when preparing or rolling back the combined sta
 Back up each owner's storage, preserve identities and encryption keys, drain callers
 before provider migration/restart, and use only owning migration commands. Deploy
 consistent Oria disclosure **2026-11-10.1** in ingress/workers and require fresh
-acceptance. Enable provider capture and verify authenticated capabilities and actual
+acceptance at first history enablement; this patch preserves valid acceptance of
+that version. Enable provider capture and verify authenticated capabilities and actual
 model continuity/erasure with fresh synthetic subjects before enabling Oria capture.
 The Oria history release script uses only public HTTP, validates random-code recall
 from local and accepted replacement exchanges, and purges its synthetic subject.
@@ -90,11 +91,11 @@ CH4/CH5 [observation and cache diagnostics](decisions-observation.md) are now
 implemented in source, disabled by default. They do not change public capabilities
 or automatically enable CH6 adaptive routing. Publish/verify a compatible provider digest, run
 its synthetic access/economics check, and retain the consumer consent/disclosure
-gates before any production enablement. The 0.2.2 deployed baseline does not
-contain this observer. Disabling observation alone preserves recent replay and
+gates before any production enablement. The 0.2.3 deployed release contains this
+observer, kept disabled. Disabling observation alone preserves recent replay and
 all pending-turn/finalization/erasure recovery.
 
-CH6 now implements opt-in selection and paired evaluation. Publish the provider before
-consumer tests that require it. Aggregate synthetic cost/latency regressed; keep Oria
+CH6 implements opt-in selection and paired evaluation, published in provider 0.2.3.
+Consumer CI pins that release revision. Aggregate synthetic cost/latency regressed; keep Oria
 on recent until a workload-specific enablement decision and consumer implementation.
 See [CH6 evidence](evidence/conversation-history-ch6.md).
