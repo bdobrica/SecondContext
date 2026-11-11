@@ -29,6 +29,11 @@ func emptyDerivedUpdatesResponse() llm.GenerateResponse {
 }
 
 func (f *fakeLLMClient) Generate(_ context.Context, request llm.GenerateRequest) (llm.GenerateResponse, error) {
+	// Legacy scenario/answer fixtures exercise ordinary retrieval fallback. CL2
+	// interpreter/selector contracts have their own protocol-aware client.
+	if len(request.Messages) > 0 && (request.Messages[0].Content == contextInterpretationPrompt || request.Messages[0].Content == contextEvidencePrompt) {
+		return llm.GenerateResponse{OutputText: "fixture: use ordinary retrieval"}, nil
+	}
 	f.request = request
 	f.requests = append(f.requests, request)
 	if f.err != nil {

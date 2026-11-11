@@ -2,8 +2,8 @@
 
 ## Current priority — Conversational learning and product usefulness
 
-Decision date: 2026-11-11. Status: **Active; CL1 implementation and minimal inspector
-available, real-provider acceptance and CL2–CL3/M1 validation pending.**
+Decision date: 2026-11-11. Status: **Active; CL1–CL2 implementation and minimal
+inspector available; CL3, real-provider acceptance and M1 validation pending.**
 
 The next milestone is a useful product that learns from ordinary conversation.
 Production readiness follows that demonstrated usefulness. This is a replacement
@@ -133,6 +133,48 @@ existing memories while capture is being built.
 Acceptance: an unchanged client completes the Alex example and resolves natural
 follow-ups without people/topic/goal/mode metadata. A topic switch uses the new
 question, and ambiguous names do not silently acquire another person's observations.
+
+#### CL2 implementation record — 2026-11-11
+
+Implemented bounded current-request interpretation, conservative resolution of
+live subject-owned names/stored aliases, focused hybrid retrieval, candidate
+selection with inspectable reasons, and natural advice/draft/alternative intent on
+both chat endpoints. Ordinary requests require no memory metadata or session ID.
+Explicit metadata overrides inference; the ordinary path uses observations without
+mandatory numeric person/belief/scenario context. Managed interpretation can use
+bounded accepted same-session dialogue; pending and abandoned drafts remain excluded.
+
+Selected memory IDs/status are exposed in additive response headers. Responses
+also exposes the context packet. `/memory/evidence` and the companion inspector
+resolve IDs to current canonical, subject-owned, unexpired and unfenced records.
+No extra copy is stored for inspection; corrections and forgetting take effect.
+Managed Responses retains its immutable packet in the existing receipt, while
+cached managed Chat receipts do not reconstruct first-generation evidence headers.
+The managed recipe hash changes; existing configuration-conflict rules still apply.
+No migration beyond 000006, deployment, or live learning enablement was performed.
+
+Deterministic integration fixtures demonstrate fresh Chat/Responses recall,
+natural follow-ups/alternatives, topic switches, aliases/shared first names/unknown
+names, explicit overrides, fallback on invalid/failed interpretation or selection,
+isolation, controls, correction/forgetting and accepted managed history. Tool
+messages/structured output and SSE remain supported. An unchanged OpenAI SDK
+3.48.0 client performs background capture → fresh recall → follow-ups/topic switch
+on both endpoints with only endpoint/credential/model setup; learning is enabled
+by its test harness. The fixture echoes assembled context, so this establishes
+protocol and evidence flow, not useful real-model advice.
+
+`make verify` passed with mandatory Postgres/Qdrant integration tests and both
+unchanged-SDK scripts enabled. Required `make test-docker` packaging checks and
+inspector JavaScript `node --check` passed. The added evidence route is covered by
+authentication/subject-isolation checks; browser interaction was not exercised.
+Disposable test services were cleaned up. The original strategy/debug regressions also pass;
+their fixtures now distinguish analysis calls from answer generation. No live
+provider key was configured. Real extraction/interpretation/relevance quality,
+answer quality, user effort and latency remain unverified. Each request can add
+two model calls with four-second deadlines before generation; invalid analysis
+falls back to current-text semantic retrieval after identity checks. See
+[limits, inspection and recovery](docs/conversational-learning.md). CL2's live
+acceptance and the broader CL1–CL3/M1 demonstration remain open.
 
 ### CL3 — Memory inspection and correction
 

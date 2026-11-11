@@ -15,9 +15,10 @@ below. See [AGENTS.md](AGENTS.md) for governing guidance and
 for behavior, dependencies, and acceptance demonstrations. PLAN.md and TODO.md
 are versioned shared documents; the earlier local-only PLAN convention is superseded.
 
-CL1 code and a minimal CL3 inspector are implemented, with focused mechanical
-regression coverage. Real-provider extraction and usefulness validation remain open.
-Complete CL2 and CL3 as the first usable milestone M1. No unrelated
+CL1 and CL2 code and a minimal CL3 inspector are implemented, with focused
+mechanical regression coverage and an unchanged-client synthetic demonstration.
+Real-provider extraction, retrieval and usefulness validation remain open.
+Complete CL3 and the real-model acceptance as the first usable milestone M1. No unrelated
 production-readiness or rollout checklist blocks that milestone.
 Fix concrete blockers and preserve working isolation, acceptance, and forgetting.
 
@@ -64,21 +65,32 @@ provider; it does not complete the real-model M1 usefulness demonstration.
 
 ### CL2 — Natural-language retrieval and strategy
 
-- [ ] Infer people, topics, and goal from the latest request and relevant bounded
+- [x] Infer people, topics, and goal from the latest request and relevant bounded
   dialogue; explicit metadata overrides inference and ordinary retrieval is a fallback.
-- [ ] Resolve supported aliases/references against known entities without merging
+- [x] Resolve supported aliases/references against known entities without merging
   ambiguous people or assigning uncertain observations to them.
-- [ ] Replace concatenated-all-user-messages retrieval queries with current-task
+- [x] Replace concatenated-all-user-messages retrieval queries with current-task
   queries that retain only the dialogue needed to interpret the request.
-- [ ] Recall subject-owned memories across fresh conversations without replaying
+- [x] Recall subject-owned memories across fresh conversations without replaying
   unrelated transcripts or requiring a custom session identifier.
-- [ ] Make advice, alternative strategies, and follow-up drafting reachable through
+- [x] Make advice, alternative strategies, and follow-up drafting reachable through
   natural language on both chat endpoints without `memory_mode`; preserve supported
   answer, tool, and streaming formats.
-- [ ] Prefer evidence-backed recommendations and tradeoffs over mandatory numeric
+- [x] Prefer evidence-backed recommendations and tradeoffs over mandatory numeric
   success estimates; expose selected evidence for inspection.
-- [ ] Demonstrate the Alex example in an unchanged client, including a new
-  conversation, natural follow-ups, an unrelated topic switch, and ambiguous names.
+- [x] Demonstrate the Alex example mechanically in an unchanged OpenAI client:
+  background capture, fresh Chat/Responses recall, natural follow-ups and a topic
+  switch. Deterministic integration checks also cover ambiguous names and aliases.
+- [ ] Repeat the demonstration with a real provider and inspect answer quality,
+  ambiguous-reference behavior, relevance and latency. No live provider key was
+  available; fixture-generated context is not proof of useful advice.
+
+CL2 implementation uses bounded request interpretation, canonical name/alias
+checks, current-task retrieval and evidence selection. Ordinary intent stays on
+normal generation; explicit metadata retains its overrides. Selected evidence is
+available through response headers, Responses context packets and the inspector.
+See [behavior, bounds and fallbacks](docs/conversational-learning.md#natural-recall-advice-and-follow-ups-cl2).
+The full M1 usefulness milestone remains open.
 
 ### CL3 — Memory inspection and correction
 

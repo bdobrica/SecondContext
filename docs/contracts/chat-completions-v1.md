@@ -23,7 +23,12 @@ The caller supplies the entire conversation. Original message order, roles,
 content whitespace, text parts, names, tool IDs and tool argument strings survive
 prompt assembly. A gateway system message precedes those messages with the shared
 bounded memory/reference context and grounding instructions. Memory and reference
-retrieval use the supplied user text and retain independent failure/disable behavior.
+retrieval use the current-task query and retain independent failure/disable behavior.
+CL2 interprets the latest request with bounded relevant user/assistant dialogue;
+explicit metadata overrides inference. Natural requests for drafts/advice/alternatives
+use ordinary generation without `memory_mode` or numeric scenario orchestration.
+Ambiguous known names withhold personal memory and request clarification. See
+[CL2 limits, fallbacks and evidence inspection](../conversational-learning.md#natural-recall-advice-and-follow-ups-cl2).
 The gateway neither trims supplied history nor appends another chat's transcript.
 
 CH2 does not archive supplied Chat Completions transcripts or generated results,
@@ -136,8 +141,16 @@ the deadline expires, close without a success marker. Client cancellation cancel
 the provider HTTP request and releases the subject lock. There is no success,
 accepted-history state or persistence on an incomplete stream.
 
+CL2 adds `X-SecondContext-Memory-Ids`, `X-SecondContext-Interpretation`, and
+`X-SecondContext-Evidence` response headers, including on SSE. They expose retained
+personal evidence IDs and analysis/fallback status without changing completion bodies.
+Inspect current observations via the authenticated `/memory/evidence` endpoint or
+companion inspector. A cached managed Chat body does not reconstruct these headers.
+
 The existing 30-second request deadline and configured upstream request timeout
-apply. Writes receive the request deadline so a stalled consumer cannot hold the
+apply. CL2 interpretation and candidate selection each have a four-second deadline
+within the request deadline, before generation; their usage is not added to the
+provider answer usage. Writes receive the request deadline so a stalled consumer cannot hold the
 subject lock indefinitely. No automatic provider retries or credential-bearing
 redirects are followed on this endpoint. Provider 400/422 maps to 400, 429 to 429;
 other provider failures map to 502 with sanitized OpenAI-shaped errors. Provider

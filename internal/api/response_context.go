@@ -25,6 +25,19 @@ const (
 
 func (s *Server) buildResponseContext(ctx context.Context, request createResponseRequest, metadata requestMetadata, messages []llm.Message) (*prompts.ContextPacket, error) {
 	packet := buildBaseContextPacket(request, messages, metadata.UserExternalID)
+	if requestDisablesMemory(request) {
+		packet.InterpretationStatus = "disabled"
+		packet.EvidenceStatus = "disabled"
+	}
+	if !requestDisablesMemory(request) && s.dbPool != nil {
+		s.interpretResponseContext(ctx, packet, request, messages)
+	}
+	_, explicitPeople := request.Metadata["people"]
+	_, explicitTopics := request.Metadata["topics"]
+	_, explicitMode := request.Metadata["memory_mode"]
+	packet.UseStructuredModels = explicitPeople || explicitTopics || explicitMode
+	packet.FilterPeople = explicitPeople
+	packet.FilterTopics = explicitTopics
 	// The two branches mutate separate packets, then merge after both complete.
 	// Memory/embedding failure cannot suppress reference retrieval (or vice versa).
 	knowledgePacket := *packet
@@ -41,6 +54,15 @@ func (s *Server) buildResponseContext(ctx context.Context, request createRespons
 	packet.KnowledgeContext = knowledgePacket.KnowledgeContext
 	packet.KnowledgeStatus = knowledgePacket.KnowledgeStatus
 	prompts.ApplyContextBudgets(packet)
+	selected := map[string]bool{}
+	for _, m := range packet.MemoryContext {
+		selected[m.ID] = true
+	}
+	for id := range packet.EvidenceReasons {
+		if !selected[id] {
+			delete(packet.EvidenceReasons, id)
+		}
+	}
 	return packet, err
 }
 
@@ -68,19 +90,38 @@ func (s *Server) populateResponseContext(ctx context.Context, packet *prompts.Co
 		return nil
 	}
 
+	if packet.IdentityUncertain {
+		packet.EvidenceStatus = "identity_unresolved"
+		return nil
+	}
+	// Inferred labels are hints. Only explicit metadata retains hard filters.
+	var people, topics []string
+	if packet.FilterPeople {
+		people = packet.People
+	}
+	if packet.FilterTopics {
+		topics = packet.Topics
+	}
 	results, err := retrievalsvc.NewService(s.cfg, s.dbPool, s.llm).Search(ctx, retrievalsvc.SearchParams{
 		Query:          firstNonEmpty(packet.Query, packet.Goal),
 		Goal:           packet.Goal,
 		UserExternalID: packet.UserExternalID,
-		People:         packet.People,
-		Topics:         packet.Topics,
+		People:         people,
+		Topics:         topics,
 		Limit:          responseContextMemoryLimit,
 	})
 	if err != nil {
+		packet.EvidenceStatus = "unavailable"
 		return err
 	}
 
+	results = s.selectContextEvidence(ctx, packet, results)
 	packet.MemoryContext, packet.OmittedMemories = buildMemoryContext(results)
+	if !packet.UseStructuredModels || packet.IdentityUncertain {
+		// The conversational path uses current source-backed evidence, not derived
+		// person/belief models that may outlive a correction.
+		return nil
+	}
 	modelContext, err := modeling.NewService(s.cfg, s.dbPool, s.llm).BuildPromptContext(ctx, packet.UserExternalID, collectContextPeople(packet, results), collectContextTopics(packet, results), responseContextPeopleLimit)
 	if err == nil {
 		packet.PeopleContext = buildPeopleContext(packet, modelContext, results)
@@ -269,17 +310,12 @@ func resolveResponseMode(raw string) prompts.ResponseMode {
 }
 
 func collectUserQuery(messages []llm.Message) string {
-	parts := make([]string, 0, len(messages))
-	for _, message := range messages {
-		if message.Role != "user" {
-			continue
-		}
-		if text := strings.TrimSpace(message.Content); text != "" {
-			parts = append(parts, text)
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == "user" && strings.TrimSpace(messages[i].Content) != "" {
+			return knowledge.ClipUTF8(strings.TrimSpace(messages[i].Content), 3000)
 		}
 	}
-
-	return strings.Join(parts, "\n")
+	return ""
 }
 
 func stringSliceFromMap(values map[string]any, key string) []string {

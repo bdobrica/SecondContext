@@ -102,5 +102,9 @@ CL1 additionally authorizes `GET /memory`, `GET/PUT /memory/learning`,
 subject. Foreign memory IDs remain indistinguishable from missing IDs. These
 routes inspect/control personal memory; they do not grant transcript CRUD or
 change subject delegation. See [conversational learning](../conversational-learning.md).
+CL2 also authorizes `GET /memory/evidence?ids=...` for up to six UUIDs. It returns
+only currently retrievable records owned by the delegated subject; unknown,
+foreign, expired, forgotten and fenced IDs are omitted without distinguishing them.
+It does not expose other subjects' entity names or aliases.
 Full purge includes learning settings and capture receipts. Learning stays off
 until enabled for the subject; the history switch does not enable learning.

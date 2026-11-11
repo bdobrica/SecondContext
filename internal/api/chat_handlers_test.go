@@ -376,6 +376,14 @@ func TestChatMemoryScopeIntegration(t *testing.T) {
 			return
 		}
 		data, _ := io.ReadAll(r.Body)
+		var request struct {
+			Messages []llm.Message `json:"messages"`
+		}
+		_ = json.Unmarshal(data, &request)
+		if len(request.Messages) > 0 && (request.Messages[0].Content == contextInterpretationPrompt || request.Messages[0].Content == contextEvidencePrompt) {
+			_, _ = io.WriteString(w, testChatCompletion) // invalid analysis JSON exercises fallback
+			return
+		}
 		captures <- string(data)
 		_, _ = io.WriteString(w, testChatCompletion)
 	}))

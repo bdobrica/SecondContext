@@ -174,7 +174,7 @@ func (s *Service) Search(ctx context.Context, params SearchParams) ([]Result, er
 	candidates := make([]scoring.Candidate, 0, len(ids))
 	for _, id := range ids {
 		memory, ok := byID[id]
-		if !ok {
+		if !ok || memory.UserID != user.ID {
 			continue
 		}
 		if !params.IncludeExpired && memory.ExpiresAt != nil && memory.ExpiresAt.Before(now) {

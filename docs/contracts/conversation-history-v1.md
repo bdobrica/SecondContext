@@ -269,3 +269,15 @@ schema checks alone cannot prove any storage, ordering, scope or erasure invaria
 The [CH7 release checklist](../conversation-history-release.md) records the recent-only release boundary,
 coordinated consumer gates and rollback requirements. See [CH6 adaptive selection](../adaptive-history.md)
 for its independent opt-in and evaluated limitations.
+
+## CL2 interpretation extension
+
+With personal-memory retrieval enabled, CL2 may interpret the current request
+using bounded canonically accepted same-session dialogue. This resolves natural
+follow-ups without people/topic/goal/mode metadata; capture still sees only the
+original user input. It cannot use pending, rejected or abandoned drafts as dialogue
+context. The managed configuration recipe changes to `managed-recent-cl2-1`;
+existing configuration conflict rules continue to protect pinned retries. Managed
+Responses receipts include `metadata.context_packet`. First-generation responses
+also include selected memory-ID/status headers; cached managed Chat receipts do
+not reconstruct those headers. See [CL2 behavior](../conversational-learning.md).

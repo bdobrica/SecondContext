@@ -170,10 +170,14 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 		s.historyFailure(w, r, err)
 		return true
 	}
-	// Retrieval remains independently controlled; it sees current text, not an
-	// assembled/replayed transcript. Learning only sees the original user input,
-	// and the worker separately verifies canonical acceptance before extraction.
-	packet, err := s.buildResponseContext(r.Context(), request, resolved, current[len(current)-1:])
+	// Interpretation may use bounded accepted dialogue to resolve follow-ups.
+	// Capture still sees only the original input; pending/rejected turns are absent.
+	interpretationMessages := make([]llm.Message, 0, len(history)*2+len(current))
+	for _, prior := range history {
+		interpretationMessages = append(interpretationMessages, llm.Message{Role: "user", Content: prior.UserText}, llm.Message{Role: "assistant", Content: prior.AssistantText})
+	}
+	interpretationMessages = append(interpretationMessages, current...)
+	packet, err := s.buildResponseContext(r.Context(), request, resolved, interpretationMessages)
 	if err != nil {
 		s.logger.Warn("managed history retrieval degraded")
 	}
@@ -284,7 +288,7 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 		turn.Result, _ = json.Marshal(output)
 	} else {
 		turn.ResponseID = newIdentifier("resp")
-		response := createResponseResult{ID: turn.ResponseID, Object: "response", CreatedAt: time.Now().Unix(), Status: "completed", Model: publicModel, OutputText: turn.AssistantText, Output: []responseOutputItem{{ID: newIdentifier("msg"), Type: "message", Role: "assistant", Content: []responseContentBlock{{Type: "output_text", Text: turn.AssistantText}}}}, Usage: &responseUsage{InputTokens: result.Usage.InputTokens, OutputTokens: result.Usage.OutputTokens, TotalTokens: result.Usage.TotalTokens}, Metadata: map[string]any{"session_id": h.Session, "user_external_id": resolved.UserExternalID}}
+		response := createResponseResult{ID: turn.ResponseID, Object: "response", CreatedAt: time.Now().Unix(), Status: "completed", Model: publicModel, OutputText: turn.AssistantText, Output: []responseOutputItem{{ID: newIdentifier("msg"), Type: "message", Role: "assistant", Content: []responseContentBlock{{Type: "output_text", Text: turn.AssistantText}}}}, Usage: &responseUsage{InputTokens: result.Usage.InputTokens, OutputTokens: result.Usage.OutputTokens, TotalTokens: result.Usage.TotalTokens}, Metadata: map[string]any{"session_id": h.Session, "user_external_id": resolved.UserExternalID, "context_packet": packet}}
 		turn.Result, _ = json.Marshal(response)
 	}
 	if err = db.CheckHistorySession(r.Context(), repo.Conn, session.UserID, session.ExternalID); err != nil {
@@ -297,6 +301,7 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 		return true
 	}
 	setHistoryHeaders(w, h, turn.Snapshot)
+	setContextEvidenceHeaders(w, packet)
 	writeHistoryBody(w, turn.Result)
 	return true
 }
@@ -309,7 +314,7 @@ func setHistoryHeaders(w http.ResponseWriter, h historySelectors, snapshot int64
 func (s *Server) historyConfigHash(model string) []byte {
 	// Credentials are intentionally absent: key rotation does not change request
 	// interpretation. Pin provider/model, retrieval configuration, budgets/recipe.
-	b, _ := json.Marshal(map[string]any{"recipe": "managed-recent-1", "base_url": s.cfg.OpenAI.BaseURL, "model": model, "embedding_model": s.cfg.OpenAI.EmbeddingModel, "recent": s.cfg.History.RecentExchanges, "input": s.cfg.History.PromptInputTokens, "output": s.cfg.History.ReservedOutputTokens, "scoring": s.cfg.Scoring, "knowledge_enabled": s.cfg.Knowledge.Enabled, "knowledge_url": s.cfg.Knowledge.URL, "knowledge_limit": s.cfg.Knowledge.Limit, "qdrant_collection": s.cfg.Qdrant.Collection})
+	b, _ := json.Marshal(map[string]any{"recipe": "managed-recent-cl2-1", "base_url": s.cfg.OpenAI.BaseURL, "model": model, "embedding_model": s.cfg.OpenAI.EmbeddingModel, "recent": s.cfg.History.RecentExchanges, "input": s.cfg.History.PromptInputTokens, "output": s.cfg.History.ReservedOutputTokens, "scoring": s.cfg.Scoring, "knowledge_enabled": s.cfg.Knowledge.Enabled, "knowledge_url": s.cfg.Knowledge.URL, "knowledge_limit": s.cfg.Knowledge.Limit, "qdrant_collection": s.cfg.Qdrant.Collection})
 	h, _ := historyHash(b)
 	return h
 }

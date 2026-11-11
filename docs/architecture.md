@@ -71,8 +71,18 @@ them as uncertain working estimates. Beliefs retain stance, confidence, evidence
 and contradiction metadata. These are model-derived observations, not objective
 personality scores or a general truth-resolution system.
 
+CL2 interprets the latest request with bounded relevant user/assistant dialogue,
+resolves known subject-owned names/aliases conservatively, and selects relevant
+memory candidates. Ambiguous references withhold personal evidence. Failed analysis
+falls back to current-text semantic retrieval after identity checks. Natural drafts
+and alternatives use the ordinary answer path and qualitative tradeoffs, without
+numeric person/belief context. Selected IDs are available in response headers and
+`/memory/evidence`; the inspector reads current canonical records. Responses also
+exposes query/intent/selection reasons in its context packet. See the
+[limits and controls](conversational-learning.md#natural-recall-advice-and-follow-ups-cl2).
+
 Responses assemble a context packet with goal, memory, people, topics, beliefs
-and optional reference evidence. Communication advice and scenario modes produce
+and optional reference evidence. Explicit legacy communication advice and scenario modes produce
 structured strategies, drafts, risks, expected responses and fallback options;
 server normalization supplies a recommendation when necessary. Assistant message
 metadata retains the context packet and scenario plan for later inspection and

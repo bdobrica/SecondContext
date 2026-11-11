@@ -95,6 +95,7 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.logger.Warn("build response context", "error", err, "request_id", middleware.GetReqID(r.Context()))
 	}
+	setContextEvidenceHeaders(w, contextPacket)
 	scenarioMode := contextPacket != nil && isScenarioMode(contextPacket.Mode)
 	if !scenarioMode {
 		systemPrompt := prompts.BuildResponseSystemPrompt(contextPacket, request.Instructions)

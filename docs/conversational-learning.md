@@ -1,8 +1,10 @@
-# Conversational learning (CL1)
+# Conversational learning (CL1–CL2)
 
 CL1 implements opt-in background learning from ordinary conversations. It stores
 simple observations, independent of the existing numeric person/belief modeling
-pipeline. CL2–CL3 and the real-model M1 usefulness demonstration remain open.
+pipeline. CL2 adds natural request interpretation and evidence selection for fresh
+conversations and follow-ups. CL3 and the real-model M1 usefulness demonstration
+remain open; deterministic checks establish wiring, not better real advice.
 
 ## Enable and inspect
 
@@ -34,6 +36,7 @@ Equivalent API operations, all scoped to the authenticated subject:
 | `GET /memory/learning` | Setting and recent capture status; no source text in queue status. |
 | `POST /memory/learning/retry` with `{}` | Requeue failed captures, never completed/suppressed receipts. |
 | `GET /memory?limit=100` | Existing list API, including source and provenance metadata. |
+| `GET /memory/evidence?ids=<comma-separated UUIDs>` | Inspect up to six selected, currently retrievable observations owned by this subject. Foreign, forgotten, expired and fenced records are omitted. |
 | `PATCH /memory/{id}` with `{"summary":"Alex now prefers comprehensive review requests."}` | Correct a conversational observation and reindex it. Other memory sources retain their existing APIs. |
 | `DELETE /memory/{id}` | Forget the observation, preserving its occurrence receipt against replay. |
 
@@ -59,6 +62,88 @@ These controls do not alter existing dialogue persistence/replay or erase dialog
 held and supplied by the client. Temporary chat is a personal-memory control,
 not a promise of zero server transcript retention. Disable managed history
 separately when it is unwanted.
+
+## Natural recall, advice and follow-ups (CL2)
+
+After capture completes, start a **fresh conversation under the same identity** and
+ask “Help me ask Alex for review.” No old transcript, session ID, `people`, `topics`,
+`goal`, or `memory_mode` is needed. Continue with “Make it warmer” or “What are two
+other approaches?” Both Chat Completions and Responses use the selected memories
+to guide the ordinary answer. Alternative approaches request qualitative tradeoffs,
+not numeric success predictions. A draft is never treated as a sent action.
+
+The request interpreter sees only the latest user message and up to six preceding
+user/assistant messages (at most 3,000 UTF-8 bytes per message and 10,000 total).
+It selects which preceding messages are needed to understand the current task,
+then produces a focused query, goal, people/topic hints and answer intent. A topic
+switch should select no old dialogue. Original messages, tool blocks, structured
+output options and streaming formats still reach the generator unchanged apart
+from the added system context. Tool/system/developer content is excluded from
+identity interpretation. Managed requests may use only bounded, canonically
+accepted same-session dialogue; pending/rejected drafts are excluded.
+
+Explicit metadata values, including empty arrays, override inferred values for
+that field. Explicit `memory_mode` retains its existing endpoint restrictions and
+legacy scenario behavior. Inferred topics are hints rather than mandatory filters.
+The ordinary path uses source-backed observations directly, without loading numeric
+person/belief models. Explicit people/topics/mode metadata keeps the legacy model
+context path available.
+
+Identity resolution checks live subject-owned memory labels and stored aliases
+attached to those labels. An alias is supported only if already recorded; the
+interpreter cannot create aliases or merge entities. Exact full names and unique
+first-name references can resolve. Shared aliases/first names, such as “Alex” when
+both Alex Chen and Alex Morgan are known, withhold personal memory and prompt for
+clarification. An unfamiliar full name is not silently collapsed onto a known first
+name. Expired/forgotten observations do not supply labels. Identity lookup is bounded
+to 1,000 live labels; overflow/failure withholds personal recall rather than guessing.
+This does not establish identity for indistinguishable people stored under the same
+label; correcting such labels and richer entity management remain outside CL2.
+
+Hybrid retrieval uses the current-task query with resolved names, followed by a
+bounded model selection of useful candidate IDs and brief relevance reasons. Only
+returned candidate IDs can be selected. Subject, expiry, capture-completion and
+source-deletion checks remain authoritative. At most six memories enter the final
+context, subject to existing prompt budgets. The interpreter and evidence selector
+each have a four-second deadline using `OPENAI_CHAT_MODEL`. They add model calls
+before generation (including before SSE starts); answer usage remains the provider's
+answer usage, not a total bill for these extra calls. Measure real latency/cost
+before assuming an unchanged experience.
+
+Invalid/failed interpretation falls back to the latest user text, never a
+concatenation of all old user messages. Invalid/failed evidence selection falls
+back to ordinary semantic results after identity checks. These fallbacks preserve
+answer availability but can be less relevant; topic-switch quality and subtle
+reference resolution still depend on model behavior. `disable_memory` and
+`temporary_chat` skip both interpretation and personal-memory selection. Reference
+knowledge controls remain independent.
+
+### Inspect the evidence used
+
+Ordinary Chat/Responses answers expose `X-SecondContext-Memory-Ids` (comma-separated
+IDs actually retained in the prompt), `X-SecondContext-Interpretation`, and
+`X-SecondContext-Evidence`. These are response headers, including on SSE, not extra
+answer/tool events. Empty IDs mean no personal observations were included.
+Interpretation reports `inferred`, `fallback`, `identity_unavailable`, or `disabled`;
+evidence reports `selected`, `semantic_fallback`, `empty`, `identity_unresolved`,
+`unavailable`, or `disabled` when applicable.
+
+Paste the IDs into **Evidence used in an answer** in `/memory/inspector`. This uses
+`GET /memory/evidence` and shows current source text, date and summary. It does not
+save an extra copy of the claim: corrections, expiry and forgetting affect inspection
+too. It identifies records supplied to the generator, not proof the model used
+every record. Responses additionally returns `metadata.context_packet` with the
+focused query, inferred goal/labels/intent, ambiguity, selected evidence, provenance
+and relevance reasons. Reasons are model explanations of selection, not new facts.
+
+Managed first-generation answers expose the same headers. Cached managed Chat
+receipts retain their original body but do not reconstruct these headers; keep the
+first response's IDs. Managed Responses saves its context packet with the existing
+immutable response receipt. As with client-held chat history, old saved responses
+can retain historical text; inspect current evidence to see subsequent changes.
+The managed configuration recipe changes with CL2, so the existing configuration
+conflict rules apply to turns reserved under an older recipe. CL2 needs no migration
+beyond CL1's 000006, and adds no runtime deployment or learning enablement.
 
 ## Eligible evidence
 
@@ -183,3 +268,19 @@ Run `make verify` for mandatory static/unit/integration checks and `make test-do
 for packaged migrations/runtime checks. Open the inspector and use the Alex
 demonstration in [PLAN.md](../PLAN.md#product-promise-and-first-milestone) with a real
 provider before declaring CL1–CL3/M1 usable.
+
+CL2's focused protocol fixtures cover fresh Chat/Responses recall, natural drafts
+and alternatives, bounded follow-ups, unrelated topic switches, full names/shared
+first names/stored aliases/unknown names, explicit metadata overrides, malformed
+analysis fallbacks, correction/forgetting, expiry and isolation. The unchanged
+OpenAI SDK acceptance script is `scripts/test-conversational-recall-sdk.py`, invoked
+by `TestNaturalContextOpenAISDK` when `SECOND_CONTEXT_CHAT_SDK_PYTHON` points to a
+prepared interpreter. It uses a deterministic provider and background capture;
+it makes no custom memory calls. Real-provider extraction/retrieval/advice quality,
+actual user effort and latency still need the M1 demonstration and dogfooding.
+
+Recorded for CL2 on 2026-11-11: `make verify` passed with the mandatory database/vector
+suite and both unchanged-client scripts using OpenAI SDK 3.48.0; `make test-docker`
+and inspector JavaScript `node --check` passed. Isolated test stacks were cleaned
+up. The inspector evidence route passed authentication and ownership checks; no
+browser interaction or real-provider evaluation was performed.

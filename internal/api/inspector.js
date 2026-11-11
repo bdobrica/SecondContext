@@ -64,10 +64,25 @@
     }
     $("workspace").hidden = false;
   }
+  $("inspect-evidence").onsubmit = event => {
+    event.preventDefault();
+    const current = generation;
+    action(async () => {
+      const result = await api(`/memory/evidence?ids=${encodeURIComponent($("evidence-ids").value.trim())}`);
+      if (current !== generation) return;
+      $("evidence").replaceChildren();
+      if (!result.data.length) $("evidence").append(text("p", "No current evidence is available for these IDs."));
+      for (const memory of result.data) {
+        const card = text("article", "", "card"), meta = memory.metadata || {};
+        card.append(text("h3", memory.summary), text("p", `${memory.id}\nFirst observed: ${meta.observed_at || memory.created_at}\nSource: ${meta.source_reference || memory.source}\nEvidence: ${meta.evidence || "unspecified"}`, "detail"), text("pre", memory.raw_text));
+        $("evidence").append(card);
+      }
+    });
+  };
   $("connect").onsubmit = event => {
     event.preventDefault(); generation++;
     token = $("token").value.trim(); subject = $("subject").value.trim(); $("token").value = "";
-    $("workspace").hidden = true; $("memories").replaceChildren(); $("captures").replaceChildren();
+    $("workspace").hidden = true; $("evidence").replaceChildren(); $("evidence-ids").value = ""; $("memories").replaceChildren(); $("captures").replaceChildren();
     action(refresh, "Connected. Refresh to check background capture progress.");
   };
   $("toggle").onclick = () => action(async () => { await api("/memory/learning", "PUT", {enabled: !enabled}); await refresh(); });
@@ -75,7 +90,7 @@
   $("retry").onclick = () => action(async () => { await api("/memory/learning/retry", "POST", {}); await refresh(); });
   $("disconnect").onclick = () => {
     generation++; token = ""; subject = ""; $("subject").value = ""; $("token").value = "";
-    $("workspace").hidden = true; $("memories").replaceChildren(); $("captures").replaceChildren();
+    $("workspace").hidden = true; $("evidence").replaceChildren(); $("evidence-ids").value = ""; $("memories").replaceChildren(); $("captures").replaceChildren();
     $("notice").textContent = "Disconnected."; $("error").textContent = "";
   };
 })();

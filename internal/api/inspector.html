@@ -19,6 +19,10 @@ body{font:16px/1.5 system-ui,sans-serif;max-width:880px;margin:40px auto;padding
  <p><strong id="learning-state"></strong></p>
  <button id="toggle">Enable learning</button><button id="refresh">Refresh</button><button id="retry">Retry failed captures</button><button id="disconnect">Disconnect</button>
  <p class="detail">Pause cancels unfinished capture and stops learning new observations. Existing memories remain available. Temporary chat must be selected in the chat request; it disables learning and personal-memory retrieval, while leaving reference knowledge independent.</p>
+ <h2>Evidence used in an answer</h2>
+ <p class="detail">Paste the memory IDs from the answer’s X-SecondContext-Memory-Ids header (or Responses context_packet). This shows the current observations; corrections, expiry and forgetting take effect here too.</p>
+ <form id="inspect-evidence"><label>Memory IDs <input id="evidence-ids" autocomplete="off" placeholder="Comma-separated IDs"></label><button type="submit">Inspect evidence</button></form>
+ <div id="evidence"></div>
  <h2>Observations</h2>
  <p class="detail">Most recent 100 observations. Corrections change the stored summary. Forget removes this observation from personal memory; a matching old transcript will not recreate it. Dialogue still supplied by your chat client can remain visible to the model.</p>
  <div id="memories"></div>

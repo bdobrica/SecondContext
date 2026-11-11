@@ -88,6 +88,7 @@ func (s *Server) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.logger.Warn("chat memory retrieval degraded")
 	}
+	setContextEvidenceHeaders(w, packet)
 	system := prompts.BuildResponseSystemPrompt(packet, "")
 	messages := request.messages
 	if strings.TrimSpace(system) != "" {
