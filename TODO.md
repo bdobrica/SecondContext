@@ -85,6 +85,10 @@ cover consent, accepted replies and delivery. Sibling checkout: `../OriaEngine/`
   using prepared current input and bounded eligible history.
 - [ ] Observe routing while generation still uses recent history; label synthetic
   cases for follow-ups, corrections, topic switches, local exchanges and older references.
+- [ ] Include the private-reading handoff: horoscope → compatibility → private date
+  → plain-English explanation → unrelated topic. Evaluate answer relevance as well
+  as prepared-input/replay correctness; never include raw private date answers.
+  See [Oria handoff evidence](https://github.com/bdobrica/OriaEngine/blob/main/docs/evidence/reading-focus-handoff.md).
 - [ ] On classifier uncertainty/refusal/timeout/malformed response, use recent history;
   never substitute that fallback for failed auth, deletion or canonical validation.
 - [ ] Keep legacy memory salience unchanged; routing decisions confer no authority.
@@ -132,7 +136,7 @@ and [CH7 evidence](docs/evidence/conversation-history-ch7.md). Gateway
 - [x] Record the live provider capture rollback drill with generated acceptance,
   local receipt recovery, legacy generation and erasure; preserve all live storage.
 - [x] Record the participating user's policy acceptance and account-deletion pass.
-- [ ] Retest private Telegram continuity after the Oria 0.2.2 correction.
+- [ ] Retest private Telegram continuity after the Oria private-reading handoff correction.
   Follow the companion OCH5 evidence. No automatic deployment follows from this plan.
 
 ## Stage 0 — Project Definition
