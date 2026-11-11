@@ -43,6 +43,7 @@ func (s *Server) observeHistory(r *http.Request, repo db.HistoryRepository, sess
 
 type historyObservation struct {
 	Decision            decisions.Result
+	Selection           string
 	Exchanges           int
 	Generation          *decisions.Usage
 	GenerationDuration  time.Duration

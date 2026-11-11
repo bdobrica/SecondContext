@@ -15,7 +15,8 @@ erasure and capture rollback passed. Private Telegram review confirmed policy/de
 Oria 0.2.3’s private-reading handoff correction is deployed and live synthetic
 continuity/topic probes passed. Private Telegram retest remains.
 CH4/CH5 observation and cache diagnostics are implemented, disabled by default.
-CH6 adaptive routing remains gated; see [implementation/evaluation evidence](docs/evidence/conversation-history-ch45.md). See the
+CH6 adaptive selection is implemented, disabled by default; see [adaptive evidence](docs/evidence/conversation-history-ch6.md)
+and [observation evidence](docs/evidence/conversation-history-ch45.md). See the
 [implemented API matrix](docs/contracts/chat-completions-v1.md).
 The accepted [history contract](docs/contracts/conversation-history-v1.md) and
 [ADR 0007](docs/adr/0007-conversation-history.md) define the boundary.
@@ -105,16 +106,20 @@ cover consent, accepted replies and delivery. Sibling checkout: `../OriaEngine/`
 - [x] Measure cache reads/writes, total cost, latency and fallbacks on cold/warm
   short/long conversations; keep transcript text and private IDs out of routine telemetry.
 
-### CH6 — Enable evaluated adaptive selection (depends on CH4/CH5 and OCH4)
+### CH6 — Adaptive selection implemented; production enablement pending
 
-- [ ] Calibrate thresholds against recent-history baseline; prioritize avoiding missed
-  context and demonstrate end-to-end quality plus useful latency/cost results.
-- [ ] Add independent adaptive enable/rollback controls; omit recent dialogue only
-  for supported standalone decisions and preserve memory/knowledge independence.
-- [ ] If justified by evaluation, retrieve bounded older turns within the same
-  session with canonical hydration, chronological excerpts and erasure coverage.
-- [ ] Keep cross-session replay, summaries, transcript embeddings and automatic
-  transcript-to-memory extraction deferred pending explicit provenance/lifecycle design.
+Implementation and paired evaluation: [CH6 evidence](docs/evidence/conversation-history-ch6.md).
+Conservative standalone omission, durable retry selections, independent capability/
+rollback controls and source/erasure coverage are implemented. No migration is required.
+Older-turn retrieval is deferred: evidence does not justify expanding replay.
+Cross-session replay, summaries, transcript embeddings and automatic memory extraction
+remain deferred under ADR 0007.
+
+- [ ] Before production enablement, establish useful aggregate workload economics and
+  quality; the 24-case synthetic comparison preserved context but increased overall
+  cost and latency. Selective long-request savings are not an all-traffic benefit.
+- [ ] Publish a compatible provider image; coordinate a separately configured consumer
+  adaptive opt-in with durable header binding. Oria currently requests recent.
 
 ### CH7 — Cross-repository release and evidence (depends on CH2/CH3 and OCH4)
 
@@ -127,7 +132,7 @@ and [CH7 evidence](docs/evidence/conversation-history-ch7.md). Gateway
 - [x] Update architecture, API support matrix, operations, config examples and public
   contracts with each slice; preserve the local PLAN execution-record convention.
 - [x] Release recent history first; Decisions observation may accompany it, while
-  adaptive routing waits for CH6. Keep unsupported/deferred capabilities explicit.
+  adaptive production enablement retains its separate evaluation/rollout gates. Keep unsupported/deferred capabilities explicit.
 - [x] Publish versioned digest-pinned images and coordinate capability/disclosure
   checks and OCH5 rollout; verify migrations and rollback compatibility.
 - [x] Verify real-provider generation/continuity and erasure separately from health;

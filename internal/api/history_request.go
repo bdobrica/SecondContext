@@ -60,9 +60,6 @@ func parseHistoryHeaders(r *http.Request, metadata map[string]any) (historySelec
 	} else if h.History != "off" || h.Acceptance != "generated" {
 		return h, &chatRequestError{"invalid_history_request", "history"}
 	}
-	if h.History == "adaptive" {
-		return h, unsupportedChat("history")
-	}
 	return h, nil
 }
 func historyHeaderPresent(r *http.Request) bool {

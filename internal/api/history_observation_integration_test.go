@@ -73,42 +73,48 @@ func TestHistoryObservationFallbackIntegration(t *testing.T) {
 	}
 }
 func TestHistoryObservationFencesAndRevalidationIntegration(t *testing.T) {
-	h := newHistoryHarness(t)
-	var calls atomic.Int64
-	enableTestDecisions(h, func(w http.ResponseWriter, r *http.Request) {
-		calls.Add(1)
-		_, _ = fmt.Fprint(w, `{"model":"gpt-6-luna","answers":[{"name":"recent_dependence","type":"predicate","probability":0.9},{"name":"older_reference","type":"predicate","probability":0.1}]}`)
-	})
-	ref := projectionRef{Kind: "event", ID: historyTurnID(601), Revision: 1}
-	h.projection(ref, "upsert", 602)
-	historyStatus(t, h.finalize(1, "accept_local", map[string]any{"user_text": "prepared", "assistant_text": "linked reading", "knowledge_refs": []projectionRef{ref}}), 200, "")
-	historyStatus(t, h.generate(2, "recent", "generated", "/v1/responses", "explain it"), 200, "")
-	if calls.Load() != 1 {
-		t.Fatal(calls.Load())
-	}
-	_, err := h.pool.Exec(context.Background(), `UPDATE context_projections SET revision=2 WHERE user_id=(SELECT id FROM users WHERE external_id=$1) AND record_id=$2`, h.user, ref.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	historyStatus(t, h.generate(3, "recent", "generated", "/v1/responses", "no new refs"), 409, "history_source_conflict")
-	if calls.Load() != 1 {
-		t.Fatal("stale input reached classifier")
-	}
-	_, err = h.pool.Exec(context.Background(), `UPDATE context_projections SET revision=1 WHERE user_id=(SELECT id FROM users WHERE external_id=$1) AND record_id=$2`, h.user, ref.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ref.Revision = 2
-	h.projection(ref, "upsert", 603)
-	historyStatus(t, h.generate(2, "recent", "generated", "/v1/responses", "explain it"), 410, "session_deleted")
-	historyStatus(t, h.generate(3, "recent", "generated", "/v1/responses", "no new refs"), 410, "session_deleted")
-	if calls.Load() != 1 {
-		t.Fatal("deleted input reached classifier")
-	}
-	historyStatus(t, h.call("/v1/subjects/purge", map[string]any{"user": h.user}, nil), 200, "")
-	historyStatus(t, h.generate(3, "recent", "generated", "/v1/responses", "no new refs"), 410, "subject_deleted")
-	if calls.Load() != 1 {
-		t.Fatal("purged input reached classifier")
+	for _, mode := range []string{"recent", "adaptive"} {
+		t.Run(mode, func(t *testing.T) {
+			h := newHistoryHarness(t)
+			var calls atomic.Int64
+			enableTestDecisions(h, func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				_, _ = fmt.Fprint(w, `{"model":"gpt-6-luna","answers":[{"name":"recent_dependence","type":"predicate","probability":0.9},{"name":"older_reference","type":"predicate","probability":0.1}]}`)
+			})
+			h.cfg.Decisions.AdaptiveEnabled = mode == "adaptive"
+			h.restart()
+			ref := projectionRef{Kind: "event", ID: historyTurnID(601), Revision: 1}
+			h.projection(ref, "upsert", 602)
+			historyStatus(t, h.finalize(1, "accept_local", map[string]any{"user_text": "prepared", "assistant_text": "linked reading", "knowledge_refs": []projectionRef{ref}}), 200, "")
+			historyStatus(t, h.generate(2, mode, "generated", "/v1/responses", "explain it"), 200, "")
+			if calls.Load() != 1 {
+				t.Fatal(calls.Load())
+			}
+			_, err := h.pool.Exec(context.Background(), `UPDATE context_projections SET revision=2 WHERE user_id=(SELECT id FROM users WHERE external_id=$1) AND record_id=$2`, h.user, ref.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			historyStatus(t, h.generate(3, mode, "generated", "/v1/responses", "no new refs"), 409, "history_source_conflict")
+			if calls.Load() != 1 {
+				t.Fatal("stale input reached classifier")
+			}
+			_, err = h.pool.Exec(context.Background(), `UPDATE context_projections SET revision=1 WHERE user_id=(SELECT id FROM users WHERE external_id=$1) AND record_id=$2`, h.user, ref.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ref.Revision = 2
+			h.projection(ref, "upsert", 603)
+			historyStatus(t, h.generate(2, mode, "generated", "/v1/responses", "explain it"), 410, "session_deleted")
+			historyStatus(t, h.generate(3, mode, "generated", "/v1/responses", "no new refs"), 410, "session_deleted")
+			if calls.Load() != 1 {
+				t.Fatal("deleted input reached classifier")
+			}
+			historyStatus(t, h.call("/v1/subjects/purge", map[string]any{"user": h.user}, nil), 200, "")
+			historyStatus(t, h.generate(3, mode, "generated", "/v1/responses", "no new refs"), 410, "subject_deleted")
+			if calls.Load() != 1 {
+				t.Fatal("purged input reached classifier")
+			}
+		})
 	}
 }
 func TestHistoryObservationCanonicalChangeDuringCallIntegration(t *testing.T) {

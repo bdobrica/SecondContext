@@ -34,7 +34,7 @@ func TestDecisionMetricsNoDoubleCountingOrIdentifiers(t *testing.T) {
 		t.Fatal("invalid cache usage priced")
 	}
 	o.observeHistory(historyObservation{Decision: decisions.Result{Outcome: "timeout"}}, c)
-	if !strings.Contains(o.renderPrometheus(), `outcome="timeout",suggestion="recent"`) {
+	if !strings.Contains(o.renderPrometheus(), `outcome="timeout",selection="observe",suggestion="recent"`) {
 		t.Fatal("missing fallback")
 	}
 }

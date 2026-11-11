@@ -166,6 +166,10 @@ func (r HistoryRepository) Reserve(ctx context.Context, s HistorySession, t Hist
 	}
 	t.Generation = s.Generation
 	t.Selected = []string{}
+	if recent < 0 {
+		t.Selected = nil
+		recent = 0
+	}
 	rows, err := tx.Query(ctx, "SELECT turn_id::text FROM conversation_turns WHERE user_id=$1 AND session_id=$2 AND state='accepted' AND sequence<=$3 ORDER BY sequence DESC LIMIT $4", s.UserID, s.ID, t.Snapshot, recent)
 	if err != nil {
 		return t, err

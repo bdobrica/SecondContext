@@ -35,6 +35,8 @@ func main() {
 	live := flag.Bool("live", false, "explicitly permit paid synthetic provider calls")
 	check := flag.Bool("check-access", false, "probe Decisions only, without customer content")
 	generate := flag.Bool("generate", false, "also check synthetic baseline answer relevance with the configured chat model")
+	adaptive := flag.Bool("adaptive", false, "compare conservative adaptive selection with recent on the labeled CH6 corpus")
+	review := flag.String("review-output", "", "optional private file for synthetic CH6 answers for human review")
 	flag.Parse()
 	if !*live {
 		fmt.Fprintln(os.Stderr, "Use -live to permit synthetic provider calls; no calls were made.")
@@ -48,6 +50,17 @@ func main() {
 	if cfg.Decisions.APIKey == "" || len(cfg.Decisions.CacheSecret) < 32 {
 		fmt.Fprintln(os.Stderr, "configure DECISIONS_API_KEY and DECISIONS_CACHE_SECRET")
 		os.Exit(2)
+	}
+	if *adaptive {
+		if !*generate {
+			fmt.Fprintln(os.Stderr, "-adaptive requires -generate")
+			os.Exit(2)
+		}
+		if err := runAdaptive(cfg, *review); err != nil {
+			fmt.Fprintln(os.Stderr, "adaptive evaluation failed")
+			os.Exit(1)
+		}
+		return
 	}
 	dc := decisions.New(cfg.Decisions)
 	ctx := context.Background()

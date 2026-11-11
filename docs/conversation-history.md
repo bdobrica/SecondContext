@@ -41,7 +41,8 @@ and retrieved current facts are never copied into replayable transcript rows.
 ## Request lifecycle
 
 Use the contract's session/turn/history/acceptance headers. `off` captures without
-replaying; `recent` loads accepted exchanges; `adaptive` remains unsupported.
+replaying; `recent` loads accepted exchanges; [adaptive](adaptive-history.md) is an independent,
+explicit opt-in.
 Memory and reference-knowledge controls are independent. Generation echoes the
 contract/session/turn/snapshot headers and uses a standard response body with a
 unique gateway response ID. The complete original JSON body and normalized selectors
@@ -74,7 +75,8 @@ a replacement pooled connection. A matching retry can resume a resultless turn;
 provider execution may repeat. No exactly-once upstream claim is made.
 
 A reservation pins provider/model/configuration, snapshot sequence, context generation
-and selected accepted turn identities. Retrying cannot extend the earlier snapshot.
+and accepted turn identities before generation. Adaptive selection is committed once
+after classification and before its first generator attempt. Retrying cannot extend the earlier snapshot.
 Configuration drift makes resumption unavailable until the original configuration
 is restored or the pending turn is abandoned. Credentials can rotate without changing
 the binding. A saved matching result returns without another provider call, after
@@ -131,6 +133,5 @@ versions, independent capture controls, live checks and rollback ordering.
 ## Decisions observation
 
 Optional [CH4/CH5 observation and cache diagnostics](decisions-observation.md)
-are implemented, disabled by default. Generation stays on recent history;
-adaptive routing remains a separate CH6 evaluation gate. No public API or
-canonical schema change is required.
+are implemented, disabled by default. Recent observation never changes generation. [CH6 adaptive selection](adaptive-history.md)
+is implemented as an independent opt-in, with unchanged public schema and no migration.

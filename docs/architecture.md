@@ -159,11 +159,11 @@ available when capture is disabled. Existing unextended Responses persistence is
 unchanged. See [managed history operations](conversation-history.md).
 
 The [CH7 release checklist](conversation-history-release.md) records the recent-only release boundary,
-coordinated consumer gates and rollback requirements; adaptive remains deferred.
+coordinated consumer gates and rollback requirements; adaptive remains disabled by default.
 
 ## Decisions observation
 
 Optional [CH4/CH5 observation and cache diagnostics](decisions-observation.md)
-are implemented, disabled by default. Generation stays on recent history;
-adaptive routing remains a separate CH6 evaluation gate. No public API or
-canonical schema change is required.
+are implemented, disabled by default. Observation keeps recent generation. [CH6 adaptive selection](adaptive-history.md)
+is an independent opt-in with durable selections and no schema migration. See its
+paired evaluation and cost/latency limitations before enablement.

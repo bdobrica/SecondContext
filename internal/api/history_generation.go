@@ -38,6 +38,10 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 		s.writeChatValidation(w, r, validation)
 		return true
 	}
+	if h.History == "adaptive" && !s.cfg.Decisions.AdaptiveEnabled {
+		s.writeChatValidation(w, r, unsupportedChat("history"))
+		return true
+	}
 	if h.Turn == "" {
 		// Session-only headers are an alternate spelling of legacy session metadata.
 		if h.Session != "" {
@@ -86,6 +90,9 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 		return true
 	}
 	configHash := s.historyConfigHash(model)
+	if h.History == "adaptive" {
+		configHash = s.adaptiveConfigHash(configHash)
+	}
 	repo := db.HistoryRepository{Conn: r.Context().Value(subjectConnectionKey{}).(*pgx.Conn)}
 	session, err := repo.Session(r.Context(), resolved.UserExternalID, h.Session, true)
 	if err != nil {
@@ -105,6 +112,10 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 		recent := 0
 		if h.History == "recent" {
 			recent = s.cfg.History.RecentExchanges
+		}
+		// Adaptive selection is pinned before the first generator call.
+		if h.History == "adaptive" {
+			recent = -1
 		}
 		turn, err = repo.Reserve(r.Context(), session, db.HistoryTurn{ID: h.Turn, RequestHash: hash, ConfigHash: configHash, Acceptance: h.Acceptance, UserText: current[len(current)-1].Content}, recent, func(tx pgx.Tx) error {
 			_, e := linkHistoryRefs(r.Context(), tx, session, request.KnowledgeRefs)
@@ -145,6 +156,10 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	history, err := repo.Selected(r.Context(), session, turn)
+	selectAdaptive := h.History == "adaptive" && turn.Selected == nil
+	if selectAdaptive && err == nil {
+		history, err = repo.Recent(r.Context(), session, turn, s.cfg.History.RecentExchanges)
+	}
 	if err != nil {
 		s.historyFailure(w, r, err)
 		return true
@@ -181,7 +196,7 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 		return true
 	}
 	var observation *historyObservation
-	if s.cfg.Decisions.Enabled && h.History == "recent" {
+	if (s.cfg.Decisions.Enabled && h.History == "recent") || (selectAdaptive && len(assembled) > len(mandatory)) {
 		// Label the recent evidence actually retained by the generation budget.
 		// Other bounded segment exchanges remain older evidence for observation only.
 		replayedCount := (len(assembled) - len(mandatory)) / 2
@@ -191,7 +206,14 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 			s.historyFailure(w, r, observeErr)
 			return true
 		}
-		observation = &historyObservation{Decision: decision, Exchanges: count}
+		observation = &historyObservation{Decision: decision, Exchanges: count, Selection: "observe"}
+		if selectAdaptive {
+			observation.Selection = "recent"
+			if decisions.OmitRecent(decision) {
+				assembled = mandatory
+				observation.Selection = "standalone"
+			}
+		}
 		defer func() { s.obs.observeHistory(*observation, s.cfg.Decisions) }()
 		// The classifier cannot substitute success for canonical validation.
 		if err = db.CheckHistorySession(r.Context(), repo.Conn, session.UserID, session.ExternalID); err != nil {
@@ -199,6 +221,29 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 			return true
 		}
 	}
+	if selectAdaptive {
+		// Pin only whole exchanges actually used. Empty (standalone/no fitting
+		// history) differs from NULL (not selected yet). Never classify a retry
+		// after a generator attempt, including a failed attempt or restart.
+		n := (len(assembled) - len(mandatory)) / 2
+		ids := []string{}
+		for _, ex := range history[len(history)-n:] {
+			ids = append(ids, ex.ID)
+		}
+		if err = repo.PinSelection(r.Context(), session, turn, ids); err != nil {
+			s.historyFailure(w, r, err)
+			return true
+		}
+	}
+	if h.History == "adaptive" && observation == nil {
+		outcome := "selection_reused"
+		if selectAdaptive {
+			outcome = "no_history"
+		}
+		observation = &historyObservation{Decision: decisions.Result{Outcome: outcome}, Exchanges: len(history), Selection: "pinned"}
+		defer func() { s.obs.observeHistory(*observation, s.cfg.Decisions) }()
+	}
+	upstream.Body["messages"], _ = json.Marshal(assembled)
 	generationStarted := time.Now()
 	result, err := client.Chat(r.Context(), upstream, nil)
 	if observation != nil {

@@ -18,7 +18,7 @@ this release preparation.
 
 The deployed baseline has no Decisions observation or adaptive selection. CH4/CH5
 are now implemented in source and disabled by default; see the optional observation
-gate below. Do not advertise or request adaptive mode. Provider generation/embedding
+gate below. Advertise/request adaptive only under the [CH6 gates](adaptive-history.md). Provider generation/embedding
 credentials and Decisions configuration
 remain solely in SecondContext. External `KNOWLEDGE_ENABLED` stays disabled in the
 Oria deployment; linked projections use the independent local owning-service lane.
@@ -76,8 +76,8 @@ Already committed local receipts can be retried with capture off.
 generated draft acceptance, existing receipt retries, abandonment, selective cleanup
 and subject purge. Keep durable delivery and erasure workers active. Cancel rather
 than regenerate uncommitted prepared inputs. Re-enabling does not resurrect canceled
-or expired work, undo deletion fences, or promote legacy dialogue. A later adaptive
-release needs a separately evaluated adaptive-to-recent rollback; none exists here.
+or expired work, undo deletion fences, or promote legacy dialogue. The [CH6 adaptive implementation](adaptive-history.md) adds tested adaptive-to-recent
+rollback, independently of this deployed baseline.
 
 Live publication, migration, model quality, Telegram and rollback results must be
 recorded separately from synthetic checks. Restrict all live maintenance to
@@ -87,8 +87,13 @@ recorded separately from synthetic checks. Restrict all live maintenance to
 
 CH4/CH5 [observation and cache diagnostics](decisions-observation.md) are now
 implemented in source, disabled by default. They do not change public capabilities
-or enable CH6 adaptive routing. Publish/verify a compatible provider digest, run
+or automatically enable CH6 adaptive routing. Publish/verify a compatible provider digest, run
 its synthetic access/economics check, and retain the consumer consent/disclosure
 gates before any production enablement. The 0.2.2 deployed baseline does not
 contain this observer. Disabling observation alone preserves recent replay and
 all pending-turn/finalization/erasure recovery.
+
+CH6 now implements opt-in selection and paired evaluation. Publish the provider before
+consumer tests that require it. Aggregate synthetic cost/latency regressed; keep Oria
+on recent until a workload-specific enablement decision and consumer implementation.
+See [CH6 evidence](evidence/conversation-history-ch6.md).

@@ -21,7 +21,7 @@ func TestManagedSelectors(t *testing.T) {
 		t.Fatal(h, e)
 	}
 	r.Header.Set("X-SecondContext-History", "adaptive")
-	if _, e = parseHistoryHeaders(r, nil); e == nil || e.code != "unsupported_feature" {
+	if _, e = parseHistoryHeaders(r, nil); e != nil {
 		t.Fatal(e)
 	}
 	r.Header.Set("X-SecondContext-History", "off")

@@ -169,8 +169,9 @@ the integration log explicitly reports that the SDK check was not requested.
 See [CH2 evidence](../evidence/chat-completions-ch2.md) for executed checks and limits.
 
 The [CH7 release checklist](../conversation-history-release.md) records the recent-only release boundary,
-coordinated consumer gates and rollback requirements; adaptive remains deferred.
+coordinated consumer gates and rollback requirements; adaptive defaults off.
 
 CH4/CH5 adds optional provider-side [Decisions observation](../decisions-observation.md)
 for managed `recent` requests only. It neither observes nor trims ordinary supplied
-dialogue, alters standard bodies, nor advertises adaptive selection.
+dialogue or alters standard bodies. [CH6 adaptive](../adaptive-history.md) separately
+advertises its existing contract mode only when explicitly enabled.

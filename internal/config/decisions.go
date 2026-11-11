@@ -9,10 +9,10 @@ import (
 	"time"
 )
 
-// Decisions is observation only. Rates are optional USD per million tokens;
+// Decisions supports independently enabled observation and adaptive selection. Rates are optional USD per million tokens;
 // nil means unknown, never free. Secrets stay server-side and out of bindings.
 type DecisionsConfig struct {
-	Enabled                                     bool
+	Enabled, AdaptiveEnabled                    bool
 	BaseURL, APIKey, Model, Recipe, CacheSecret string
 	Timeout                                     time.Duration
 	MaxInputBytes, SegmentExchanges             int
@@ -24,6 +24,9 @@ func LoadDecisionsConfig() (DecisionsConfig, error) {
 	c := DecisionsConfig{BaseURL: getEnv("DECISIONS_BASE_URL", "https://api.openai.com/v1"), APIKey: os.Getenv("DECISIONS_API_KEY"), Model: getEnv("DECISIONS_MODEL", "gpt-6-luna"), Recipe: getEnv("DECISIONS_RECIPE", "history-dependence-1"), CacheSecret: os.Getenv("DECISIONS_CACHE_SECRET")}
 	var err error
 	if c.Enabled, err = parseBool("DECISIONS_OBSERVE_ENABLED", false); err != nil {
+		return c, err
+	}
+	if c.AdaptiveEnabled, err = parseBool("HISTORY_ADAPTIVE_ENABLED", false); err != nil {
 		return c, err
 	}
 	if c.Timeout, err = parseDuration("DECISIONS_TIMEOUT", "2s"); err != nil {
@@ -42,8 +45,8 @@ func LoadDecisionsConfig() (DecisionsConfig, error) {
 	if c.Model != "gpt-6-luna" || c.Recipe != "history-dependence-1" || c.Timeout <= 0 || c.Timeout > 5*time.Second || c.MaxInputBytes < 1024 || c.MaxInputBytes > 262144 || c.SegmentExchanges < 1 || c.SegmentExchanges > 64 {
 		return c, fmt.Errorf("invalid Decisions model, recipe or limits")
 	}
-	if c.Enabled && (strings.TrimSpace(c.APIKey) == "" || len(c.CacheSecret) < 32) {
-		return c, fmt.Errorf("Decisions observation requires DECISIONS_API_KEY and DECISIONS_CACHE_SECRET (at least 32 bytes)")
+	if (c.Enabled || c.AdaptiveEnabled) && (strings.TrimSpace(c.APIKey) == "" || len(c.CacheSecret) < 32) {
+		return c, fmt.Errorf("Decisions requires DECISIONS_API_KEY and DECISIONS_CACHE_SECRET (at least 32 bytes)")
 	}
 	if c.Rates, err = loadTokenRates("DECISIONS", true); err != nil {
 		return c, err

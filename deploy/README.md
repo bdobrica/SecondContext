@@ -167,7 +167,9 @@ Do not downgrade the schema or run an older image that ignores session fences.
 ## Optional history observation
 
 CH4/CH5 settings in the environment example are passed only to SecondContext.
-They default off and do not enable adaptive routing. A compatible future published
+They default off. Separately, `SECOND_CONTEXT_HISTORY_ADAPTIVE_ENABLED=false` controls
+the [CH6 adaptive capability](../docs/adaptive-history.md); it does not switch any
+client from recent to adaptive. A compatible future published
 image also includes `/app/historyeval` for explicit synthetic access and economics
 checks without host Go. Follow the [observation guide](../docs/decisions-observation.md)
 and retain the existing consumer consent and release gates before enabling.

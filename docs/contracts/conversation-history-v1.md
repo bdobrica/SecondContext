@@ -5,7 +5,8 @@ CH2 implements the ordinary [Chat Completions subset](chat-completions-v1.md).
 CH3 implements managed capture/replay, capabilities and finalization; see
 [configuration, recovery and rollout](../conversation-history.md).
 [ADR 0007](../adr/0007-conversation-history.md) authorizes this additive boundary.
-CH4–CH6 gate Decisions/adaptive behavior independently.
+CH4/CH5 observation and CH6 adaptive selection are independent, disabled-by-default
+features; see [adaptive operations and evaluation gates](../adaptive-history.md).
 The authored [JSON Schema](conversation-history-v1.schema.json) defines closed
 context endpoint bodies. [Conformance cases](conversation-history-v1.examples.json)
 are synthetic structural fixtures, not evidence of server lifecycle behavior.
@@ -158,7 +159,9 @@ the reservation; an unresumable configuration fails, never silently reinterprets
 
 At reservation capture `snapshot_sequence`, the highest earlier accepted sequence
 (or zero), and the session's internal context generation. Persist the selected turn
-identities so retries cannot extend their snapshot. Before every provider attempt
+identities before the first generator attempt so retries cannot extend their snapshot.
+Adaptive selection MUST commit once, including an empty selection, before generation;
+retries after that commit MUST reuse it without reclassification. Before every provider attempt
 and accepted-result retry, revalidate subject/session fences and all source revisions;
 invalidated snapshots fail rather than serving stale content. Do not persist full
 instructions/calculated facts merely to retain the hash: a retry supplies the same
@@ -208,9 +211,9 @@ if mandatory current content/output cannot fit, fail 400 `context_budget_exceede
 No clipped or partial turns, and no context-window guarantee based only on retrieval
 section limits. History is untrusted past dialogue, never current facts/instructions.
 
-If advertised later, `adaptive` may omit recent history for a sufficiently supported
-standalone request or select bounded older complete exchanges from this same session
-and snapshot. Classifier uncertainty, refusal, invalid output, timeout or failure
+When enabled and advertised, `adaptive` may omit recent history for a sufficiently
+supported standalone request. CH6 retains recent history for older-reference signals;
+bounded same-session older retrieval remains deferred. Classifier uncertainty, refusal, invalid output, timeout or failure
 falls back to recent history; authorization, source or deletion failure never does.
 Observation mode leaves generation on recent history. Selection confers no new
 authority and does not change the independent memory/knowledge controls.
@@ -264,4 +267,5 @@ barriers; delivery failure with accepted history; no legacy draft backfill. JSON
 schema checks alone cannot prove any storage, ordering, scope or erasure invariant.
 
 The [CH7 release checklist](../conversation-history-release.md) records the recent-only release boundary,
-coordinated consumer gates and rollback requirements; adaptive remains deferred.
+coordinated consumer gates and rollback requirements. See [CH6 adaptive selection](../adaptive-history.md)
+for its independent opt-in and evaluated limitations.

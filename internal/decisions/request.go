@@ -1,5 +1,5 @@
-// Package decisions observes history dependence; it never selects generation
-// context, persists dialogue, or grants authority.
+// Package decisions evaluates history dependence and a conservative omission rule.
+// It never persists dialogue, hydrates history, or grants authority.
 package decisions
 
 import (

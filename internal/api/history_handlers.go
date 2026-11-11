@@ -62,8 +62,12 @@ func (s *Server) handleHistoryCapabilities(w http.ResponseWriter, r *http.Reques
 		s.historyError(w, r, 503, "history_unavailable")
 		return
 	}
+	modes := []string{"off", "recent"}
+	if s.cfg.Decisions.AdaptiveEnabled {
+		modes = append(modes, "adaptive")
+	}
 	limits := s.cfg.History
-	writeJSON(w, 200, map[string]any{"contract_version": 1, "user": request.User, "implementation": "conversation-history-1", "status": "ready", "generation_endpoints": []string{"/v1/responses", "/v1/chat/completions"}, "managed_input": "single_user_text", "acceptance_modes": []string{"generated", "explicit"}, "history_modes": []string{"off", "recent"}, "finalize_actions": []string{"accept_generated", "accept_local", "abandon"}, "history_coverage": "linked_sessions", "limits": map[string]any{"recent_exchanges": limits.RecentExchanges, "user_characters": 4096, "assistant_characters": 16384, "prompt_input_tokens": limits.PromptInputTokens, "reserved_output_tokens": limits.ReservedOutputTokens, "pending_ttl_seconds": 86400}})
+	writeJSON(w, 200, map[string]any{"contract_version": 1, "user": request.User, "implementation": "conversation-history-1", "status": "ready", "generation_endpoints": []string{"/v1/responses", "/v1/chat/completions"}, "managed_input": "single_user_text", "acceptance_modes": []string{"generated", "explicit"}, "history_modes": modes, "finalize_actions": []string{"accept_generated", "accept_local", "abandon"}, "history_coverage": "linked_sessions", "limits": map[string]any{"recent_exchanges": limits.RecentExchanges, "user_characters": 4096, "assistant_characters": 16384, "prompt_input_tokens": limits.PromptInputTokens, "reserved_output_tokens": limits.ReservedOutputTokens, "pending_ttl_seconds": 86400}})
 }
 func (s *Server) handleHistoryFinalize(w http.ResponseWriter, r *http.Request) {
 	raw, ok := s.readHistoryJSON(w, r, 128<<10)

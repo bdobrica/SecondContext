@@ -126,6 +126,6 @@ remain consumer responsibilities; see [ADR 0005](adr/0005-documentary-candidates
 ## Decisions observation
 
 Optional [CH4/CH5 observation and cache diagnostics](decisions-observation.md)
-are implemented, disabled by default. Generation stays on recent history;
-adaptive routing remains a separate CH6 evaluation gate. No public API or
-canonical schema change is required.
+are implemented, disabled by default. Observation keeps recent generation. [CH6 adaptive selection](adaptive-history.md)
+is an independent opt-in with durable selections and no schema migration. See its
+paired evaluation and cost/latency limitations before enablement.

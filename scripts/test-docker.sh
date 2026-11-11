@@ -11,6 +11,8 @@ export SECOND_CONTEXT_SERVICE_NAMESPACE=oria
 export SECOND_CONTEXT_SERVICE_TOKEN=docker-smoke-only-service-token
 export SECOND_CONTEXT_OPENAI_API_KEY=docker-smoke-no-model-calls
 export SECOND_CONTEXT_HISTORY_ENABLED=true
+export SECOND_CONTEXT_HISTORY_ADAPTIVE_ENABLED=false
+export SECOND_CONTEXT_DECISIONS_OBSERVE_ENABLED=false
 compose=(docker compose --env-file /dev/null -p "$project_name" -f deploy/compose.secondcontext.yml)
 
 cleanup() {
@@ -51,6 +53,18 @@ capability=$(post_history /v1/context/capabilities "{\"user\":\"$subject\"}")
 local_turn="{\"contract_version\":1,\"user\":\"$subject\",\"session_id\":\"packaged-history-check\",\"turn_id\":\"00000000-0000-4000-8000-000000000001\",\"action\":\"accept_local\",\"user_text\":\"Synthetic local question\",\"assistant_text\":\"Synthetic local answer\",\"knowledge_refs\":[]}"
 receipt=$(post_history /v1/context/turns/finalize "$local_turn")
 [[ "$receipt" == *"HTTP/1.1 200"* && "$receipt" == *'"status":"accepted"'* && "$receipt" == *'"sequence":1'* ]]
+
+echo "==> adaptive capability has an independent packaged enable/rollback switch"
+export SECOND_CONTEXT_HISTORY_ADAPTIVE_ENABLED=true
+export SECOND_CONTEXT_DECISIONS_API_KEY=docker-smoke-no-decision-calls
+export SECOND_CONTEXT_DECISIONS_CACHE_SECRET=docker-smoke-cache-partition-secret-only
+"${compose[@]}" up -d --wait --wait-timeout 120 secondcontext
+capability=$(post_history /v1/context/capabilities "{\"user\":\"$subject\"}")
+[[ "$capability" == *"HTTP/1.1 200"* && "$capability" == *'"history_modes":["off","recent","adaptive"]'* ]]
+export SECOND_CONTEXT_HISTORY_ADAPTIVE_ENABLED=false
+"${compose[@]}" up -d --wait --wait-timeout 120 secondcontext
+capability=$(post_history /v1/context/capabilities "{\"user\":\"$subject\"}")
+[[ "$capability" == *"HTTP/1.1 200"* && "$capability" == *'"history_modes":["off","recent"]'* ]]
 
 echo "==> capture rollback preserves receipts and purge on schema 5"
 export SECOND_CONTEXT_HISTORY_ENABLED=false

@@ -1,0 +1,1428 @@
+{
+  "date": "2026-11-11",
+  "decision_model": "gpt-6-luna",
+  "generation_model": "gpt-4.1-mini",
+  "runtime_decision_timeout_seconds": 2,
+  "access_probe_timeout_seconds": 5,
+  "prior_access_probe": "timed out at two seconds; no corpus calls",
+  "rates_usd_per_million": {
+    "decision_input": 0.1,
+    "decision_cached": 0.01,
+    "decision_write": 0.125,
+    "generation_input": 0.4,
+    "generation_cached": 0.1,
+    "generation_output": 1.6
+  },
+  "results": [
+    {
+      "estimated_usd": 4.52e-05,
+      "latency_ms": 375,
+      "outcome": "success",
+      "phase": "access",
+      "usage": {
+        "input_tokens": 452,
+        "output_tokens": 0,
+        "total_tokens": 452,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      }
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 976,
+        "usage": {
+          "input_tokens": 77,
+          "output_tokens": 1,
+          "total_tokens": 78,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 3.24e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 1823,
+        "usage": {
+          "input_tokens": 95,
+          "output_tokens": 1,
+          "total_tokens": 96,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 3.96e-05,
+        "grounding_check_pass": true
+      },
+      "case": "short_switch",
+      "combined_estimated_usd": 8.170000000000001e-05,
+      "combined_latency_ms": 1247,
+      "decision_estimated_usd": 4.9300000000000006e-05,
+      "decision_latency_ms": 271,
+      "decision_usage": {
+        "input_tokens": 493,
+        "output_tokens": 0,
+        "total_tokens": 493,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": false,
+      "older_probability": 0.01,
+      "omitted": true,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0,
+      "split": "calibration"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 1104,
+        "usage": {
+          "input_tokens": 107,
+          "output_tokens": 15,
+          "total_tokens": 122,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 6.680000000000001e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 1017,
+        "usage": {
+          "input_tokens": 107,
+          "output_tokens": 14,
+          "total_tokens": 121,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 6.52e-05,
+        "grounding_check_pass": true
+      },
+      "case": "second_option",
+      "combined_estimated_usd": 0.0001173,
+      "combined_latency_ms": 2351,
+      "decision_estimated_usd": 5.05e-05,
+      "decision_latency_ms": 1247,
+      "decision_usage": {
+        "input_tokens": 505,
+        "output_tokens": 0,
+        "total_tokens": 505,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": true,
+      "older_probability": 0,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0.99,
+      "split": "calibration"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 850,
+        "usage": {
+          "input_tokens": 99,
+          "output_tokens": 10,
+          "total_tokens": 109,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.56e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 1226,
+        "usage": {
+          "input_tokens": 99,
+          "output_tokens": 10,
+          "total_tokens": 109,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.56e-05,
+        "grounding_check_pass": true
+      },
+      "case": "short_pronoun",
+      "combined_estimated_usd": 0.00010530000000000001,
+      "combined_latency_ms": 1137,
+      "decision_estimated_usd": 4.97e-05,
+      "decision_latency_ms": 287,
+      "decision_usage": {
+        "input_tokens": 497,
+        "output_tokens": 0,
+        "total_tokens": 497,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": true,
+      "older_probability": 0.5,
+      "omitted": false,
+      "outcome": "uncertain",
+      "phase": "adaptive_pair",
+      "recent_probability": 1,
+      "split": "calibration"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 570,
+        "usage": {
+          "input_tokens": 105,
+          "output_tokens": 9,
+          "total_tokens": 114,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.6399999999999995e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 623,
+        "usage": {
+          "input_tokens": 105,
+          "output_tokens": 9,
+          "total_tokens": 114,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.6399999999999995e-05,
+        "grounding_check_pass": true
+      },
+      "case": "correction",
+      "combined_estimated_usd": 0.00010669999999999999,
+      "combined_latency_ms": 750,
+      "decision_estimated_usd": 5.03e-05,
+      "decision_latency_ms": 180,
+      "decision_usage": {
+        "input_tokens": 503,
+        "output_tokens": 0,
+        "total_tokens": 503,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": true,
+      "older_probability": 0.01,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0.99,
+      "split": "calibration"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 978,
+        "usage": {
+          "input_tokens": 93,
+          "output_tokens": 9,
+          "total_tokens": 102,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.16e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 1149,
+        "usage": {
+          "input_tokens": 93,
+          "output_tokens": 7,
+          "total_tokens": 100,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 4.8400000000000004e-05,
+        "grounding_check_pass": true
+      },
+      "case": "local_exchange",
+      "combined_estimated_usd": 0.00010070000000000001,
+      "combined_latency_ms": 1137,
+      "decision_estimated_usd": 4.91e-05,
+      "decision_latency_ms": 159,
+      "decision_usage": {
+        "input_tokens": 491,
+        "output_tokens": 0,
+        "total_tokens": 491,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": true,
+      "older_probability": 0.06,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0.97,
+      "split": "calibration"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 1079,
+        "usage": {
+          "input_tokens": 105,
+          "output_tokens": 77,
+          "total_tokens": 182,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.00016519999999999998,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 968,
+        "usage": {
+          "input_tokens": 105,
+          "output_tokens": 73,
+          "total_tokens": 178,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.0001588,
+        "grounding_check_pass": true
+      },
+      "case": "prepared_handoff",
+      "combined_estimated_usd": 0.00021549999999999998,
+      "combined_latency_ms": 1293,
+      "decision_estimated_usd": 5.03e-05,
+      "decision_latency_ms": 214,
+      "decision_usage": {
+        "input_tokens": 503,
+        "output_tokens": 0,
+        "total_tokens": 503,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": false,
+      "older_probability": 0.86,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0,
+      "split": "calibration"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 589,
+        "usage": {
+          "input_tokens": 111,
+          "output_tokens": 4,
+          "total_tokens": 115,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.08e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 984,
+        "usage": {
+          "input_tokens": 111,
+          "output_tokens": 4,
+          "total_tokens": 115,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.08e-05,
+        "grounding_check_pass": true
+      },
+      "case": "switch_then_followup",
+      "combined_estimated_usd": 0.0001024,
+      "combined_latency_ms": 1027,
+      "decision_estimated_usd": 5.16e-05,
+      "decision_latency_ms": 438,
+      "decision_usage": {
+        "input_tokens": 516,
+        "output_tokens": 0,
+        "total_tokens": 516,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": true,
+      "older_probability": 0.12,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 1,
+      "split": "calibration"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 580,
+        "usage": {
+          "input_tokens": 102,
+          "output_tokens": 2,
+          "total_tokens": 104,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 4.4000000000000006e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 536,
+        "usage": {
+          "input_tokens": 102,
+          "output_tokens": 2,
+          "total_tokens": 104,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 4.4000000000000006e-05,
+        "grounding_check_pass": true
+      },
+      "case": "missing_older",
+      "combined_estimated_usd": 9.400000000000001e-05,
+      "combined_latency_ms": 853,
+      "decision_estimated_usd": 5e-05,
+      "decision_latency_ms": 273,
+      "decision_usage": {
+        "input_tokens": 500,
+        "output_tokens": 0,
+        "total_tokens": 500,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": true,
+      "expected_recent": false,
+      "older_probability": 1,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0.07,
+      "split": "calibration"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 627,
+        "usage": {
+          "input_tokens": 904,
+          "output_tokens": 1,
+          "total_tokens": 905,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.00036320000000000005,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 928,
+        "usage": {
+          "input_tokens": 904,
+          "output_tokens": 1,
+          "total_tokens": 905,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.00036320000000000005,
+        "grounding_check_pass": true
+      },
+      "case": "long_switch",
+      "combined_estimated_usd": 0.0005472000000000001,
+      "combined_latency_ms": 921,
+      "decision_estimated_usd": 0.000184,
+      "decision_latency_ms": 294,
+      "decision_usage": {
+        "input_tokens": 1565,
+        "output_tokens": 0,
+        "total_tokens": 1565,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 1100
+        }
+      },
+      "expected_older": false,
+      "expected_recent": false,
+      "older_probability": 0.08,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0,
+      "split": "calibration"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 973,
+        "usage": {
+          "input_tokens": 902,
+          "output_tokens": 12,
+          "total_tokens": 914,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.00038,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 702,
+        "usage": {
+          "input_tokens": 902,
+          "output_tokens": 12,
+          "total_tokens": 914,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.00038,
+        "grounding_check_pass": true
+      },
+      "case": "long_followup",
+      "combined_estimated_usd": 0.0005638,
+      "combined_latency_ms": 1420,
+      "decision_estimated_usd": 0.00018380000000000002,
+      "decision_latency_ms": 447,
+      "decision_usage": {
+        "input_tokens": 1563,
+        "output_tokens": 0,
+        "total_tokens": 1563,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 1100
+        }
+      },
+      "expected_older": false,
+      "expected_recent": true,
+      "older_probability": 0.07,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0.88,
+      "split": "calibration"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 615,
+        "usage": {
+          "input_tokens": 909,
+          "output_tokens": 2,
+          "total_tokens": 911,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.0003668,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 586,
+        "usage": {
+          "input_tokens": 909,
+          "output_tokens": 2,
+          "total_tokens": 911,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.0003668,
+        "grounding_check_pass": true
+      },
+      "case": "long_older",
+      "combined_estimated_usd": 0.0005513,
+      "combined_latency_ms": 851,
+      "decision_estimated_usd": 0.0001845,
+      "decision_latency_ms": 236,
+      "decision_usage": {
+        "input_tokens": 1570,
+        "output_tokens": 0,
+        "total_tokens": 1570,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 1100
+        }
+      },
+      "expected_older": true,
+      "expected_recent": false,
+      "older_probability": 1,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0,
+      "split": "calibration"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 810,
+        "usage": {
+          "input_tokens": 77,
+          "output_tokens": 1,
+          "total_tokens": 78,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 3.24e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 593,
+        "usage": {
+          "input_tokens": 923,
+          "output_tokens": 1,
+          "total_tokens": 924,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.00037080000000000007,
+        "grounding_check_pass": true
+      },
+      "case": "historical_injection",
+      "combined_estimated_usd": 0.000218775,
+      "combined_latency_ms": 1184,
+      "decision_estimated_usd": 0.000186375,
+      "decision_latency_ms": 374,
+      "decision_usage": {
+        "input_tokens": 1584,
+        "output_tokens": 0,
+        "total_tokens": 1584,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 1119
+        }
+      },
+      "expected_older": false,
+      "expected_recent": false,
+      "older_probability": 0,
+      "omitted": true,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0,
+      "split": "calibration"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 735,
+        "usage": {
+          "input_tokens": 77,
+          "output_tokens": 1,
+          "total_tokens": 78,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 3.24e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 595,
+        "usage": {
+          "input_tokens": 96,
+          "output_tokens": 1,
+          "total_tokens": 97,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 4.000000000000001e-05,
+        "grounding_check_pass": true
+      },
+      "case": "holdout_switch",
+      "combined_estimated_usd": 8.180000000000001e-05,
+      "combined_latency_ms": 1225,
+      "decision_estimated_usd": 4.940000000000001e-05,
+      "decision_latency_ms": 490,
+      "decision_usage": {
+        "input_tokens": 494,
+        "output_tokens": 0,
+        "total_tokens": 494,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": false,
+      "older_probability": 0,
+      "omitted": true,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0,
+      "split": "holdout"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 669,
+        "usage": {
+          "input_tokens": 94,
+          "output_tokens": 8,
+          "total_tokens": 102,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.0400000000000005e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 690,
+        "usage": {
+          "input_tokens": 94,
+          "output_tokens": 8,
+          "total_tokens": 102,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.0400000000000005e-05,
+        "grounding_check_pass": true
+      },
+      "case": "holdout_anaphora",
+      "combined_estimated_usd": 9.960000000000001e-05,
+      "combined_latency_ms": 1032,
+      "decision_estimated_usd": 4.92e-05,
+      "decision_latency_ms": 363,
+      "decision_usage": {
+        "input_tokens": 492,
+        "output_tokens": 0,
+        "total_tokens": 492,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": true,
+      "older_probability": 0.01,
+      "omitted": false,
+      "outcome": "uncertain",
+      "phase": "adaptive_pair",
+      "recent_probability": 0.48,
+      "split": "holdout"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 785,
+        "usage": {
+          "input_tokens": 98,
+          "output_tokens": 12,
+          "total_tokens": 110,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.84e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 675,
+        "usage": {
+          "input_tokens": 98,
+          "output_tokens": 12,
+          "total_tokens": 110,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.84e-05,
+        "grounding_check_pass": true
+      },
+      "case": "holdout_choice",
+      "combined_estimated_usd": 0.000108,
+      "combined_latency_ms": 1073,
+      "decision_estimated_usd": 4.96e-05,
+      "decision_latency_ms": 288,
+      "decision_usage": {
+        "input_tokens": 496,
+        "output_tokens": 0,
+        "total_tokens": 496,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": true,
+      "older_probability": 0.13,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 1,
+      "split": "holdout"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 630,
+        "usage": {
+          "input_tokens": 103,
+          "output_tokens": 9,
+          "total_tokens": 112,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.56e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 709,
+        "usage": {
+          "input_tokens": 103,
+          "output_tokens": 9,
+          "total_tokens": 112,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.56e-05,
+        "grounding_check_pass": true
+      },
+      "case": "holdout_correction",
+      "combined_estimated_usd": 0.0001057,
+      "combined_latency_ms": 843,
+      "decision_estimated_usd": 5.01e-05,
+      "decision_latency_ms": 213,
+      "decision_usage": {
+        "input_tokens": 501,
+        "output_tokens": 0,
+        "total_tokens": 501,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": true,
+      "older_probability": 0.02,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 1,
+      "split": "holdout"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 717,
+        "usage": {
+          "input_tokens": 103,
+          "output_tokens": 7,
+          "total_tokens": 110,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.2400000000000007e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 890,
+        "usage": {
+          "input_tokens": 103,
+          "output_tokens": 7,
+          "total_tokens": 110,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.2400000000000007e-05,
+        "grounding_check_pass": true
+      },
+      "case": "holdout_new_topic_followup",
+      "combined_estimated_usd": 0.00010320000000000001,
+      "combined_latency_ms": 874,
+      "decision_estimated_usd": 5.08e-05,
+      "decision_latency_ms": 157,
+      "decision_usage": {
+        "input_tokens": 508,
+        "output_tokens": 0,
+        "total_tokens": 508,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": true,
+      "older_probability": 0.65,
+      "omitted": false,
+      "outcome": "uncertain",
+      "phase": "adaptive_pair",
+      "recent_probability": 1,
+      "split": "holdout"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 1341,
+        "usage": {
+          "input_tokens": 107,
+          "output_tokens": 132,
+          "total_tokens": 239,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.00025400000000000005,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 1266,
+        "usage": {
+          "input_tokens": 107,
+          "output_tokens": 112,
+          "total_tokens": 219,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.00022200000000000003,
+        "grounding_check_pass": true
+      },
+      "case": "holdout_handoff",
+      "combined_estimated_usd": 0.00030460000000000003,
+      "combined_latency_ms": 1660,
+      "decision_estimated_usd": 5.0600000000000003e-05,
+      "decision_latency_ms": 319,
+      "decision_usage": {
+        "input_tokens": 506,
+        "output_tokens": 0,
+        "total_tokens": 506,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": false,
+      "older_probability": 0.29,
+      "omitted": false,
+      "outcome": "uncertain",
+      "phase": "adaptive_pair",
+      "recent_probability": 0,
+      "split": "holdout"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 961,
+        "usage": {
+          "input_tokens": 96,
+          "output_tokens": 12,
+          "total_tokens": 108,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.760000000000001e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 805,
+        "usage": {
+          "input_tokens": 96,
+          "output_tokens": 12,
+          "total_tokens": 108,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 5.760000000000001e-05,
+        "grounding_check_pass": true
+      },
+      "case": "holdout_local",
+      "combined_estimated_usd": 0.00010700000000000003,
+      "combined_latency_ms": 1376,
+      "decision_estimated_usd": 4.940000000000001e-05,
+      "decision_latency_ms": 415,
+      "decision_usage": {
+        "input_tokens": 494,
+        "output_tokens": 0,
+        "total_tokens": 494,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": true,
+      "older_probability": 0,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 1,
+      "split": "holdout"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 806,
+        "usage": {
+          "input_tokens": 97,
+          "output_tokens": 2,
+          "total_tokens": 99,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 4.2000000000000004e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 599,
+        "usage": {
+          "input_tokens": 97,
+          "output_tokens": 2,
+          "total_tokens": 99,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 4.2000000000000004e-05,
+        "grounding_check_pass": true
+      },
+      "case": "holdout_unknown",
+      "combined_estimated_usd": 9.15e-05,
+      "combined_latency_ms": 1176,
+      "decision_estimated_usd": 4.95e-05,
+      "decision_latency_ms": 370,
+      "decision_usage": {
+        "input_tokens": 495,
+        "output_tokens": 0,
+        "total_tokens": 495,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": true,
+      "expected_recent": false,
+      "older_probability": 1,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0.03,
+      "split": "holdout"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 1254,
+        "usage": {
+          "input_tokens": 108,
+          "output_tokens": 99,
+          "total_tokens": 207,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.00020160000000000002,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 1299,
+        "usage": {
+          "input_tokens": 108,
+          "output_tokens": 116,
+          "total_tokens": 224,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.0002288,
+        "grounding_check_pass": true
+      },
+      "case": "holdout_persistent_constraint",
+      "combined_estimated_usd": 0.0002522,
+      "combined_latency_ms": 1562,
+      "decision_estimated_usd": 5.0600000000000003e-05,
+      "decision_latency_ms": 308,
+      "decision_usage": {
+        "input_tokens": 506,
+        "output_tokens": 0,
+        "total_tokens": 506,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        }
+      },
+      "expected_older": false,
+      "expected_recent": true,
+      "older_probability": 0.02,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 1,
+      "split": "holdout"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 662,
+        "usage": {
+          "input_tokens": 77,
+          "output_tokens": 1,
+          "total_tokens": 78,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 3.24e-05,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 558,
+        "usage": {
+          "input_tokens": 904,
+          "output_tokens": 1,
+          "total_tokens": 905,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.00036320000000000005,
+        "grounding_check_pass": true
+      },
+      "case": "holdout_long_switch",
+      "combined_estimated_usd": 0.0002164,
+      "combined_latency_ms": 977,
+      "decision_estimated_usd": 0.000184,
+      "decision_latency_ms": 315,
+      "decision_usage": {
+        "input_tokens": 1565,
+        "output_tokens": 0,
+        "total_tokens": 1565,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 1100
+        }
+      },
+      "expected_older": false,
+      "expected_recent": false,
+      "older_probability": 0,
+      "omitted": true,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0,
+      "split": "holdout"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 588,
+        "usage": {
+          "input_tokens": 903,
+          "output_tokens": 11,
+          "total_tokens": 914,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.00037880000000000005,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 598,
+        "usage": {
+          "input_tokens": 903,
+          "output_tokens": 13,
+          "total_tokens": 916,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.00038200000000000007,
+        "grounding_check_pass": true
+      },
+      "case": "holdout_long_followup",
+      "combined_estimated_usd": 0.0005627000000000001,
+      "combined_latency_ms": 992,
+      "decision_estimated_usd": 0.0001839,
+      "decision_latency_ms": 404,
+      "decision_usage": {
+        "input_tokens": 1564,
+        "output_tokens": 0,
+        "total_tokens": 1564,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 1100
+        }
+      },
+      "expected_older": false,
+      "expected_recent": true,
+      "older_probability": 0.92,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0.15,
+      "split": "holdout"
+    },
+    {
+      "adaptive": {
+        "outcome": "success",
+        "latency_ms": 644,
+        "usage": {
+          "input_tokens": 908,
+          "output_tokens": 2,
+          "total_tokens": 910,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.0003664,
+        "grounding_check_pass": true
+      },
+      "baseline": {
+        "outcome": "success",
+        "latency_ms": 650,
+        "usage": {
+          "input_tokens": 908,
+          "output_tokens": 2,
+          "total_tokens": 910,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "estimated_usd": 0.0003664,
+        "grounding_check_pass": true
+      },
+      "case": "holdout_long_older",
+      "combined_estimated_usd": 0.0005508,
+      "combined_latency_ms": 837,
+      "decision_estimated_usd": 0.0001844,
+      "decision_latency_ms": 193,
+      "decision_usage": {
+        "input_tokens": 1569,
+        "output_tokens": 0,
+        "total_tokens": 1569,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 1100
+        }
+      },
+      "expected_older": true,
+      "expected_recent": false,
+      "older_probability": 1,
+      "omitted": false,
+      "outcome": "success",
+      "phase": "adaptive_pair",
+      "recent_probability": 0.02,
+      "split": "holdout"
+    },
+    {
+      "counts": {
+        "Cases": 12,
+        "MissedContext": 0,
+        "Omitted": 2,
+        "RetainedStandalone": 2
+      },
+      "phase": "threshold_sweep",
+      "split": "calibration",
+      "threshold": 0.01
+    },
+    {
+      "counts": {
+        "Cases": 12,
+        "MissedContext": 0,
+        "Omitted": 2,
+        "RetainedStandalone": 2
+      },
+      "phase": "threshold_sweep",
+      "split": "calibration",
+      "threshold": 0.05
+    },
+    {
+      "counts": {
+        "Cases": 12,
+        "MissedContext": 0,
+        "Omitted": 3,
+        "RetainedStandalone": 1
+      },
+      "phase": "threshold_sweep",
+      "split": "calibration",
+      "threshold": 0.1
+    },
+    {
+      "counts": {
+        "Cases": 12,
+        "MissedContext": 0,
+        "Omitted": 3,
+        "RetainedStandalone": 1
+      },
+      "phase": "threshold_sweep",
+      "split": "calibration",
+      "threshold": 0.2
+    },
+    {
+      "counts": {
+        "Cases": 12,
+        "MissedContext": 0,
+        "Omitted": 2,
+        "RetainedStandalone": 1
+      },
+      "phase": "threshold_sweep",
+      "split": "holdout",
+      "threshold": 0.01
+    },
+    {
+      "counts": {
+        "Cases": 12,
+        "MissedContext": 0,
+        "Omitted": 2,
+        "RetainedStandalone": 1
+      },
+      "phase": "threshold_sweep",
+      "split": "holdout",
+      "threshold": 0.05
+    },
+    {
+      "counts": {
+        "Cases": 12,
+        "MissedContext": 0,
+        "Omitted": 2,
+        "RetainedStandalone": 1
+      },
+      "phase": "threshold_sweep",
+      "split": "holdout",
+      "threshold": 0.1
+    },
+    {
+      "counts": {
+        "Cases": 12,
+        "MissedContext": 0,
+        "Omitted": 2,
+        "RetainedStandalone": 1
+      },
+      "phase": "threshold_sweep",
+      "split": "holdout",
+      "threshold": 0.2
+    },
+    {
+      "cases": 24,
+      "grounding_regressions": 0,
+      "human_review_required": true,
+      "missed_context": 0,
+      "omissions": 4,
+      "phase": "summary",
+      "production_enabled": false,
+      "recipe": "standalone-1",
+      "threshold": 0.05
+    }
+  ]
+}

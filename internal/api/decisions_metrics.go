@@ -9,7 +9,7 @@ import (
 	"github.com/bdobrica/SecondContext/internal/decisions"
 )
 
-type decisionMetricKey struct{ Outcome, Suggestion, Length, Cache string }
+type decisionMetricKey struct{ Outcome, Suggestion, Length, Cache, Selection string }
 type decisionMetric struct {
 	DecisionPriced, GenerationPriced                                                         uint64
 	DecisionUSD, GenerationUSD                                                               float64
@@ -22,7 +22,11 @@ func (o *observability) observeHistory(v historyObservation, c config.DecisionsC
 	if o == nil {
 		return
 	}
-	key := decisionMetricKey{v.Decision.Outcome, v.Decision.Suggestion(), "short", "unknown"}
+	selection := v.Selection
+	if selection == "" {
+		selection = "observe"
+	}
+	key := decisionMetricKey{v.Decision.Outcome, v.Decision.Suggestion(), "short", "unknown", selection}
 	if v.Exchanges > 8 {
 		key.Length = "long"
 	}
@@ -87,7 +91,7 @@ func (o *observability) renderDecisions(b *strings.Builder) {
 	sort.Slice(keys, func(i, j int) bool { return fmt.Sprint(keys[i]) < fmt.Sprint(keys[j]) })
 	for _, k := range keys {
 		m := o.decisions[k]
-		labels := formatPrometheusLabels(map[string]string{"outcome": k.Outcome, "suggestion": k.Suggestion, "length": k.Length, "cache": k.Cache})
+		labels := formatPrometheusLabels(map[string]string{"outcome": k.Outcome, "suggestion": k.Suggestion, "length": k.Length, "cache": k.Cache, "selection": k.Selection})
 		counts := map[string]uint64{"requests": m.Count, "usage_known": m.UsageKnown, "input_tokens": m.Input, "cached_tokens": m.Cached, "cache_write_tokens": m.Write, "output_tokens": m.Output, "total_tokens": m.Total, "generation_attempts": m.GenerationAttempts, "generation_usage_known": m.GenerationUsageKnown, "generation_input_tokens": m.GenerationInput, "generation_cached_tokens": m.GenerationCached, "generation_output_tokens": m.GenerationOutput, "priced_requests": m.Priced, "decision_priced_requests": m.DecisionPriced, "generation_priced_requests": m.GenerationPriced}
 		names := make([]string, 0, len(counts))
 		for n := range counts {

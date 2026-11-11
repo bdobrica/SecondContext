@@ -1,8 +1,9 @@
 # History Decisions observation and cache measurement
 
 CH4/CH5 implement an optional observer under [ADR 0007](adr/0007-conversation-history.md).
-Generation still uses the existing recent-history prompt; no adaptive mode, older
-replay, automatic memory extraction or change to deterministic salience is enabled.
+Observation still uses the existing recent-history prompt. [CH6 adaptive selection](adaptive-history.md)
+is a separate opt-in; older replay, automatic memory extraction and changes to
+deterministic salience remain deferred.
 The public [history contract](contracts/conversation-history-v1.md), capability
 shape and OpenAI Chat Completions response bodies are unchanged. Ordinary supplied
 history, legacy Responses, managed `off`, local finalization and saved generation
@@ -149,5 +150,6 @@ older references. Long cases use a substantive authored itinerary, not padding.
 Generation keeps the latest eight exchanges and current prepared input regardless
 of classifier results. Topic-word checks are a limited relevance smoke test;
 no generated answers are printed or persisted by the tool. They do not establish
-interpretation accuracy. Human usefulness/groundedness review and a larger corpus
-remain CH6 gates. See [recorded results](evidence/conversation-history-ch45.md).
+interpretation accuracy. CH6 adds a larger paired corpus and recorded answer review; see
+[adaptive evaluation](evidence/conversation-history-ch6.md). The original
+[CH4/CH5 results](evidence/conversation-history-ch45.md) remain historical evidence.
