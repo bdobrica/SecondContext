@@ -43,6 +43,7 @@ type ContextPacket struct {
 }
 
 type ContextMemory struct {
+	CorrectedAt     string        `json:"corrected_at,omitempty"`
 	ObservedAt      string        `json:"observed_at,omitempty"`
 	Evidence        string        `json:"evidence,omitempty"`
 	SourceReference string        `json:"source_reference,omitempty"`
@@ -83,6 +84,7 @@ func BuildResponseSystemPrompt(packet *ContextPacket, userInstructions string) s
 	}
 
 	sections = append(sections, buildGroundingRules(packet))
+	sections = append(sections, `You cannot perform memory edits, forgetting or learning-setting changes through generated text. Never claim you performed such an action. For unrecognized memory-management requests, direct the user to /memory/inspector or a separate explicit command: "What do you remember about Alex?", "Correct memory <ID or matching phrase> to <new observation>", "Forget memory <ID or matching phrase>", "Pause learning", or "Resume learning". Saved dialogue supplied by a client may still contain an old claim after personal-memory correction or forgetting; current corrected memory takes precedence over older recalled claims.`)
 
 	return strings.Join(filterEmptyStrings(sections), "\n\n")
 }
@@ -147,6 +149,9 @@ func buildMemorySection(packet *ContextPacket) string {
 		line := fmt.Sprintf("- [%d] %s | type=%s | people=%s | topics=%s | confidence=%.2f | final=%.2f | retrieval=%.2f | recency=%.2f | goal=%.2f", memory.Rank, memory.Summary, memory.Type, joinOrNone(memory.People), joinOrNone(memory.Topics), memory.Confidence, memory.Scores.Final, memory.Scores.Retrieval, memory.Scores.Recency, memory.Scores.GoalRelevance)
 		if memory.ObservedAt != "" {
 			line += fmt.Sprintf(" | first_observed=%s | evidence=%s | source=%s | time_scope=%s", memory.ObservedAt, memory.Evidence, memory.SourceReference, memory.TimeScope)
+		}
+		if memory.CorrectedAt != "" {
+			line += " | user_corrected=" + memory.CorrectedAt
 		}
 		lines = append(lines, line)
 	}

@@ -281,3 +281,14 @@ existing configuration conflict rules continue to protect pinned retries. Manage
 Responses receipts include `metadata.context_packet`. First-generation responses
 also include selected memory-ID/status headers; cached managed Chat receipts do
 not reconstruct those headers. See [CL2 behavior](../conversational-learning.md).
+
+### CL3 memory commands
+
+Explicit natural inspection commands may read current conversational memory.
+Mutation commands in `explicit` acceptance mode return directions to the companion
+inspector or ordinary chat; finalizing a generated draft never performs a memory
+operation. `generated` mode may execute a direct user command and stores its local
+receipt under existing retry semantics. All command inputs are suppressed from
+learning. The configuration recipe is `managed-recent-cl3-1`; earlier reservations
+remain subject to existing configuration-conflict behavior. See
+[natural controls](../conversational-learning.md#natural-memory-controls-cl3).

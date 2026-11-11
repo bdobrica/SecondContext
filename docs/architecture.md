@@ -51,7 +51,13 @@ linked-source fences. Completed occurrence receipts prevent exact-prefix replay
 from recreating deleted observations. Migration 000006 adds settings/captures and
 canonical memory derivation links; whole-subject and linked-session erasure cover
 these stores. `disable_memory` still only controls retrieval; `temporary_chat`
-additionally suppresses conversational capture.
+additionally suppresses conversational capture. CL3's `/memory/observations`
+searches canonical conversational summaries with pagination; explicit natural
+memory commands return local receipts instead of trusting generated mutations.
+Migration 000007 invalidates person/topic aggregates, beliefs and graph edges that
+reference a corrected/deleted memory, in the same database statement. The inspector
+can ask a fresh question and show its personal evidence and reference excerpts.
+See [command and retention limits](conversational-learning.md#natural-memory-controls-cl3).
 
 Memory search combines dense and hashed lexical vectors in Qdrant, hydrates
 canonical rows and applies Go salience ranking. The lexical baseline uses

@@ -254,7 +254,17 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 	// Persist the receipt while the reserved turn exists. Failed generations and
 	// explicit drafts stay ineligible until canonical acceptance; controls are pinned.
 	w.Header().Set("X-SecondContext-Capture", s.enqueueLearning(r, request, current[len(current)-1:], h.Session, h.Turn))
-	result, err := client.Chat(r.Context(), upstream, nil)
+	var result llm.ChatResult
+	if command := parseMemoryCommand(current); command.Action != "" {
+		reply, commandErr := s.executeMemoryCommand(r.Context(), request, command, h.Acceptance == "explicit")
+		if commandErr != nil {
+			s.writeMemoryError(w, r, commandErr)
+			return true
+		}
+		result, err = memoryCommandCompletion(reply, upstream, nil)
+	} else {
+		result, err = client.Chat(r.Context(), upstream, nil)
+	}
 	if observation != nil {
 		observation.GenerationAttempted = true
 		observation.GenerationDuration = time.Since(generationStarted)
@@ -314,7 +324,7 @@ func setHistoryHeaders(w http.ResponseWriter, h historySelectors, snapshot int64
 func (s *Server) historyConfigHash(model string) []byte {
 	// Credentials are intentionally absent: key rotation does not change request
 	// interpretation. Pin provider/model, retrieval configuration, budgets/recipe.
-	b, _ := json.Marshal(map[string]any{"recipe": "managed-recent-cl2-1", "base_url": s.cfg.OpenAI.BaseURL, "model": model, "embedding_model": s.cfg.OpenAI.EmbeddingModel, "recent": s.cfg.History.RecentExchanges, "input": s.cfg.History.PromptInputTokens, "output": s.cfg.History.ReservedOutputTokens, "scoring": s.cfg.Scoring, "knowledge_enabled": s.cfg.Knowledge.Enabled, "knowledge_url": s.cfg.Knowledge.URL, "knowledge_limit": s.cfg.Knowledge.Limit, "qdrant_collection": s.cfg.Qdrant.Collection})
+	b, _ := json.Marshal(map[string]any{"recipe": "managed-recent-cl3-1", "base_url": s.cfg.OpenAI.BaseURL, "model": model, "embedding_model": s.cfg.OpenAI.EmbeddingModel, "recent": s.cfg.History.RecentExchanges, "input": s.cfg.History.PromptInputTokens, "output": s.cfg.History.ReservedOutputTokens, "scoring": s.cfg.Scoring, "knowledge_enabled": s.cfg.Knowledge.Enabled, "knowledge_url": s.cfg.Knowledge.URL, "knowledge_limit": s.cfg.Knowledge.Limit, "qdrant_collection": s.cfg.Qdrant.Collection})
 	h, _ := historyHash(b)
 	return h
 }

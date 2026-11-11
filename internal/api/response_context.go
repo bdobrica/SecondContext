@@ -24,6 +24,9 @@ const (
 )
 
 func (s *Server) buildResponseContext(ctx context.Context, request createResponseRequest, metadata requestMetadata, messages []llm.Message) (*prompts.ContextPacket, error) {
+	if parseMemoryCommand(messages).Action != "" {
+		return commandPacket(), nil
+	}
 	packet := buildBaseContextPacket(request, messages, metadata.UserExternalID)
 	if requestDisablesMemory(request) {
 		packet.InterpretationStatus = "disabled"
@@ -164,6 +167,7 @@ func buildMemoryContext(results []retrievalsvc.Result) ([]prompts.ContextMemory,
 		}
 		usedChars = candidateChars
 		var provenance struct {
+			CorrectedAt     string `json:"corrected_at"`
 			ObservedAt      string `json:"observed_at"`
 			Evidence        string `json:"evidence"`
 			SourceReference string `json:"source_reference"`
@@ -171,7 +175,7 @@ func buildMemoryContext(results []retrievalsvc.Result) ([]prompts.ContextMemory,
 		}
 		_ = json.Unmarshal(result.Memory.Metadata, &provenance)
 		memories = append(memories, prompts.ContextMemory{
-			ObservedAt: provenance.ObservedAt, Evidence: provenance.Evidence, SourceReference: provenance.SourceReference, TimeScope: provenance.TimeScope,
+			CorrectedAt: provenance.CorrectedAt, ObservedAt: provenance.ObservedAt, Evidence: provenance.Evidence, SourceReference: provenance.SourceReference, TimeScope: provenance.TimeScope,
 			ID:         result.Memory.ID,
 			Rank:       result.Rank,
 			Type:       result.Memory.MemoryType,

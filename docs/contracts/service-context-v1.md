@@ -108,3 +108,11 @@ foreign, expired, forgotten and fenced IDs are omitted without distinguishing th
 It does not expose other subjects' entity names or aliases.
 Full purge includes learning settings and capture receipts. Learning stays off
 until enabled for the subject; the history switch does not enable learning.
+
+### CL3 inspection and commands
+
+Delegated subject credentials can use `GET /memory/observations?q=...&offset=...`
+for paginated, canonical conversational-memory inspection. Existing subject
+ownership and namespace checks apply. Natural memory commands on generation
+endpoints follow the [CL3 command contract](../conversational-learning.md#natural-memory-controls-cl3),
+including disabled/temporary controls and explicit-acceptance mutation restrictions.

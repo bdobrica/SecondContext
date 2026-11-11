@@ -134,6 +134,7 @@ type extractMemoryResponse struct {
 }
 
 type memoryResponse struct {
+	RecallStatus  string         `json:"recall_status,omitempty"`
 	ID            string         `json:"id"`
 	UserID        string         `json:"user_id"`
 	MemoryType    string         `json:"type"`

@@ -111,7 +111,7 @@ func (a *requestAuthenticator) middleware(server *Server) func(http.Handler) htt
 func learningServiceRoute(method, path string) bool {
 	return (path == "/memory/learning" && (method == http.MethodGet || method == http.MethodPut)) ||
 		(path == "/memory/learning/retry" && method == http.MethodPost) ||
-		((path == "/memory" || path == "/memory/evidence") && method == http.MethodGet) ||
+		((path == "/memory" || path == "/memory/evidence" || path == "/memory/observations") && method == http.MethodGet) ||
 		((method == http.MethodPatch || method == http.MethodDelete) && regexp.MustCompile(`^/memory/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`).MatchString(path))
 }
 

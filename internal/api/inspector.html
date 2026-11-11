@@ -4,7 +4,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SecondContext · Memory</title>
 <style>
-body{font:16px/1.5 system-ui,sans-serif;max-width:880px;margin:40px auto;padding:0 20px;color:#202b34;background:#fafaf8}h1{margin-bottom:4px}h2{margin-top:32px}p{max-width:75ch}label{display:block;margin:10px 0}input,textarea{display:block;box-sizing:border-box;width:100%;font:inherit;padding:8px;border:1px solid #9ca8ae;border-radius:4px;background:white}button{font:inherit;padding:7px 12px;margin:4px 8px 4px 0;border:1px solid #768890;border-radius:4px;background:#edf3f3;color:#17292b;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.card{background:white;border:1px solid #d4dcdc;border-radius:8px;padding:18px;margin:16px 0}.detail{font-size:14px;color:#4a5c64;white-space:pre-wrap;overflow-wrap:anywhere}#notice{min-height:1.5em;color:#204e50}#error{color:#a01d24}pre{white-space:pre-wrap;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:8px;border-bottom:1px solid #d4dcdc;overflow-wrap:anywhere}td:first-child{max-width:170px}[hidden]{display:none!important}
+body{font:16px/1.5 system-ui,sans-serif;max-width:880px;margin:40px auto;padding:0 20px;color:#202b34;background:#fafaf8}h1{margin-bottom:4px}h2{margin-top:32px}p{max-width:75ch}label{display:block;margin:10px 0}input,textarea{display:block;box-sizing:border-box;width:100%;font:inherit;padding:8px;border:1px solid #9ca8ae;border-radius:4px;background:white}input[type=checkbox]{display:inline;width:auto}button{font:inherit;padding:7px 12px;margin:4px 8px 4px 0;border:1px solid #768890;border-radius:4px;background:#edf3f3;color:#17292b;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.card{background:white;border:1px solid #d4dcdc;border-radius:8px;padding:18px;margin:16px 0}.detail{font-size:14px;color:#4a5c64;white-space:pre-wrap;overflow-wrap:anywhere}#notice{min-height:1.5em;color:#204e50}#error{color:#a01d24}pre{white-space:pre-wrap;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:8px;border-bottom:1px solid #d4dcdc;overflow-wrap:anywhere}td:first-child{max-width:170px}[hidden]{display:none!important}
 </style>
 <h1>Memory</h1>
 <p>Inspect what SecondContext learns from your conversations. Learning starts off. Your account identity keeps personal observations separate from other users.</p>
@@ -18,13 +18,22 @@ body{font:16px/1.5 system-ui,sans-serif;max-width:880px;margin:40px auto;padding
 <main id="workspace" hidden>
  <p><strong id="learning-state"></strong></p>
  <button id="toggle">Enable learning</button><button id="refresh">Refresh</button><button id="retry">Retry failed captures</button><button id="disconnect">Disconnect</button>
- <p class="detail">Pause cancels unfinished capture and stops learning new observations. Existing memories remain available. Temporary chat must be selected in the chat request; it disables learning and personal-memory retrieval, while leaving reference knowledge independent.</p>
+ <p class="detail">Pause cancels unfinished capture and stops learning new observations. Existing memories remain available. The temporary-question control below applies to that question; other clients must select temporary chat in each request. It disables learning and personal-memory retrieval, while leaving reference knowledge independent.</p>
+ <h2>Try a fresh conversation</h2>
+ <p class="detail">Each question starts fresh, so you can check recall after a correction or forgetting. You can also ask “What do you remember about Alex?”, “Correct memory &lt;ID or phrase&gt; to &lt;new observation&gt;”, or “Forget memory &lt;ID or phrase&gt;”. Several matches require a specific ID.</p>
+ <form id="ask"><label>Your question <textarea id="question" rows="3" required maxlength="4096"></textarea></label>
+ <label><input id="temporary" type="checkbox"> Temporary question — no learning or personal-memory recall</label>
+ <p class="detail">Reference knowledge remains available. Temporary questions still follow the server’s conversation retention policy; this is not a transcript-erasure control.</p>
+ <button id="send" type="submit">Ask</button></form>
+ <div id="answer" aria-live="polite"></div><div id="documents"></div>
  <h2>Evidence used in an answer</h2>
  <p class="detail">Paste the memory IDs from the answer’s X-SecondContext-Memory-Ids header (or Responses context_packet). This shows the current observations; corrections, expiry and forgetting take effect here too.</p>
  <form id="inspect-evidence"><label>Memory IDs <input id="evidence-ids" autocomplete="off" placeholder="Comma-separated IDs"></label><button type="submit">Inspect evidence</button></form>
  <div id="evidence"></div>
  <h2>Observations</h2>
- <p class="detail">Most recent 100 observations. Corrections change the stored summary. Forget removes this observation from personal memory; a matching old transcript will not recreate it. Dialogue still supplied by your chat client can remain visible to the model.</p>
+ <p class="detail">Search current summaries and people/topic labels. Corrections change the stored summary and invalidate dependent summaries; original source, labels and expiry stay visible. Forget removes this observation from personal memory; a matching old transcript will not recreate it. Dialogue still supplied by your chat client can remain visible to the model.</p>
+ <form id="search"><label>Search observations <input id="query" maxlength="300" autocomplete="off" placeholder="Name, topic, phrase or memory ID"></label><button type="submit">Search</button></form>
+ <p id="page" class="detail"></p><button id="previous">Previous</button><button id="next">Next</button>
  <div id="memories"></div>
  <h2>Capture progress</h2>
  <p class="detail">Most recent 100 source occurrences. Pending and failed captures are not ready for recall. A completed capture may contain no useful observations. Refresh after background work finishes.</p>

@@ -15,10 +15,10 @@ below. See [AGENTS.md](AGENTS.md) for governing guidance and
 for behavior, dependencies, and acceptance demonstrations. PLAN.md and TODO.md
 are versioned shared documents; the earlier local-only PLAN convention is superseded.
 
-CL1 and CL2 code and a minimal CL3 inspector are implemented, with focused
-mechanical regression coverage and an unchanged-client synthetic demonstration.
+CL1–CL3 code is implemented, with focused mechanical regression coverage and an
+unchanged-client synthetic demonstration of inspection, correction and forgetting.
 Real-provider extraction, retrieval and usefulness validation remain open.
-Complete CL3 and the real-model acceptance as the first usable milestone M1. No unrelated
+Complete the real-model acceptance and comparisons for the first usable milestone M1. No unrelated
 production-readiness or rollout checklist blocks that milestone.
 Fix concrete blockers and preserve working isolation, acceptance, and forgetting.
 
@@ -94,26 +94,36 @@ The full M1 usefulness milestone remains open.
 
 ### CL3 — Memory inspection and correction
 
-- [ ] Provide a minimal companion surface for memory list/search, provenance,
-  dates, explicit/inferred status, capture progress, and evidence used in answers.
-- [ ] Add edit, forget, pause-learning, and temporary-chat controls, reusing existing
-  endpoints where possible. Support natural inspection/correction/forgetting requests
-  with clarification for ambiguous targets.
-- [ ] Track source dependencies and propagate edits/deletion to retrieved copies
-  and derived person/belief summaries; ensure old claims stop driving answers.
-- [ ] Prevent forgotten observations from immediately returning through resent old
-  transcripts; distinguish genuinely new reports and explain client-held history scope.
-- [ ] Run M1 end to end: natural statement → capture → fresh-conversation recall →
-  correction → changed answer → forgetting → absence from future memory context.
-- [ ] Include pause/temporary chat, delayed capture, another user's isolation,
-  repeated transcript, and time-limited observations in the M1 checks.
+- [x] Provide a companion surface for paginated memory list/search, provenance,
+  dates, explicit/inferred status, capture/recall progress, and answer evidence.
+- [x] Add summary edit, forget, pause-learning, and per-question temporary controls.
+  Support explicit natural inspection/correction/forgetting commands on both
+  endpoints, with clarification for ambiguous targets and local success receipts.
+- [x] Track source dependencies and invalidate retrieved copies and dependent
+  person/belief/graph summaries on correction/deletion (migration 000007).
+- [x] Preserve occurrence receipts against old-transcript relearning; distinguish
+  new reports and explain the scope of client/server-held dialogue.
+- [x] Exercise the M1 mechanics with deterministic providers and unchanged SDK:
+  statement → capture → fresh recall → correction → changed context → forgetting
+  → no future memory context, including old-prefix replay.
+- [x] Include pause/temporary chat, delayed capture, another user's isolation,
+  repeated transcript, expiry, ambiguity, failed correction and managed acceptance
+  in the mechanical checks. Preserve mandatory repository verification.
+- [ ] Run the complete M1 demonstration with a real provider and inspect answer
+  quality; deterministic prompt echoes do not establish better advice.
 - [ ] Compare history alone, simple dated observations, and the full structured
   model with matched inputs/model/knowledge and independent capture/fixtures.
 - [ ] Inspect real answer quality and record useful recall, inappropriate capture,
   correction behavior, user effort, and latency that affects use. Start two weeks
   of dogfooding once M1 works; retain findings without claiming unobserved benefits.
-- [ ] Update implemented behavior/configuration/docs and record the M1 demonstration;
-  do not mark the milestone complete based only on memory rows or passing unit tests.
+- [x] Update implemented behavior/configuration/docs and record the synthetic M1
+  demonstration and limits. CL1–CL3/M1 remains open pending real-provider evidence.
+
+Natural controls use a bounded English grammar and current literal phrase/ID
+matching; the model cannot authorize mutations. General paraphrased belief updates
+remain CL4. Summary edits preserve source text, people/topic labels and expiry.
+Managed explicit-acceptance clients inspect but use the companion/ordinary chat
+for mutations. No live account was enabled and nothing was deployed.
 
 ### CL4 — Natural outcomes and belief updates
 

@@ -125,7 +125,14 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 
 	var upstreamResponse llm.GenerateResponse
 	var scenarioPlan *scenarios.Plan
-	if scenarioMode {
+	if command := parseMemoryCommand(captureMessages); command.Action != "" {
+		reply, commandErr := s.executeMemoryCommand(r.Context(), request, command, false)
+		if commandErr != nil {
+			s.writeMemoryError(w, r, commandErr)
+			return
+		}
+		upstreamResponse = llm.GenerateResponse{ID: newIdentifier("resp"), Model: upstreamModel, OutputText: reply}
+	} else if scenarioMode {
 		scenarioResult, err := scenarios.NewService(s.cfg, s.llm).Generate(r.Context(), upstreamModel, contextPacket, request.Instructions)
 		if err != nil {
 			s.logger.Error("generate scenario plan", "error", err, "request_id", middleware.GetReqID(r.Context()))

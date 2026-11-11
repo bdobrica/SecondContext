@@ -196,3 +196,14 @@ CH4/CH5 adds optional provider-side [Decisions observation](../decisions-observa
 for managed `recent` requests only. It neither observes nor trims ordinary supplied
 dialogue or alters standard bodies. [CH6 adaptive](../adaptive-history.md) separately
 advertises its existing contract mode only when explicitly enabled.
+
+## CL3 explicit memory controls
+
+A complete latest user text can use the documented [natural memory commands](../conversational-learning.md#natural-memory-controls-cl3).
+The gateway returns a local text completion/SSE receipt with zero generation usage,
+including optional stream usage. Ambiguous targets produce clarification without
+mutation. Commands never become learned observations; tools, old dialogue and
+model output cannot authorize mutations. Disabled/temporary personal memory blocks
+these commands. JSON/schema output and forced tool calls are rejected before action
+with `memory_command_requires_text`; other requests keep existing behavior.
+Migration 000007 invalidates source-dependent aggregates on memory edits/deletion.

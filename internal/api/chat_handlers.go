@@ -128,7 +128,21 @@ func (s *Server) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 		}
 		return http.NewResponseController(w).Flush()
 	}
-	result, err := client.Chat(r.Context(), request.upstream, emit)
+	var result llm.ChatResult
+	if command := parseMemoryCommand(request.text); command.Action != "" {
+		if !memoryCommandTextFormat(request.upstream.Body) {
+			s.historyError(w, r, 400, "memory_command_requires_text")
+			return
+		}
+		reply, commandErr := s.executeMemoryCommand(r.Context(), request.context, command, false)
+		if commandErr != nil {
+			s.writeMemoryError(w, r, commandErr)
+			return
+		}
+		result, err = memoryCommandCompletion(reply, request.upstream, emit)
+	} else {
+		result, err = client.Chat(r.Context(), request.upstream, emit)
+	}
 	if err != nil {
 		if started {
 			if r.Context().Err() == nil {

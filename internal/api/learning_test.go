@@ -34,7 +34,7 @@ func TestLearningInspectorIsPublicButMemoryRequiresAuthentication(t *testing.T) 
 			t.Fatalf("public shell: %d", w.Code)
 		}
 	}
-	for _, path := range []string{"/memory/learning", "/memory/evidence?ids=11111111-1111-4111-8111-111111111111"} {
+	for _, path := range []string{"/memory/observations", "/memory/learning", "/memory/evidence?ids=11111111-1111-4111-8111-111111111111"} {
 		w := httptest.NewRecorder()
 		server.Handler().ServeHTTP(w, httptest.NewRequest("GET", path, nil))
 		if w.Code != 401 {

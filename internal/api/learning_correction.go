@@ -9,6 +9,8 @@ import (
 
 	"github.com/bdobrica/SecondContext/internal/db"
 	"github.com/bdobrica/SecondContext/internal/llm"
+	memsvc "github.com/bdobrica/SecondContext/internal/memory"
+	"github.com/bdobrica/SecondContext/internal/models"
 	"github.com/bdobrica/SecondContext/internal/qdrant"
 	"github.com/bdobrica/SecondContext/internal/retrieval"
 	"github.com/go-chi/chi/v5"
@@ -42,58 +44,55 @@ func (s *Server) handleCorrectObservation(w http.ResponseWriter, r *http.Request
 		s.historyError(w, r, 400, "invalid_observation_summary")
 		return
 	}
-	repo := db.NewMemoryRepository(s.dbPool)
-	record, err := repo.GetByID(r.Context(), chi.URLParam(r, "memoryID"))
+	record, err := s.correctObservation(r.Context(), chi.URLParam(r, "memoryID"), body.Summary)
 	if err != nil {
 		s.writeMemoryError(w, r, err)
 		return
 	}
-	if err = s.ensureActorOwnsUserID(r.Context(), record.UserID, "memory not found", "memory_not_found", "memoryID"); err != nil {
-		if !s.writeRequestScopeError(w, r, err) {
-			s.writeMemoryError(w, r, err)
-		}
-		return
+	writeJSON(w, 200, toMemoryResponse(record))
+}
+
+func (s *Server) correctObservation(ctx context.Context, id, summary string) (models.MemoryItem, error) {
+	fail := func(status int, code string) (models.MemoryItem, error) {
+		return models.MemoryItem{}, &memsvc.Error{StatusCode: status, Message: code, Type: "invalid_request_error", Code: code}
+	}
+	repo := db.NewMemoryRepository(s.dbPool)
+	record, err := repo.GetByID(ctx, id)
+	if err != nil {
+		return record, err
+	}
+	if err = s.ensureActorOwnsUserID(ctx, record.UserID, "memory not found", "memory_not_found", "memoryID"); err != nil {
+		return fail(404, "memory_not_found")
 	}
 	var conversational bool
-	if err = s.dbPool.QueryRow(r.Context(), "SELECT capture_id IS NOT NULL FROM memory_items WHERE id=$1", record.ID).Scan(&conversational); err != nil {
-		s.writeMemoryError(w, r, err)
-		return
+	if err = s.dbPool.QueryRow(ctx, "SELECT capture_id IS NOT NULL FROM memory_items WHERE id=$1", record.ID).Scan(&conversational); err != nil {
+		return record, err
 	}
 	if !conversational {
-		s.historyError(w, r, 409, "not_conversational_memory")
-		return
+		return fail(409, "not_conversational_memory")
 	}
-	embedded, err := s.llm.Embed(r.Context(), llm.EmbedRequest{Model: s.cfg.OpenAI.EmbeddingModel, Input: body.Summary})
+	embedded, err := s.llm.Embed(ctx, llm.EmbedRequest{Model: s.cfg.OpenAI.EmbeddingModel, Input: summary})
 	if err != nil || len(embedded.Vector) == 0 {
-		s.historyError(w, r, 502, "embedding_failed")
-		return
+		return fail(502, "embedding_failed")
 	}
-	if err = s.suppressMemoryCapture(r.Context(), record.ID); err != nil {
-		s.writeMemoryError(w, r, err)
-		return
+	if err = s.suppressMemoryCapture(ctx, record.ID); err != nil {
+		return record, err
 	}
-	// No person/belief derivatives exist for this path. Retrieval loads canonical
-	// SQL summaries, so an index failure cannot serve a stale copy as a correction.
 	index := qdrant.NewClient(s.cfg.Qdrant)
-	err = index.UpsertPoint(r.Context(), s.cfg.Qdrant.Collection, qdrant.Point{ID: record.ID, DenseVector: embedded.Vector, SparseVector: retrieval.BuildSparseVector(body.Summary), Payload: map[string]any{"memory_id": record.ID, "user_id": record.UserID, "summary": body.Summary, "type": record.MemoryType, "people": record.People, "topics": record.Topics, "expires_at": record.ExpiresAt}})
+	err = index.UpsertPoint(ctx, s.cfg.Qdrant.Collection, qdrant.Point{ID: record.ID, DenseVector: embedded.Vector, SparseVector: retrieval.BuildSparseVector(summary), Payload: map[string]any{"memory_id": record.ID, "user_id": record.UserID, "summary": summary, "type": record.MemoryType, "people": record.People, "topics": record.Topics, "expires_at": record.ExpiresAt}})
 	if err != nil {
-		s.historyError(w, r, 502, "observation_index_failed")
-		return
+		return fail(502, "observation_index_failed")
 	}
 	metadata := map[string]any{}
 	_ = json.Unmarshal(record.Metadata, &metadata)
 	metadata["corrected_at"] = time.Now().UTC().Format(time.RFC3339Nano)
 	metadata["correction_source"] = "user"
 	raw, _ := json.Marshal(metadata)
-	_, err = s.dbPool.Exec(r.Context(), `UPDATE memory_items SET summary=$2,metadata=$3,updated_at=now(),qdrant_point_id=id::text,qdrant_status='completed' WHERE id=$1`, record.ID, body.Summary, raw)
+	// The database trigger invalidates dependent aggregates in this same statement.
+	// Retrieval hydrates canonical SQL, never the vector payload's summary.
+	_, err = s.dbPool.Exec(ctx, `UPDATE memory_items SET summary=$2,metadata=$3,updated_at=now(),qdrant_point_id=id::text,qdrant_status='completed' WHERE id=$1`, record.ID, summary, raw)
 	if err != nil {
-		s.writeMemoryError(w, r, err)
-		return
+		return record, err
 	}
-	record, err = repo.GetByID(r.Context(), record.ID)
-	if err != nil {
-		s.writeMemoryError(w, r, err)
-		return
-	}
-	writeJSON(w, 200, toMemoryResponse(record))
+	return repo.GetByID(ctx, record.ID)
 }

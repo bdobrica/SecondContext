@@ -2,8 +2,8 @@
 
 ## Current priority — Conversational learning and product usefulness
 
-Decision date: 2026-11-11. Status: **Active; CL1–CL2 implementation and minimal
-inspector available; CL3, real-provider acceptance and M1 validation pending.**
+Decision date: 2026-11-11. Status: **Active; CL1–CL3 implementation available;
+real-provider acceptance, matched comparisons and M1 validation pending.**
 
 The next milestone is a useful product that learns from ordinary conversation.
 Production readiness follows that demonstrated usefulness. This is a replacement
@@ -195,6 +195,53 @@ Priority: third; the minimum inspector starts with CL1. Completes M1 with CL1–
 Acceptance: change a remembered preference, observe changed advice in a fresh
 conversation, then forget it and verify effective removal from memory-derived
 answers. Run the complete M1 demonstration before marking CL1–CL3 complete.
+
+#### CL3 implementation record — 2026-11-12
+
+The companion inspector now searches all conversational observations through a
+paginated canonical endpoint (50/page), showing provenance, correction date,
+expiry and recall readiness alongside capture progress. Its fresh-question form
+has a per-question temporary control and displays the selected personal memories,
+selection reasons and reference excerpts supplied to that answer. Credentials and
+rendered results stay in page memory and clear on disconnect.
+
+Ordinary Chat/Responses accept explicit natural inspection, summary correction,
+forgetting and pause/resume commands. A literal phrase or memory ID selects the
+target; multiple matches require clarification. Local receipts report operations
+without allowing generated text or historical/tool messages to authorize writes.
+Chat streaming and unchanged SDK parsing remain supported. Commands never become
+new learned observations. Disabled/temporary personal memory blocks commands.
+Managed generated turns retain retry receipts; explicit-acceptance drafts direct
+mutations to the companion/ordinary chat, and acceptance does not execute them.
+
+Correction retains original source/labels/expiry and adds its own date to retrieval
+context. Migration 000007 atomically invalidates source-linked person/topic models,
+beliefs and graph edges on correction or deletion, including cascaded source
+removal. The whole dependent aggregate is invalidated; independent aggregates
+survive. Existing occurrence receipts continue to prevent matching old-prefix
+relearning. Client/server-held dialogue remains outside individual-memory erasure.
+The implementation does not infer missing dependencies for source-free manual
+model values or implement CL4's general paraphrased belief updates.
+
+The deterministic M1 sequence passed on both endpoints: natural statement,
+background capture, fresh recall, natural correction, changed fresh-answer context,
+forgetting, no later personal-memory context, and repeated-old-prefix suppression.
+The unchanged OpenAI SDK also completed inspection, correction, fresh recall,
+pause via SSE and forgetting. Tests cover ambiguity, subject isolation, expiry and
+pagination, correction index failure, dependency invalidation, managed retries and
+explicit acceptance; existing CL1 controls/delayed-capture checks remain mandatory.
+`make verify` passed, including fmt/vet/unit and mandatory Postgres/Qdrant integration
+checks with both unchanged-SDK scripts. `make test-docker` passed on schema 7;
+inspector JavaScript syntax and source/documentation review passed. Disposable
+test stacks were cleaned up.
+
+No real provider credential was available. Fixture generators echo their prompts;
+changed context is evidence of wiring, not improved advice. Live extraction/answer
+quality, matched history/observation/structured-model comparisons, measured user
+effort/latency and two weeks of dogfooding remain open. No browser interaction test
+was performed. The managed configuration recipe changes to `managed-recent-cl3-1`;
+existing configuration conflict rules apply to older reserved turns. No deployment
+or live learning enablement occurred. M1 is not marked complete.
 
 ### CL4 — Natural outcomes and belief updates
 

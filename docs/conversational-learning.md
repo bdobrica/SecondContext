@@ -1,14 +1,15 @@
-# Conversational learning (CL1–CL2)
+# Conversational learning (CL1–CL3)
 
 CL1 implements opt-in background learning from ordinary conversations. It stores
 simple observations, independent of the existing numeric person/belief modeling
 pipeline. CL2 adds natural request interpretation and evidence selection for fresh
-conversations and follow-ups. CL3 and the real-model M1 usefulness demonstration
-remain open; deterministic checks establish wiring, not better real advice.
+conversations and follow-ups. CL3 adds searchable inspection and explicit natural
+memory controls. The real-model M1 usefulness demonstration remains open;
+deterministic checks establish wiring, not better real advice.
 
 ## Enable and inspect
 
-Apply migration **000006** with `make migrate-up`, then start the gateway normally.
+Apply migrations through **000007** with `make migrate-up`, then start the gateway normally.
 The API process starts a background queue consumer; no extra service is required.
 Learning is **off by default** and is enabled separately for each authenticated
 subject. Deploying this code or applying the migration does not enable learning.
@@ -20,10 +21,15 @@ model configuration. Personal credentials require no per-turn memory metadata,
 session headers, or ingestion API. Service credentials still require their
 existing authenticated subject delegation; a shared key never identifies a chat.
 
-The inspector lists conversational observations from the most recent 100 memories,
+The inspector searches current conversational summaries and people/topic labels,
+with 50 observations per page,
 with original source, speaker, first-observed date, evidence classification, time
 scope, expiry, and correction date. It also shows the last 100 capture receipts,
-offers pause/resume, retry, summary correction, and forgetting. Credentials stay
+offers pause/resume, retry, summary correction, and forgetting. Each observation
+shows whether it is ready for recall, expired, or unavailable. A fresh-question
+form has a per-question temporary control and displays selected memory evidence,
+selection reasons and supplied reference-document excerpts. Each submission starts
+fresh; it does not resend the previous question or answer. Credentials stay
 in page memory, not local storage. The HTML/JS shell is public; all personal data
 and control endpoints require authentication. There are no external page assets.
 
@@ -36,14 +42,73 @@ Equivalent API operations, all scoped to the authenticated subject:
 | `GET /memory/learning` | Setting and recent capture status; no source text in queue status. |
 | `POST /memory/learning/retry` with `{}` | Requeue failed captures, never completed/suppressed receipts. |
 | `GET /memory?limit=100` | Existing list API, including source and provenance metadata. |
+| `GET /memory/observations?q=<phrase>&offset=0` | Search current conversational summaries/labels or an ID, 50 per page; returns `has_more`, `offset`, and per-row `recall_status`. Search is a literal case-insensitive substring, not semantic retrieval. Query max 300 bytes; offset 0–1,000,000. Linked-source fences are respected. |
 | `GET /memory/evidence?ids=<comma-separated UUIDs>` | Inspect up to six selected, currently retrievable observations owned by this subject. Foreign, forgotten, expired and fenced records are omitted. |
 | `PATCH /memory/{id}` with `{"summary":"Alex now prefers comprehensive review requests."}` | Correct a conversational observation and reindex it. Other memory sources retain their existing APIs. |
 | `DELETE /memory/{id}` | Forget the observation, preserving its occurrence receipt against replay. |
 
 Summary correction preserves the original source and records a user correction;
-it does not edit the original transcript, people/topic labels, or expiry. Full
-natural-language correction, source-derivative management for older modeled
-memories, search UI, and editable time scopes remain CL3 work.
+it does not edit the original transcript, people/topic labels, or expiry. Correction
+time is included separately in later retrieval context. Relabeling and editing time
+scopes remain outside this summary-edit workflow; forget the misattributed record
+and report the corrected fact in a new conversation occurrence when needed.
+
+## Natural memory controls (CL3)
+
+An unchanged chat client can send these as a complete latest user message:
+
+- “What do you remember about Alex?” or “Show my memories”.
+- “Correct memory Alex to Alex now prefers comprehensive review requests.”
+- “Forget memory Alex” or “Forget what you remember about Alex”.
+- “Pause learning” and “Resume learning” (also “Stop learning” / “Enable learning”).
+
+Targets match current conversational summaries/labels by literal substring, or an
+exact memory ID. One match permits correction/forgetting; multiple matches cause
+no mutation and return IDs for clarification. Repeat with a specific ID, for
+example “Forget memory <ID>”. Inspection/clarification lists at most ten summaries,
+with source, date, evidence and expiry; use inspector pagination for more. Zero
+matches cause no change. The original source excerpt remains available in the
+inspector, including after a correction. These commands manage conversational
+observations; older manually ingested records retain their existing APIs.
+
+This is an explicit, bounded English command grammar, not arbitrary model-generated
+mutations. Optional “Please”, “Can you”, or “Could you” prefixes are accepted.
+Multiline, quoted, hypothetical, old user, assistant and tool messages cannot
+execute a command. A tool continuation does not repeat a preceding command.
+Pronouns such as “it”/“that” require a specific target. Other paraphrases may fall
+through to the assistant, which is instructed to direct the user to the inspector
+or supported commands and never claim it performed a mutation. Broader natural
+corrections and changing beliefs belong to CL4. Models do not choose mutation IDs.
+
+Recognized commands receive a local receipt on both endpoints, including Chat SSE
+and its optional usage chunk. No interpretation/generation call is needed; summary
+correction still requires an embedding and successful indexing. Usage is zero for
+the local answer, excluding that embedding. Failure returns an API error without a
+success receipt. Commands are suppressed from background learning, including when
+old transcripts are resent. Other ordinary user statements in the same transcript
+remain independently eligible. A command executes before delivery of its receipt;
+a disconnect cannot undo an already completed operation. Ordinary phrase targets
+are re-evaluated on each request; use a stable ID for retries.
+
+`temporary_chat` or `disable_memory` blocks natural inspection and mutation for
+that request and returns directions to the inspector. Managed generated turns
+retain exact cached receipts. Managed **explicit-acceptance** turns may inspect,
+but cannot mutate; their response directs the user to the inspector or ordinary
+chat. Accepting an assistant draft does not authorize a memory operation. Command
+requests requiring JSON/schema output or forced tool calls are rejected with
+`memory_command_requires_text` before mutation. Normal requests retain their
+existing structured/tool behavior. The CL3 managed recipe changes, so existing
+configuration-conflict rules apply to turns reserved by older code.
+
+Migration 000007 adds database triggers using existing evidence links. Correcting
+summary/labels/expiry or deleting a memory invalidates the entire dependent
+person/topic aggregate, belief, or graph edge rather than retaining stale claims or
+confidence. Unrelated aggregates survive. Linked-source and subject deletions also
+pass through these triggers. Automatically captured observations still create no
+numeric derivatives; the invalidation covers older/explicitly attached models as
+well. Independent outcome reports and client/server saved dialogue are not erased
+by forgetting a memory. Source-free manually supplied model values cannot be
+attributed to a memory and are not removed by this dependency rule.
 
 ## Capture and retrieval controls
 
@@ -126,7 +191,8 @@ IDs actually retained in the prompt), `X-SecondContext-Interpretation`, and
 answer/tool events. Empty IDs mean no personal observations were included.
 Interpretation reports `inferred`, `fallback`, `identity_unavailable`, or `disabled`;
 evidence reports `selected`, `semantic_fallback`, `empty`, `identity_unresolved`,
-`unavailable`, or `disabled` when applicable.
+`unavailable`, or `disabled` when applicable. CL3 local command receipts report
+interpretation `memory_command` and evidence `disabled`.
 
 Paste the IDs into **Evidence used in an answer** in `/memory/inspector`. This uses
 `GET /memory/evidence` and shows current source text, date and summary. It does not
@@ -214,7 +280,8 @@ Deleting/correcting an observation from a partially failed batch cancels the
 remaining capture receipt so retries cannot recreate or overwrite it. Unfinished
 batch rows may remain inspectable but are excluded from recall; a successfully
 corrected row is ready independently. Completed batches keep their replay receipt.
-There are no person/belief derivatives for automatic observations. Linked-source
+Automatic observations do not create person/belief derivatives. Migration 000007
+invalidates any aggregates explicitly linked to corrected/deleted evidence. Linked-source
 deletion removes associated capture records, canonical observations, and vector
 points. Durable source fences suppress recall even while cleanup is incomplete.
 Whole-subject purge cascades the settings/queue and uses the existing vector purge.
@@ -241,7 +308,8 @@ publication; it cannot retract an already-started provider request. Capture
 attempts have a 90-second deadline. No source/provider bodies enter capture logs.
 
 `X-SecondContext-Capture` reports handoff status (`pending`, `paused`, `temporary`,
-`disabled`, `unchanged`, or `failed`). For SSE it is an HTTP trailer, which some
+`disabled`, `unchanged`, `suppressed`, or `failed`). `suppressed` covers newly
+recorded command-only input that is ineligible for extraction. For SSE it is an HTTP trailer, which some
 clients/proxies do not expose. It is not a recall-ready receipt: use the inspector
 for canonical status. Handoff failure preserves answer delivery; retry the same
 request to enqueue its evidence. A crash before a successful handoff similarly
@@ -284,3 +352,15 @@ suite and both unchanged-client scripts using OpenAI SDK 3.48.0; `make test-dock
 and inspector JavaScript `node --check` passed. Isolated test stacks were cleaned
 up. The inspector evidence route passed authentication and ownership checks; no
 browser interaction or real-provider evaluation was performed.
+
+CL3 verification completed on 2026-11-12: `make verify` passed with mandatory
+Postgres/Qdrant integration checks and both unchanged OpenAI SDK scripts. The CL3
+sequence demonstrated changed fresh-answer context after correction and absence
+of personal evidence after forgetting, on both endpoints. Tests also covered
+ambiguity, failed indexing without a success receipt, dependent-summary
+invalidation, search pagination/expiry, isolation, controls and managed acceptance/
+retries. `make test-docker` passed on schema 7. Inspector JavaScript syntax and
+final source/documentation checks passed; isolated stacks were cleaned up.
+No real-provider or browser-interaction test was performed. No deployment or live
+learning enablement occurred. Live M1 acceptance and matched usefulness comparisons
+remain open.

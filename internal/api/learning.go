@@ -119,25 +119,36 @@ func (s *Server) enqueueLearning(r *http.Request, request createResponseRequest,
 		}
 	}
 	inserted := int64(0)
+	pendingInserted := int64(0)
 	for _, source := range sources {
 		text := source.Text
-		if status == "suppressed" {
+		sourceStatus := status
+		if parseMemoryCommand([]llm.Message{{Role: "user", Content: text}}).Action != "" {
+			sourceStatus = "suppressed"
+		}
+		if sourceStatus == "suppressed" {
 			text = ""
 		}
 		tag, e := tx.Exec(ctx, `INSERT INTO learning_captures(user_id,session_id,turn_id,source_key,source_text,status,observed_at)
    VALUES($1,NULLIF($2,'')::uuid,NULLIF($3,'')::uuid,$4,$5,$6,
    COALESCE((SELECT created_at FROM conversation_turns WHERE user_id=$1 AND session_id=NULLIF($2,'')::uuid AND turn_id=NULLIF($3,'')::uuid),now()))
-   ON CONFLICT(user_id,source_key) DO NOTHING`, user, session, turn, source.Key, text, status)
+   ON CONFLICT(user_id,source_key) DO NOTHING`, user, session, turn, source.Key, text, sourceStatus)
 		if e != nil {
 			return "failed"
 		}
 		inserted += tag.RowsAffected()
+		if sourceStatus == "pending" {
+			pendingInserted += tag.RowsAffected()
+		}
 	}
 	if tx.Commit(ctx) != nil {
 		return "failed"
 	}
 	if inserted == 0 {
 		return "unchanged"
+	}
+	if result == "pending" && pendingInserted == 0 {
+		return "suppressed"
 	}
 	return result
 }
@@ -374,19 +385,7 @@ func (s *Server) handleLearning(w http.ResponseWriter, r *http.Request) {
 			s.historyError(w, r, 400, "invalid_learning_setting")
 			return
 		}
-		tx, e := s.dbPool.Begin(r.Context())
-		if e != nil {
-			s.writeMemoryError(w, r, e)
-			return
-		}
-		defer tx.Rollback(r.Context())
-		_, err = tx.Exec(r.Context(), `INSERT INTO learning_settings(user_id,enabled) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET enabled=EXCLUDED.enabled`, user.ID, *body.Enabled)
-		if err == nil && !*body.Enabled {
-			_, err = tx.Exec(r.Context(), `UPDATE learning_captures SET status='suppressed',source_text='',observations=NULL,error_code='' WHERE user_id=$1 AND status IN ('pending','failed')`, user.ID)
-		}
-		if err == nil {
-			err = tx.Commit(r.Context())
-		}
+		err = s.setLearning(r.Context(), user.ID, *body.Enabled)
 		if err != nil {
 			s.writeMemoryError(w, r, err)
 			return
@@ -445,4 +444,20 @@ func (s *Server) handleLearningRetry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.handleLearning(w, r)
+}
+
+func (s *Server) setLearning(ctx context.Context, user string, enabled bool) error {
+	tx, err := s.dbPool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	_, err = tx.Exec(ctx, `INSERT INTO learning_settings(user_id,enabled) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET enabled=EXCLUDED.enabled`, user, enabled)
+	if err == nil && !enabled {
+		_, err = tx.Exec(ctx, `UPDATE learning_captures SET status='suppressed',source_text='',observations=NULL,error_code='' WHERE user_id=$1 AND status IN ('pending','failed')`, user)
+	}
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }

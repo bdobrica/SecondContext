@@ -41,3 +41,22 @@ for endpoint in ("chat", "responses"):
 chunks = list(client.chat.completions.create(model=model, messages=[question], stream=True))
 assert "".join(choice.delta.content or "" for chunk in chunks for choice in chunk.choices) == "answer"
 print("Unchanged OpenAI client: background capture, fresh Chat/Responses recall, drafting, alternatives, topic switch and Chat SSE passed (synthetic model).")
+
+# CL3 uses ordinary text commands; no custom memory endpoint or metadata.
+corrected = "Alex now prefers comprehensive review requests."
+receipt = client.responses.create(model=model, input="Correct memory Alex to " + corrected).output_text
+assert "Corrected memory" in receipt
+fresh = client.chat.completions.create(model=model, messages=[question]).choices[0].message.content
+assert corrected in fresh and observation not in fresh
+inspection = client.responses.create(model=model, input="What do you remember about Alex?").output_text
+assert corrected in inspection and "capture:" in inspection
+chunks = list(client.chat.completions.create(model=model, messages=[{"role": "user", "content": "Pause learning"}], stream=True, stream_options={"include_usage": True}))
+assert "Learning is paused" in "".join(choice.delta.content or "" for chunk in chunks for choice in chunk.choices)
+assert chunks[-1].usage.total_tokens == 0
+receipt = client.responses.create(model=model, input="Forget memory Alex").output_text
+assert "Forgot memory" in receipt
+fresh = client.responses.create(model=model, input=[question]).output_text
+assert corrected not in fresh and observation not in fresh
+client.chat.completions.create(model=model, messages=[{"role": "user", "content": observation}])
+assert "No matching" in client.responses.create(model=model, input="What do you remember about Alex?").output_text
+print("Unchanged OpenAI client: CL3 inspection, correction, changed fresh answer, pause via SSE, forgetting and old-prefix replay passed (synthetic model).")

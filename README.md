@@ -22,13 +22,15 @@ bounded recent replay, durable retries and accepted replies on Responses and Cha
 Completions. It requires migration 000005 and explicit enablement; ordinary OpenAI
 clients can continue supplying their own chat history.
 
-[Conversational learning (CL1–CL2)](docs/conversational-learning.md) adds opt-in
+[Conversational learning (CL1–CL3)](docs/conversational-learning.md) adds opt-in
 background capture of source-backed observations from ordinary chat, with a
 browser inspector at `/memory/inspector`, pause, correction, forgetting, and
-recoverable capture status. Apply migration 000006 and enable learning once for
+recoverable capture status. Apply migrations through 000007 and enable learning once for
 the authenticated account. Capture remains off by default. CL2 interprets natural
 requests and bounded follow-ups, retrieves observations in fresh conversations,
-and exposes selected evidence without custom memory metadata. The complete CL1–CL3
+and exposes selected evidence without custom memory metadata. CL3 adds searchable
+inspection, explicit natural correction/forgetting commands, a temporary-question
+control, and invalidation of summaries derived from changed evidence. The complete CL1–CL3
 usefulness milestone and live-model acceptance demonstration are still open.
 
 ## Why this exists

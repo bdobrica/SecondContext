@@ -7,7 +7,7 @@ behavior. Neither path promotes legacy messages/drafts to managed accepted histo
 
 ## Configuration and model limits
 
-Apply migrations through **000006** before running this version (managed history
+Apply migrations through **000007** before running this version (managed history
 itself was introduced in 000005). `HISTORY_ENABLED=false`
 (default) disables new managed generation/local capture and ready capability
 advertisement. Existing accepted receipts, generated finalization, abandonment and
@@ -115,7 +115,7 @@ removes those observations and their vectors; unfinished cleanup fences recall.
 
 ## Rollout and rollback
 
-Back up canonical storage and stop existing gateway writers. Apply migrations through 000006,
+Back up canonical storage and stop existing gateway writers. Apply migrations through 000007,
 verify its clean version, and deploy only instances implementing the same fences.
 The migration backfills existing link revisions, never accepted dialogue. Confirm
 scoped capabilities with the intended model ceilings before consumer enablement.
