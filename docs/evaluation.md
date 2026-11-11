@@ -122,3 +122,10 @@ Derived-candidate tests check schema, exact-quote membership, ownership, evidenc
 changes, transactional retraction, recomputation and audit purge. They do not prove
 semantic entailment or extraction accuracy. Promotion and answer-groundedness review
 remain consumer responsibilities; see [ADR 0005](adr/0005-documentary-candidates.md).
+
+## Decisions observation
+
+Optional [CH4/CH5 observation and cache diagnostics](decisions-observation.md)
+are implemented, disabled by default. Generation stays on recent history;
+adaptive routing remains a separate CH6 evaluation gate. No public API or
+canonical schema change is required.

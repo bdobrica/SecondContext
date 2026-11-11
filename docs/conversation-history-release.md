@@ -16,9 +16,10 @@ local prepared exchanges and terminal session/subject fences are implemented.
 Legacy drafts are not backfilled. No schema or wire-shape change is introduced by
 this release preparation.
 
-CH4–CH6 remain unimplemented: no Decisions observation, measured cache economics,
-adaptive selection or older-session recall. Do not advertise or request adaptive
-mode. Provider generation/embedding credentials and future Decisions configuration
+The deployed baseline has no Decisions observation or adaptive selection. CH4/CH5
+are now implemented in source and disabled by default; see the optional observation
+gate below. Do not advertise or request adaptive mode. Provider generation/embedding
+credentials and Decisions configuration
 remain solely in SecondContext. External `KNOWLEDGE_ENABLED` stays disabled in the
 Oria deployment; linked projections use the independent local owning-service lane.
 
@@ -81,3 +82,13 @@ release needs a separately evaluated adaptive-to-recent rollback; none exists he
 Live publication, migration, model quality, Telegram and rollback results must be
 recorded separately from synthetic checks. Restrict all live maintenance to
 `oria-live-test`; never prune unrelated resources on the shared host.
+
+## Optional observation after the recent baseline
+
+CH4/CH5 [observation and cache diagnostics](decisions-observation.md) are now
+implemented in source, disabled by default. They do not change public capabilities
+or enable CH6 adaptive routing. Publish/verify a compatible provider digest, run
+its synthetic access/economics check, and retain the consumer consent/disclosure
+gates before any production enablement. The 0.2.2 deployed baseline does not
+contain this observer. Disabling observation alone preserves recent replay and
+all pending-turn/finalization/erasure recovery.

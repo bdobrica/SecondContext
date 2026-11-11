@@ -23,13 +23,14 @@ var (
 )
 
 type observability struct {
-	service  string
-	env      string
-	started  time.Time
-	inFlight atomic.Int64
-	mu       sync.Mutex
-	http     map[httpMetricKey]*httpMetricValue
-	llm      map[llmMetricKey]*llmMetricValue
+	decisions map[decisionMetricKey]*decisionMetric
+	service   string
+	env       string
+	started   time.Time
+	inFlight  atomic.Int64
+	mu        sync.Mutex
+	http      map[httpMetricKey]*httpMetricValue
+	llm       map[llmMetricKey]*llmMetricValue
 }
 
 type httpMetricKey struct {
@@ -214,6 +215,7 @@ func (o *observability) renderPrometheus() string {
 		writeHistogram(&builder, "second_context_llm_request_duration_seconds", labels, metric.Count, metric.SumSeconds, llmDurationBuckets, metric.Buckets)
 	}
 
+	o.renderDecisions(&builder)
 	return builder.String()
 }
 

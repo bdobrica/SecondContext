@@ -170,3 +170,7 @@ See [CH2 evidence](../evidence/chat-completions-ch2.md) for executed checks and 
 
 The [CH7 release checklist](../conversation-history-release.md) records the recent-only release boundary,
 coordinated consumer gates and rollback requirements; adaptive remains deferred.
+
+CH4/CH5 adds optional provider-side [Decisions observation](../decisions-observation.md)
+for managed `recent` requests only. It neither observes nor trims ordinary supplied
+dialogue, alters standard bodies, nor advertises adaptive selection.

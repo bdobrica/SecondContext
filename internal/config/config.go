@@ -12,6 +12,7 @@ import (
 )
 
 type Config struct {
+	Decisions DecisionsConfig
 	History   HistoryConfig
 	App       AppConfig
 	Auth      AuthConfig
@@ -114,6 +115,10 @@ type ScoringConfig struct {
 }
 
 func Load() (Config, error) {
+	decisions, err := LoadDecisionsConfig()
+	if err != nil {
+		return Config{}, err
+	}
 	history, err := loadHistoryConfig()
 	if err != nil {
 		return Config{}, err
@@ -240,6 +245,7 @@ func Load() (Config, error) {
 	}
 
 	return Config{
+		Decisions: decisions,
 		Knowledge: knowledge,
 		History:   history,
 		App: AppConfig{

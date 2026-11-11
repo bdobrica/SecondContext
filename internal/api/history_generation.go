@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bdobrica/SecondContext/internal/db"
+	"github.com/bdobrica/SecondContext/internal/decisions"
 	"github.com/bdobrica/SecondContext/internal/llm"
 	"github.com/bdobrica/SecondContext/internal/prompts"
 	"github.com/jackc/pgx/v5"
@@ -179,7 +180,32 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 		s.historyFailure(w, r, err)
 		return true
 	}
+	var observation *historyObservation
+	if s.cfg.Decisions.Enabled && h.History == "recent" {
+		// Label the recent evidence actually retained by the generation budget.
+		// Other bounded segment exchanges remain older evidence for observation only.
+		replayedCount := (len(assembled) - len(mandatory)) / 2
+		replayed := history[len(history)-replayedCount:]
+		decision, count, observeErr := s.observeHistory(r, repo, session, turn, replayed, current, request.Instructions)
+		if observeErr != nil {
+			s.historyFailure(w, r, observeErr)
+			return true
+		}
+		observation = &historyObservation{Decision: decision, Exchanges: count}
+		defer func() { s.obs.observeHistory(*observation, s.cfg.Decisions) }()
+		// The classifier cannot substitute success for canonical validation.
+		if err = db.CheckHistorySession(r.Context(), repo.Conn, session.UserID, session.ExternalID); err != nil {
+			s.historyFailure(w, r, err)
+			return true
+		}
+	}
+	generationStarted := time.Now()
 	result, err := client.Chat(r.Context(), upstream, nil)
+	if observation != nil {
+		observation.GenerationAttempted = true
+		observation.GenerationDuration = time.Since(generationStarted)
+		observation.Generation = decisions.GenerationUsage(result.Body)
+	}
 	if err != nil {
 		s.writeLLMError(w, r, err)
 		return true

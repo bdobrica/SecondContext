@@ -264,3 +264,33 @@ func (r HistoryRepository) Local(ctx context.Context, s HistorySession, t Histor
 	}
 	return receipt, tx.Commit(ctx)
 }
+
+// ObservationSegment rehydrates bounded accepted evidence at the immutable
+// snapshot. It creates no transcript cache and cannot change replay selection.
+// The caller owns the subject lock and rechecks fences before provider access.
+func (r HistoryRepository) ObservationSegment(ctx context.Context, s HistorySession, t HistoryTurn, first int64) ([]HistoryTurn, error) {
+	if err := CheckHistorySession(ctx, r.Conn, s.UserID, s.ExternalID); err != nil {
+		return nil, err
+	}
+	rows, err := r.Conn.Query(ctx, "SELECT "+historyColumns+" FROM conversation_turns WHERE user_id=$1 AND session_id=$2 AND state='accepted' AND sequence >= $3 AND sequence <= $4 ORDER BY sequence LIMIT 129", s.UserID, s.ID, first, t.Snapshot)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := []HistoryTurn{}
+	for rows.Next() {
+		v, e := scanHistory(rows)
+		if e != nil {
+			return nil, e
+		}
+		result = append(result, v)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	// At most 64 recent + 64 segment slots. Never silently truncate evidence.
+	if len(result) > 128 {
+		return nil, HistoryError("history_unavailable")
+	}
+	return result, nil
+}

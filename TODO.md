@@ -12,9 +12,10 @@ CH1–CH3 are complete: contracts, supplied-history Chat Completions and opt-in
 managed recent history/finalization. Consumer OCH2–OCH4 are complete. The CH7
 recent baseline is published and enabled in `oria-live-test`; live continuity,
 erasure and capture rollback passed. Private Telegram review confirmed policy/deletion but failed conversation continuity.
-Oria 0.2.2’s source-readiness/budget correction is deployed and live synthetic
-reading/follow-up/date probes passed. Private Telegram retest remains.
-CH4–CH6 Decisions/adaptive work remains deferred. See the
+Oria 0.2.3’s private-reading handoff correction is deployed and live synthetic
+continuity/topic probes passed. Private Telegram retest remains.
+CH4/CH5 observation and cache diagnostics are implemented, disabled by default.
+CH6 adaptive routing remains gated; see [implementation/evaluation evidence](docs/evidence/conversation-history-ch45.md). See the
 [implemented API matrix](docs/contracts/chat-completions-v1.md).
 The accepted [history contract](docs/contracts/conversation-history-v1.md) and
 [ADR 0007](docs/adr/0007-conversation-history.md) define the boundary.
@@ -79,29 +80,29 @@ cover consent, accepted replies and delivery. Sibling checkout: `../OriaEngine/`
 
 ### CH4 — OpenAI Decisions observation (depends on CH3 and working Oria baseline)
 
-- [ ] Add bounded `/v1/decisions` HTTP integration, validated typed results, recipe/model
+- [x] Add bounded `/v1/decisions` HTTP integration, validated typed results, recipe/model
   configuration and provider capability/access checks; keep credentials in SecondContext.
-- [ ] Evaluate recent-dialogue dependence and older-discussion reference separately
+- [x] Evaluate recent-dialogue dependence and older-discussion reference separately
   using prepared current input and bounded eligible history.
-- [ ] Observe routing while generation still uses recent history; label synthetic
+- [x] Observe routing while generation still uses recent history; label synthetic
   cases for follow-ups, corrections, topic switches, local exchanges and older references.
-- [ ] Include the private-reading handoff: horoscope → compatibility → private date
+- [x] Include the private-reading handoff: horoscope → compatibility → private date
   → plain-English explanation → unrelated topic. Evaluate answer relevance as well
   as prepared-input/replay correctness; never include raw private date answers.
   See [Oria handoff evidence](https://github.com/bdobrica/OriaEngine/blob/main/docs/evidence/reading-focus-handoff.md).
-- [ ] On classifier uncertainty/refusal/timeout/malformed response, use recent history;
+- [x] On classifier uncertainty/refusal/timeout/malformed response, use recent history;
   never substitute that fallback for failed auth, deletion or canonical validation.
-- [ ] Keep legacy memory salience unchanged; routing decisions confer no authority.
+- [x] Keep legacy memory salience unchanged; routing decisions confer no authority.
 
 ### CH5 — Cache economics and diagnostics (depends on CH4)
 
-- [ ] Use stable shared-input prefixes, newest content last, appropriate explicit
+- [x] Use stable shared-input prefixes, newest content last, appropriate explicit
   breakpoints and bounded segment rotation; partition opaque keys by subject/session/version.
-- [ ] Respect the documented 1,024-token minimum and exclusion of question content;
+- [x] Respect the documented 1,024-token minimum and exclusion of question content;
   do not pad requests or assume cache sharing with generation. Recheck current API docs.
-- [ ] Invalidate eligible content/context generation after correction/erasure; always
+- [x] Invalidate eligible content/context generation after correction/erasure; always
   revalidate canonical state and never claim local deletion purges provider caches.
-- [ ] Measure cache reads/writes, total cost, latency and fallbacks on cold/warm
+- [x] Measure cache reads/writes, total cost, latency and fallbacks on cold/warm
   short/long conversations; keep transcript text and private IDs out of routine telemetry.
 
 ### CH6 — Enable evaluated adaptive selection (depends on CH4/CH5 and OCH4)

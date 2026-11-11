@@ -127,3 +127,10 @@ rollout are separate CH7/OCH5 work. See [CH3 evidence](evidence/conversation-his
 
 See the [CH7 release checklist](conversation-history-release.md) for coordinated
 versions, independent capture controls, live checks and rollback ordering.
+
+## Decisions observation
+
+Optional [CH4/CH5 observation and cache diagnostics](decisions-observation.md)
+are implemented, disabled by default. Generation stays on recent history;
+adaptive routing remains a separate CH6 evaluation gate. No public API or
+canonical schema change is required.

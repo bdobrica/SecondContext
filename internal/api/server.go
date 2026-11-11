@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bdobrica/SecondContext/internal/config"
+	"github.com/bdobrica/SecondContext/internal/decisions"
 	"github.com/bdobrica/SecondContext/internal/knowledge"
 	"github.com/bdobrica/SecondContext/internal/llm"
 	"github.com/go-chi/chi/v5"
@@ -17,6 +18,7 @@ import (
 )
 
 type Server struct {
+	decisions *decisions.Client
 	cfg       config.Config
 	logger    *slog.Logger
 	dbPool    *pgxpool.Pool
@@ -48,6 +50,7 @@ func NewServerWithClient(cfg config.Config, logger *slog.Logger, dbPool *pgxpool
 	}
 	return &Server{
 		cfg:       cfg,
+		decisions: decisions.New(cfg.Decisions),
 		knowledge: provider,
 		logger:    logger,
 		dbPool:    dbPool,

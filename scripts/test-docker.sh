@@ -24,6 +24,9 @@ trap 'exit 143' TERM
 echo "==> building the gateway runtime image (API, migration tool and SQL)"
 docker build --tag "$SECOND_CONTEXT_IMAGE" .
 
+echo "==> checking the packaged synthetic evaluator without making provider calls"
+"${compose[@]}" run --rm --no-deps secondcontext /app/historyeval -help
+
 echo "==> starting the published-image Compose stack against fresh storage"
 "${compose[@]}" up -d --wait --wait-timeout 120
 version=$("${compose[@]}" run --rm --no-deps secondcontext-migrate /app/migrate version)

@@ -306,3 +306,10 @@ Never roll back to an image that ignores session fences after enabling this feat
 
 The [CH7 release checklist](conversation-history-release.md) records the recent-only release boundary,
 coordinated consumer gates and rollback requirements; adaptive remains deferred.
+
+## Decisions observation
+
+Optional [CH4/CH5 observation and cache diagnostics](decisions-observation.md)
+are implemented, disabled by default. Generation stays on recent history;
+adaptive routing remains a separate CH6 evaluation gate. No public API or
+canonical schema change is required.

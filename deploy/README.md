@@ -163,3 +163,11 @@ stopped, and follow [history rollout/recovery](../docs/conversation-history.md).
 Verify the scoped capability before enabling a consumer. Oria's OCH2/OCH3 adapter,
 accepted-reply outbox and new disclosure remain separate release prerequisites.
 Do not downgrade the schema or run an older image that ignores session fences.
+
+## Optional history observation
+
+CH4/CH5 settings in the environment example are passed only to SecondContext.
+They default off and do not enable adaptive routing. A compatible future published
+image also includes `/app/historyeval` for explicit synthetic access and economics
+checks without host Go. Follow the [observation guide](../docs/decisions-observation.md)
+and retain the existing consumer consent and release gates before enabling.

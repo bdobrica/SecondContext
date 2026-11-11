@@ -1,0 +1,289 @@
+[
+  {
+    "name": "standalone",
+    "history": [
+      {
+        "sequence": 1,
+        "user": "Describe tomorrow in a symbolic reading.",
+        "assistant": "Tomorrow suggests a slower pace and thoughtful communication."
+      }
+    ],
+    "current": "Why do rainbows form?",
+    "Recent": false,
+    "Older": false,
+    "required_terms": [
+      "light",
+      "rainbow"
+    ],
+    "forbidden_terms": [
+      "tomorrow"
+    ]
+  },
+  {
+    "name": "follow_up",
+    "history": [
+      {
+        "sequence": 1,
+        "user": "Compare walking and cycling for a short commute.",
+        "assistant": "Walking needs little equipment; cycling is faster but needs somewhere to park."
+      }
+    ],
+    "current": "Which would you pick?",
+    "Recent": true,
+    "Older": false,
+    "required_terms": [
+      "walk",
+      "cycl"
+    ]
+  },
+  {
+    "name": "second_one",
+    "history": [
+      {
+        "sequence": 1,
+        "user": "Give me two weekend activities.",
+        "assistant": "First, a museum visit. Second, a picnic in the park."
+      }
+    ],
+    "current": "Tell me more about the second one.",
+    "Recent": true,
+    "Older": false,
+    "required_terms": [
+      "picnic"
+    ]
+  },
+  {
+    "name": "correction",
+    "history": [
+      {
+        "sequence": 1,
+        "user": "Plan a weekend in Paris.",
+        "assistant": "Consider a riverside walk and a museum visit."
+      }
+    ],
+    "current": "Actually, I meant Prague. Adapt that plan.",
+    "Recent": true,
+    "Older": false,
+    "required_terms": [
+      "Prague"
+    ]
+  },
+  {
+    "name": "accepted_local",
+    "history": [
+      {
+        "sequence": 1,
+        "user": "Explain the current compatibility reading.",
+        "assistant": "The calculated Venus sextile Jupiter can symbolize shared enjoyment; Mars opposite Jupiter can symbolize different approaches to action."
+      }
+    ],
+    "current": "What does that mean in plain English?",
+    "Recent": true,
+    "Older": false,
+    "required_terms": [
+      "relationship",
+      "together",
+      "enjoy",
+      "different"
+    ]
+  },
+  {
+    "name": "private_reading_handoff",
+    "history": [
+      {
+        "sequence": 1,
+        "user": "What does tomorrow look like?",
+        "assistant": "Tomorrow may favor a slower pace."
+      },
+      {
+        "sequence": 2,
+        "user": "What does that mean?",
+        "assistant": "Take time with tomorrow’s plans and communication."
+      }
+    ],
+    "current": "Regarding the compatibility reading: What does it mean in plain English? Current calculated facts: Venus sextile Jupiter, Mars opposite Jupiter. Interpret these relationship themes using only these current facts.",
+    "Recent": false,
+    "Older": false,
+    "required_terms": [
+      "relationship",
+      "together",
+      "enjoy"
+    ],
+    "forbidden_terms": [
+      "tomorrow"
+    ]
+  },
+  {
+    "name": "after_handoff_topic_switch",
+    "history": [
+      {
+        "sequence": 1,
+        "user": "Regarding compatibility, explain Venus sextile Jupiter.",
+        "assistant": "It can symbolize shared enjoyment and generosity."
+      },
+      {
+        "sequence": 2,
+        "user": "Why do rainbows form?",
+        "assistant": "Sunlight refracts and reflects in water droplets, separating into colors."
+      }
+    ],
+    "current": "Tell me more.",
+    "Recent": true,
+    "Older": false,
+    "required_terms": [
+      "light",
+      "rainbow",
+      "droplet"
+    ],
+    "forbidden_terms": [
+      "Venus",
+      "compatibility"
+    ]
+  },
+  {
+    "name": "older_unavailable",
+    "history": [
+      {
+        "sequence": 1,
+        "user": "Describe two parks.",
+        "assistant": "The river park has open paths; the woodland park has shaded trails."
+      }
+    ],
+    "current": "What was the restaurant I mentioned much earlier, before this park discussion?",
+    "Recent": false,
+    "Older": true,
+    "required_terms": [
+      "earlier",
+      "restaurant",
+      "remember",
+      "mentioned"
+    ]
+  },
+  {
+    "name": "long_follow_up",
+    "history": [
+      {
+        "sequence": 1,
+        "user": "I am planning a train trip. The restaurant to remember is Juniper Table.",
+        "assistant": "Juniper Table is the restaurant you want to remember. For a rail trip, keep its location alongside your arrival station and hotel check-in information. Decide whether dinner should happen on the arrival evening or after you have settled in. If a train is delayed, a flexible dinner reservation can reduce pressure. You can plan sightseeing around the neighborhood instead of returning across the city just for one meal. Keep a simple alternate meal option nearby as well."
+      },
+      {
+        "sequence": 2,
+        "user": "How should I compare train departures?",
+        "assistant": "Compare arrival time, total journey time, number of connections, and the amount of slack between trains. A slightly slower direct train may feel easier than a faster itinerary with a short transfer. Check whether the ticket is tied to one departure and what happens after a missed connection. Consider the final local transfer from the station to your accommodation, since a late train can arrive after frequent local transport has stopped. Keep the first evening relatively light."
+      },
+      {
+        "sequence": 3,
+        "user": "What should I consider when choosing a hotel area?",
+        "assistant": "Choose an area by how you expect to spend each day. A central hotel can reduce travel, while a quieter neighborhood may improve sleep. Compare walking distance to a useful transit stop, the route from the arrival station, nearby meal choices, and luggage storage before check-in. Look at whether the route involves stairs or steep streets. A map can help you group destinations into neighborhoods so the hotel works as a practical base instead of requiring repeated long transfers."
+      },
+      {
+        "sequence": 4,
+        "user": "I prefer a museum on the first full morning.",
+        "assistant": "Set aside a generous morning block for the museum, including the walk or transit ride there. Pick a few sections you most want to see rather than attempting every gallery. Leave time for a break and a nearby lunch afterward. If timed entry is required, choose a slot that still works after breakfast and the journey from your hotel. Avoid adding another large indoor attraction immediately afterward, since that can make both visits feel hurried."
+      },
+      {
+        "sequence": 5,
+        "user": "I want an outdoor afternoon without a strict schedule.",
+        "assistant": "A riverside walk or a large park can work well after a museum morning. Choose a route with several easy exit points and a few cafes or benches along the way. Keep the destination flexible so you can shorten the walk if you are tired. Think about sunset, the forecast, and whether the return journey is straightforward. A loose plan lets you linger somewhere interesting without having to rush toward a second timed reservation."
+      },
+      {
+        "sequence": 6,
+        "user": "How can I leave room for bad weather?",
+        "assistant": "Pair each outdoor idea with an indoor option in the same general area. A covered market, a small gallery, or an extended lunch can replace a walk without forcing you across the city. Avoid booking every hour ahead of time, and keep one afternoon open. Check the forecast close to departure and again each morning. The aim is to preserve the shape of the day while allowing the details to change, instead of treating every substitution as a failed plan."
+      },
+      {
+        "sequence": 7,
+        "user": "What should I bring for changing weather?",
+        "assistant": "Use layers that can be added or removed easily. Pack a light outer layer, comfortable shoes that you have already worn, and a small bag for daily essentials. A compact umbrella or rain jacket can be useful if showers are likely. Consider whether you will have laundry access so you can avoid carrying a separate outfit for every possible condition. Leave some spare space in your luggage, and keep items needed during the train journey within reach."
+      },
+      {
+        "sequence": 8,
+        "user": "I would like one quiet evening.",
+        "assistant": "Choose a quiet evening after your busiest day. Keep dinner near your accommodation, leave the final hour unplanned, and consider a short neighborhood walk if you still have energy. Prepare what you need for the following morning before settling in, so there is no late rush to locate tickets or charge devices. A quieter evening can make the next day more enjoyable, especially if you have spent much of the trip walking, navigating, and taking in unfamiliar places."
+      },
+      {
+        "sequence": 9,
+        "user": "How should I handle the last morning before the return train?",
+        "assistant": "Work backward from the train departure, allowing time to collect luggage and reach the station. Choose breakfast near the hotel and avoid a distant attraction that could make the morning stressful. If your accommodation stores bags after checkout, confirm when you must return to collect them. Keep tickets and travel documents readily available. One short walk or a nearby cafe can be enough to make the morning pleasant without risking the return journey."
+      },
+      {
+        "sequence": 10,
+        "user": "Summarize the overall pacing.",
+        "assistant": "Start with a light arrival evening, use the first full morning for the museum, and keep an outdoor afternoon flexible. Alternate busier periods with quieter meals or short walks. Hold an indoor alternative for uncertain weather, keep one evening close to the hotel, and leave the last morning simple. This gives the trip structure while preserving room to change your mind. When choosing between two additions, prefer the one that fits the existing neighborhood and energy level rather than adding another transfer."
+      }
+    ],
+    "current": "Can you make that pacing more relaxed?",
+    "Recent": true,
+    "Older": false,
+    "required_terms": [
+      "relax",
+      "less",
+      "slower",
+      "time"
+    ]
+  },
+  {
+    "name": "long_older_reference",
+    "history": [
+      {
+        "sequence": 1,
+        "user": "I am planning a train trip. The restaurant to remember is Juniper Table.",
+        "assistant": "Juniper Table is the restaurant you want to remember. For a rail trip, keep its location alongside your arrival station and hotel check-in information. Decide whether dinner should happen on the arrival evening or after you have settled in. If a train is delayed, a flexible dinner reservation can reduce pressure. You can plan sightseeing around the neighborhood instead of returning across the city just for one meal. Keep a simple alternate meal option nearby as well."
+      },
+      {
+        "sequence": 2,
+        "user": "How should I compare train departures?",
+        "assistant": "Compare arrival time, total journey time, number of connections, and the amount of slack between trains. A slightly slower direct train may feel easier than a faster itinerary with a short transfer. Check whether the ticket is tied to one departure and what happens after a missed connection. Consider the final local transfer from the station to your accommodation, since a late train can arrive after frequent local transport has stopped. Keep the first evening relatively light."
+      },
+      {
+        "sequence": 3,
+        "user": "What should I consider when choosing a hotel area?",
+        "assistant": "Choose an area by how you expect to spend each day. A central hotel can reduce travel, while a quieter neighborhood may improve sleep. Compare walking distance to a useful transit stop, the route from the arrival station, nearby meal choices, and luggage storage before check-in. Look at whether the route involves stairs or steep streets. A map can help you group destinations into neighborhoods so the hotel works as a practical base instead of requiring repeated long transfers."
+      },
+      {
+        "sequence": 4,
+        "user": "I prefer a museum on the first full morning.",
+        "assistant": "Set aside a generous morning block for the museum, including the walk or transit ride there. Pick a few sections you most want to see rather than attempting every gallery. Leave time for a break and a nearby lunch afterward. If timed entry is required, choose a slot that still works after breakfast and the journey from your hotel. Avoid adding another large indoor attraction immediately afterward, since that can make both visits feel hurried."
+      },
+      {
+        "sequence": 5,
+        "user": "I want an outdoor afternoon without a strict schedule.",
+        "assistant": "A riverside walk or a large park can work well after a museum morning. Choose a route with several easy exit points and a few cafes or benches along the way. Keep the destination flexible so you can shorten the walk if you are tired. Think about sunset, the forecast, and whether the return journey is straightforward. A loose plan lets you linger somewhere interesting without having to rush toward a second timed reservation."
+      },
+      {
+        "sequence": 6,
+        "user": "How can I leave room for bad weather?",
+        "assistant": "Pair each outdoor idea with an indoor option in the same general area. A covered market, a small gallery, or an extended lunch can replace a walk without forcing you across the city. Avoid booking every hour ahead of time, and keep one afternoon open. Check the forecast close to departure and again each morning. The aim is to preserve the shape of the day while allowing the details to change, instead of treating every substitution as a failed plan."
+      },
+      {
+        "sequence": 7,
+        "user": "What should I bring for changing weather?",
+        "assistant": "Use layers that can be added or removed easily. Pack a light outer layer, comfortable shoes that you have already worn, and a small bag for daily essentials. A compact umbrella or rain jacket can be useful if showers are likely. Consider whether you will have laundry access so you can avoid carrying a separate outfit for every possible condition. Leave some spare space in your luggage, and keep items needed during the train journey within reach."
+      },
+      {
+        "sequence": 8,
+        "user": "I would like one quiet evening.",
+        "assistant": "Choose a quiet evening after your busiest day. Keep dinner near your accommodation, leave the final hour unplanned, and consider a short neighborhood walk if you still have energy. Prepare what you need for the following morning before settling in, so there is no late rush to locate tickets or charge devices. A quieter evening can make the next day more enjoyable, especially if you have spent much of the trip walking, navigating, and taking in unfamiliar places."
+      },
+      {
+        "sequence": 9,
+        "user": "How should I handle the last morning before the return train?",
+        "assistant": "Work backward from the train departure, allowing time to collect luggage and reach the station. Choose breakfast near the hotel and avoid a distant attraction that could make the morning stressful. If your accommodation stores bags after checkout, confirm when you must return to collect them. Keep tickets and travel documents readily available. One short walk or a nearby cafe can be enough to make the morning pleasant without risking the return journey."
+      },
+      {
+        "sequence": 10,
+        "user": "Summarize the overall pacing.",
+        "assistant": "Start with a light arrival evening, use the first full morning for the museum, and keep an outdoor afternoon flexible. Alternate busier periods with quieter meals or short walks. Hold an indoor alternative for uncertain weather, keep one evening close to the hotel, and leave the last morning simple. This gives the trip structure while preserving room to change your mind. When choosing between two additions, prefer the one that fits the existing neighborhood and energy level rather than adding another transfer."
+      }
+    ],
+    "current": "What was the restaurant name I gave you at the start, before we discussed train departures?",
+    "Recent": false,
+    "Older": true,
+    "required_terms": [
+      "restaurant",
+      "name",
+      "earlier"
+    ]
+  }
+]
