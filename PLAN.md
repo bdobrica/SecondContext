@@ -1,7 +1,462 @@
-# SecondContext Review Remediation Plan
+# SecondContext — Implementation Plan
+
+## Current priority — Conversational learning and product usefulness
+
+Decision date: 2026-11-11. Status: **Active; implementation not started.**
+
+The next milestone is a useful product that learns from ordinary conversation.
+Production readiness follows that demonstrated usefulness. This is a replacement
+of the previous priority order, not another task appended behind release work.
+
+This section and [AGENTS.md](AGENTS.md) supersede conflicting priorities, feature
+deferrals, and local-only PLAN conventions elsewhere in this repository. Execute
+the matching CL1–CL6 tasks in [TODO.md](TODO.md). Existing contracts still describe
+implemented behavior; extend them alongside the relevant feature without silently
+changing their current meaning. Older ADR deferrals are not a veto on this work.
+Historical implementation and verification records remain below for reference.
+PLAN.md and TODO.md are shared, committed roadmap documents from this decision onward.
+
+### Product promise and first milestone
+
+Connect an ordinary chat client, enable learning once, converse naturally, and
+receive better answers in later conversations because SecondContext remembers
+useful context. The user can see, correct, and forget what it learns.
+
+**Milestone M1 comprises CL1, CL2, and CL3 together.** Start a minimal memory
+inspector alongside capture; complete correction and forgetting before declaring
+the milestone usable. No special memory ingestion endpoint, entity metadata, or
+outcome submission is required in the everyday workflow.
+
+The acceptance demonstration is:
+
+1. In ordinary chat, say that Alex prefers small, tightly scoped review requests.
+2. After capture completes, open a fresh conversation under the same identity,
+   without supplying the old transcript, and ask for help requesting Alex's review.
+3. Receive a scoped draft grounded in the learned observation, with inspectable
+   evidence showing why that context was selected.
+4. Correct the observation and verify that another fresh conversation uses the
+   correction rather than the old version.
+5. Forget it and verify that it no longer informs personal-memory retrieval or
+   derived summaries, including when a client resends the old transcript.
+6. Repeat with learning paused and with temporary chat; verify the stated controls
+   and that another authenticated user never receives this private observation.
+
+### CL1 — Automatic conversational learning
+
+Priority: first. Dependencies: existing chat and memory capabilities, not unfinished
+CH rollout work. Build the minimal CL3 inspection path during this slice.
+
+- Add one-time account/deployment learning enablement and an understandable capture
+  status. Support ordinary supplied-history Chat Completions and Responses as well
+  as eligible managed conversations; custom turn/session headers are not required
+  for the ordinary-client path.
+- Extract zero or more useful observations from newly eligible input in the
+  background: preferences, constraints, decisions, commitments, project facts,
+  and reported events. Skip small talk and unsupported inferences. The existing
+  one-record extractor needs an explicit no-memory result and multiple observations.
+- Keep source text/reference, speaker, observed date, relevant time period or expiry,
+  and the distinction between an explicit report and an inference. Assistant drafts,
+  hypotheses, and quoted examples are not evidence that an event occurred.
+- Reconcile repeated supplied transcripts and retries without duplicating memories
+  or treating repeated old evidence as fresh support. Do not globally collapse
+  genuinely distinct events merely because their text matches.
+- Reuse existing acceptance boundaries for managed explicit-acceptance consumers;
+  rejected/pending drafts must not become learned facts. Specify handling of tools,
+  failed requests, and incomplete streams while preserving ordinary client behavior.
+- Keep a minimal recoverable capture path and visible pending/completed/failed status;
+  capture work must not hold up answer streaming. Define how immediate follow-ups
+  behave before background learning completes, without claiming recall is ready early.
+- Separate capture from personal-memory retrieval controls. Preserve existing
+  `disable_memory` retrieval semantics. Pause learning stops new capture; temporary
+  chat disables both capture and personal-memory retrieval. Neither silently changes
+  reference-knowledge controls or promises to erase client-held dialogue.
+- Store useful observations without requiring every observation to run numerical
+  person modeling, belief scoring, or scenario prediction. Keep richer modeling
+  separable so its usefulness can be compared later.
+
+Acceptance: natural statements produce the expected source-backed observations;
+non-memorable/hypothetical input produces none; repeated history creates no duplicate
+support; isolation and capture controls work. This slice alone is not M1 completion.
+
+### CL2 — Natural-language retrieval and strategy
+
+Priority: second. Depends on CL1 for the full demonstration; retrieval work can use
+existing memories while capture is being built.
+
+- Infer people, topics, and immediate goal from the latest request and bounded
+  relevant dialogue. Resolve references and supported aliases; leave uncertain
+  identities unresolved. Explicit metadata overrides inferred values.
+- Focus retrieval on the current question rather than concatenating every old
+  user message into the query. Retain ordinary semantic retrieval as a fallback.
+- Retrieve personal memories across conversations for the same authenticated
+  subject without merging separate transcripts. Do not require a session identifier
+  to retrieve subject-owned observations.
+- Make natural requests for advice, alternative approaches, and follow-up drafts
+  work through ordinary Chat Completions and Responses. Preserve normal answer,
+  streaming, and tool formats; users need not supply `memory_mode`.
+- Give grounded recommendations and tradeoffs with inspectable context. Numeric
+  success probabilities and numeric person traits are not necessary for this path.
+
+Acceptance: an unchanged client completes the Alex example and resolves natural
+follow-ups without people/topic/goal/mode metadata. A topic switch uses the new
+question, and ambiguous names do not silently acquire another person's observations.
+
+### CL3 — Memory inspection and correction
+
+Priority: third; the minimum inspector starts with CL1. Completes M1 with CL1–CL2.
+
+- Provide a small companion surface for listing/searching memories with source,
+  date, explicit/inferred status, and capture progress. Reuse existing list/delete
+  capabilities and add only what the product workflow needs.
+- Add edit, forget, pause-learning, and temporary-chat controls. Support natural
+  requests to inspect/correct/forget memory, asking for disambiguation when needed.
+  Show the memories and documents that informed an answer.
+- Track derivation from source observations so edits/deletions update or invalidate
+  retrieved copies and person/belief summaries. Prevent immediate relearning of
+  forgotten material from a resent old transcript; distinguish a genuinely new report.
+- Explain the scope of forgetting: personal memory and its derivatives versus
+  dialogue still held and supplied by the client. Do not claim to erase that client.
+
+Acceptance: change a remembered preference, observe changed advice in a fresh
+conversation, then forget it and verify effective removal from memory-derived
+answers. Run the complete M1 demonstration before marking CL1–CL3 complete.
+
+### CL4 — Natural outcomes and belief updates
+
+Priority: fourth. Depends on the usable CL1–CL3 loop.
+
+- Detect reports such as "Alex agreed, but only to review the API section" in normal
+  conversation. Store the dated event without a separate outcome submission.
+- Link to an earlier request only when evidence supports it. Preserve ambiguous
+  outcomes as unlinked observations; ask only when a link matters to the answer.
+- Retrieve semantically related belief candidates and distinguish agreement,
+  contradiction, correction, changed circumstances, and unrelated statements.
+  Similarity alone must not merge claims or people.
+- Preserve historical evidence while changing the current working view. Do not
+  equate an assistant suggestion with a sent message or infer strategy success
+  merely because a favorable event was later reported.
+
+Acceptance: a natural outcome improves later advice; paraphrased corrections update
+the relevant belief; changed availability over time is not treated as an inherent
+contradiction. Include ambiguous prior interactions and unrelated similar claims.
+
+### CL5 — Meeting-note ingestion
+
+Priority: fifth. Depends on CL4 and the demonstrated conversational learning loop.
+
+- Start with pasted/uploaded meeting notes using existing parsing and ingestion
+  capabilities, before calendar synchronization or a new connector framework.
+- Let the user choose personal observations to learn versus reference material.
+  Reuse extraction, provenance, inspection, correction, and forgetting from CL1–CL4.
+- Keep statements attributed to their source/speaker and preserve dates; a proposal
+  in meeting notes is not automatically a completed action or approved decision.
+
+Acceptance: ingest one real meeting note, inspect extracted observations, and use
+them in a later conversation without manually creating individual memory records.
+
+### CL6 — Shared bot/workspace knowledge
+
+Priority: last. Depends on CL5 in the agreed product order. Existing private
+reference retrieval remains usable; do not expand this track ahead of CL1–CL5.
+
+- Start with one explicitly configured shared collection per bot/deployment,
+  alongside optional private knowledge. Reuse the existing knowledge service.
+- Shared reference documents persist across users' conversations; personal memory
+  remains subject-owned and dialogue remains conversation-specific. Never share
+  personal memory by assigning all customers the same identity.
+- Upload once, make the source available to the bot, and return grounded answers
+  with source attribution. User conversation does not automatically become shared
+  documentation. Source updates/removal must affect later retrieval.
+
+Acceptance: two distinct customers in fresh sessions receive answers from the
+same document; neither receives the other's private context; a document update
+changes later answers. General sharing/permissions interfaces are later work.
+
+### Validation and work deliberately deferred
+
+During M1, compare history alone, history plus simple dated observations, and the
+full structured context, using the same model, inputs, and reference knowledge.
+Keep capture/fixtures controlled so one comparison does not teach the next one.
+Use a small set of realistic multi-conversation tasks, including negative examples,
+corrections, forgotten material, repeated transcripts, and expiring observations.
+Judge useful recall, inappropriate capture, groundedness, changed advice, and
+user effort; latency matters when it harms this experience. Automated checks prove
+mechanics; inspect real answers and dogfood the usable loop for two weeks to assess
+value. Start with the existing evaluation harness, not a new evaluation platform.
+
+Pause adaptive-history expansion/enablement, cache-economics optimization, numeric
+person-model refinement, scenario probability calibration, graph expansion, broad
+release preparation, and unrelated integration/hardening work. Keep their completed
+work and evidence. Resume only after product usefulness is demonstrated and the
+priority is explicitly reconsidered, or fix a concrete blocker to the active slice.
+Existing identity, acceptance, and correction/deletion behavior remain requirements
+of the experience. No new production-readiness program is a prerequisite to M1.
+
+Maintain runnable increments, relevant regression checks, and accurate feature
+documentation. Use TODO.md for task status and record validation with each slice.
+This plan authorizes implementation sequencing, not deployment or runtime enablement.
+
+## Historical tracks — superseded priorities and execution records
+
+Everything below is preserved background. Its work-order instructions, feature
+deferrals, "Active" labels, and local/unstaged PLAN conventions are historical and
+do not override the active CL1–CL6 plan. Completed checks describe their original
+execution, not new prerequisites for conversational learning.
+
+## Previous priority — OpenAI-compatible conversation history
+
+Status: CH1–CH3 and consumer OCH2–OCH4 complete. CH7 release preparation and
+synthetic rollback validation are implemented. Recent history is published/deployed
+in `oria-live-test`; live provider continuity/erasure and capture rollback passed.
+Private Telegram policy/deletion passed; conversation continuity needs a correction
+and retest. CH4/CH5 observation and cache diagnostics are implemented but disabled
+by default; CH6 adaptive selection is implemented, disabled by default; workload/rollout gates remain.
+[ADR 0007](docs/adr/0007-conversation-history.md) and the
+[history v1 contract](docs/contracts/conversation-history-v1.md) freeze the wire
+shapes, pending-turn abandonment/expiry and linked-session recreation fences.
+CH2 implements supplied-history Chat Completions, function tools and SSE under the
+[compatibility matrix](docs/contracts/chat-completions-v1.md). CH3 now implements
+managed recent replay, capabilities/finalization and migration 000005, disabled by
+default. CH7 deployed gateway 0.2.2 with Oria/MCP 0.2.1 under the release gates. See [runtime operations](docs/conversation-history.md).
+Historical tasks live in [TODO.md](TODO.md#previous-priority--openai-compatible-conversation-history).
+The companion consumer plan is [OriaEngine PLAN section 6.3](https://github.com/bdobrica/OriaEngine/blob/main/PLAN.md#63-planned-conversation-continuity-and-openai-compatibility),
+with [OCH1–OCH5 tasks](https://github.com/bdobrica/OriaEngine/blob/main/TODO.md#current-priority--conversation-history).
+Sibling checkout: `../OriaEngine/`. Keep this PLAN update local under the existing
+execution-record convention; commit the actionable TODO and later public contracts,
+ADRs and implemented reference documentation. The earlier review-remediation plan
+below remains intact and its step-specific rules continue to govern that track.
+
+### Objective and current gap
+
+Serve ordinary OpenAI Chat Completions clients while giving integrated consumers
+reliable, optional server-managed dialogue history. The gateway exposes a
+non-streaming Responses subset plus CH2 supplied-history
+Chat Completions (tools and SSE). Responses builds model messages from the current
+request and retrieved context, persists exchanges, but does not load prior dialogue.
+Ordinary Chat Completions preserves caller messages and shares bounded retrieval;
+it does not archive full supplied transcripts or generated drafts. CH3 adds opt-in
+managed capture/replay in separate canonical turn storage. Existing
+`MessageRepository.ListBySession` selects the oldest messages, not a recent window.
+Existing assistant records are generated drafts, not proof of consumer acceptance
+or delivery. Stable session identity and semantic-memory recall do not close this gap.
+
+### Ownership and compatibility
+
+SecondContext owns transcript persistence, prompt assembly, context selection and
+OpenAI Decisions calls. Oria owns consent, canonical private records, current chart
+calculations, input preparation, accepted reply validation and channel delivery.
+Use versioned HTTP only; no direct cross-repository database or internal-type access.
+Keep memory, linked projections and reference knowledge as independent context lanes.
+Classifier output may select authorized context but cannot expand account, tool or
+service authority or replace deterministic salience under ADR 0002.
+
+CH1 created a new ADR and additive public history contract;
+do not rewrite accepted ADRs. Explicitly extend ADR 0001/0006's service allowlist for
+Chat Completions and the two new context routes, preserving subject resolution,
+advisory locks, namespace restrictions and deletion fences. Review ADR 0004's context
+controls and update architecture docs without changing their existing meanings.
+
+### Accepted API surface
+
+CH1 froze these names in the owning contract. It also specifies payload-free
+`abandon` through finalize, a 24-hour pending deadline, terminal session fences,
+and a text-only/non-streaming managed profile. Ordinary supplied-history Chat
+Completions still includes tools and SSE; v1 managed tool/stream support is deferred.
+The contract/schema take precedence over this execution summary:
+
+| Surface | Accepted behavior |
+| --- | --- |
+| `POST /v1/chat/completions` | Standard request/response and SSE streaming; client supplies conversation in `messages`. |
+| `POST /v1/responses` | Preserve existing accepted requests and result shape; share the internal pipeline where semantics match. |
+| `GET /v1/models` | Preserve model discovery; document supported model/feature combinations. |
+| `POST /v1/context/capabilities` | Authenticated, subject-scoped `conversation-history-1` discovery: modes, acceptance support, message types and limits. |
+| `POST /v1/context/turns/finalize` | Authenticated acceptance of a generated draft/replacement or an application-origin prepared local exchange. |
+
+Optional managed-history headers on generation endpoints:
+
+| Header | Meaning |
+| --- | --- |
+| `X-SecondContext-Session` | Stable external session ID belonging to the authenticated subject. |
+| `X-SecondContext-History` | `off`, `recent`, or `adaptive`; omitted means no automatic stored-history replay. |
+| `X-SecondContext-Turn` | Stable caller turn ID with immutable request binding and retry semantics. |
+| `X-SecondContext-Acceptance` | `generated` or `explicit`; ordinary clients require no finalization. |
+
+These do not replace `X-SecondContext-Subject`. Existing session metadata continues
+to work; conflicting selectors fail. Managed replay requires authenticated storage,
+an explicit session and a defined turn identity. Without a session, supplied messages
+define the conversation; never merge separate chats because they share a user/key.
+Client-supplied history remains the request's dialogue source and is not silently
+trimmed by Decisions or merged with stored history. Reject ambiguous combinations
+initially. CH1 specifies header parsing, allowed combinations and bounded errors.
+History `off` does not disable semantic memory or knowledge.
+
+Standard clients use normal base URL, credentials and model configuration, without
+custom IDs or lifecycle requests. Preserve roles, supported content blocks, tool
+call IDs/results, finish reasons, usage and errors; implement SSE deltas, terminal
+events, usage options, cancellation and incomplete-stream handling. Publish an exact
+support matrix for common generation controls, tools, structured output and modalities.
+Do not silently drop behavior-affecting unsupported fields or claim complete OpenAI
+API parity. Preserve existing Responses compatibility separately.
+
+Finalize binds contract version, subject, session ID, turn ID, response ID and
+accepted assistant content; its exact acknowledgement includes status and durable
+sequence. An application-origin variant supplies prepared user/assistant text without
+a response ID. CH1 defines closed schemas, source references and RFC 8785 hash canonicalization.
+Same ID/content retries return the same result; conflicting content returns 409.
+Foreign ownership fails without disclosure. Version history diagnostics separately
+and expose them through optional headers rather than altering standard response bodies.
+No general transcript-list/edit API or session CRUD is required for this release.
+
+### Turn lifecycle and baseline replay
+
+Add durable ordering, request binding, completion/acceptance state and a generation
+snapshot boundary, using a migration where needed. Scope queries by owner and session;
+load latest eligible turns then return them chronologically. Keep supplied inbound
+messages separate from assembled prompts so replay never re-inserts prior messages.
+Test equal timestamps, concurrent attempts and multiple replicas explicitly.
+
+In generated mode, completed generation is eligible for replay, without a delivery
+claim. In explicit mode, only finalized application-accepted text is replayable;
+rejected drafts and failed/incomplete streams are excluded. Existing retained drafts
+are not automatically promoted during migration. Implement the contracted pending-turn barriers,
+abandonment/recovery and terminal failure behavior before enabling managed sessions.
+Replay a durably saved result on matching retries where possible; crashes around an
+upstream call can still cause duplicate provider execution. Do not promise exactly once.
+
+Oria commits validated reply plus encrypted finalization work together, finalizes
+post-commit, then delivers via Telegram. Application acceptance and delivery are
+separate. Later generation waits for consumer pending-work resolution. Local turns
+are narrowly prepared by Oria; raw birth/profile/onboarding/secret data stays local.
+Do not infer remote finalization from a temporary local save or infer delivery from
+a successful HTTP response. Consumer cancellation never disables required erasure.
+
+Start with a configurable recent window (evaluate eight complete exchanges), bounded
+also by the whole prompt budget, including instructions, current input, retrieved
+sections, supported tool blocks and output reservation. Keep coherent turn/tool groups;
+define oversize rejection/omission behavior instead of breaking message structure.
+Historical claims remain dialogue, not fresh chart facts or trusted instructions.
+
+### Decisions, caching and older history
+
+Implement a bounded OpenAI Decisions client separately from generation and embeddings;
+use `POST /v1/decisions` with the documented supported model (`gpt-6-luna` at planning
+time), configured credentials/base URL and a versioned question recipe. Verify access
+and current API details before live use. Start in observation mode: calculate routing
+but keep the recent-history baseline. Ask separately whether current input depends
+on recent dialogue and whether it refers to older discussion outside that window.
+Calibrate thresholds using labeled conversations; weigh missed context more heavily
+than unnecessary history. Refusal, ambiguity, timeout, invalid answers or upstream
+failure preserve recent history. Never apply this fallback after an authorization,
+deletion-fence or canonical-history validation failure.
+
+The [Decisions guide](https://developers.openai.com/api/docs/guides/decisions) reviewed
+2026-11-09 documents a matching shared-input prefix of at least 1,024 tokens; question
+content is outside that prefix. Use stable shared input, newest message last, explicit
+breakpoints where helpful and bounded append-growing history segments before rotation.
+Do not slide the first message on every turn and assume prefix reuse. Partition opaque
+cache keys by subject/session/context generation; correction/deletion changes that
+generation and request content. Rehydrate/revalidate canonical eligibility before
+every classifier/generator call. Never replay deleted material solely to obtain a hit.
+Provider cache keys are not authority or deletion acknowledgements; provider retention
+remains separately disclosed. Do not assume cache sharing between Decisions and chat.
+
+Measure cached/read/write/total input usage without double counting, latency, fallback
+rate and total classifier-plus-generation cost. No padding merely to reach the cache
+threshold; compare cold/warm short and long conversations. Keep raw transcripts,
+credentials and subject IDs out of metric labels and routine logs.
+
+After baseline validation, adaptive mode may omit recent dialogue for well-supported
+standalone requests. It can also trigger bounded older-turn retrieval within the same
+session, with canonical hydration and chronological excerpts. Older-history absence
+is not permission to invent references. Cross-session replay, automatic summaries,
+new transcript embeddings and transcript-to-memory extraction are deferred. Any later
+derived store or copied history first needs source dependency tracking and erasure.
+
+### Lifecycle, dependencies and release gates
+
+Before replay or classification, respect active subject fences and linked projection
+revisions, including pending erasure even when a request supplies no new knowledge
+refs. Preserve entire-linked-session cleanup under ADR 0006; extend coverage to new
+turn rows, receipts and any derived selection state. Corrections append dialogue;
+explicit forgetting/canonical source invalidation removes affected eligible history.
+Full purge fences late finalize calls and cascades new subject content. Specify minimal
+payload-free retry receipts and their retention; no transcript shadow store survives.
+
+Order: CH1 contract agreement with OCH1 → CH2 compatibility and CH3 lifecycle/recent
+history → OCH2/OCH3 adapter and acceptance → OCH4 cross-repository baseline verification.
+CH4/CH5 observation/cache and CH6 opt-in adaptive selection are implemented.
+CH6 paired evaluation preserves synthetic continuity, but aggregate cost/latency
+regressed; keep production recent pending workload evidence and consumer rollout. CH7/OCH5 release gates apply to the baseline and again to adaptive enablement. CH2 and CH3 may be separate commits but both precede the first
+history-enabled release. First release includes recent history and optional observation;
+active adaptive routing and older recall are later gates, not prerequisites to continuity.
+
+Acceptance uses unchanged OpenAI SDK clients, synthetic request captures and real
+isolated Postgres integration checks: streaming/tool sequences, supplied transcripts,
+multiple chats per subject, follow-ups, replacements, local turns, retries, restart,
+ordering, budgets, purge, pending selective erasure and stale source corrections.
+Run focused tests, `make verify`, relevant race tests and Oria consumer/replay gates.
+Evaluate model quality and optional paid provider/cache checks separately from CI.
+Include the Oria private-reading handoff (horoscope, compatibility/private date,
+plain-English follow-up, then a new topic) in CH4 evaluation. Oria supplies only
+eligible prepared input and current facts; the classifier cannot reconstruct an
+excluded private exchange. Evaluate response relevance separately from replay input.
+See the companion [handoff evidence](https://github.com/bdobrica/OriaEngine/blob/main/docs/evidence/reading-focus-handoff.md).
+Record durable evidence in `docs/evidence/`; update public docs/config/TODO with each
+verified slice and keep this local PLAN outside implementation commits.
+
+Publish compatible versioned images pinned by digest; verify capability before consumer
+enablement and review actual disclosure changes in Oria. Coordinate ingress/workers
+and storage migrations; health alone proves neither generation nor erasure. Restrict
+live operations to `oria-live-test`, preserve unrelated projects, and leave the separate
+external `KNOWLEDGE_ENABLED` integration disabled. Roll back adaptive to recent without
+losing accepted history; disabling history/generation must preserve finalize recovery
+and erasure. Verify rollback with the new schema before deployment.
+
+### CH2 execution record — 2026-11-09
+
+Implemented supplied-history Chat Completions, scoped service authorization, validated
+raw wire forwarding, tools/structured output, bounded SSE and cancellation. No managed
+history advertisement or runtime/deployment change in Oria. No Go dependency added.
+Verification and limitations: [CH2 evidence](docs/evidence/chat-completions-ch2.md).
+Status: Completed. Commit: `69d491a5b4d87606a9e3235436179f3ac786fe37`.
+`make verify` (including OpenAI SDK 3.48.0 and real Postgres/Qdrant tests) and focused
+API/LLM race checks passed. Keep this record unstaged.
+
+### CH3 execution record — 2026-11-09
+
+Implemented durable managed recent history, exact result/request binding, generated
+and explicit acceptance, atomic local exchanges, recovery/expiry/abandonment and
+whole-linked-session fences. Default deployment capture remains disabled. Published
+operations and verification: [CH3 evidence](docs/evidence/conversation-history-ch3.md).
+Root `make verify` (real Postgres/Qdrant, unchanged OpenAI SDK 3.48.0), managed
+integration race checks and Oria's 32 schema tests passed. Schema copies remain
+identical; no consumer runtime/deployment changes were made. No dependencies added.
+Next: OCH2/OCH3 consumer capability/acceptance/disclosure work, then OCH4 baseline
+continuity checks; Decisions observation follows that working baseline.
+Status: Completed. Commit: `f0dd2682e215fb72520224509eee04cbf14ba805`. Keep this record unstaged.
+
+### CH7 execution record — 2026-11-10
+
+Prepared gateway 0.2.2 for the recent-only release with Oria/MCP 0.2.1. Updated
+operations, configuration guidance and coordinated rollback sequence; expanded the
+packaged-image gate for readiness, accepted receipt recovery, capture disablement
+and purge on migration 5. Oria adds independent deployment controls, a private
+cleanup-journaled live smoke command and real-gateway rollback coverage.
+See [CH7 evidence](docs/evidence/conversation-history-ch7.md) for exact verification.
+Gateway 0.2.2 and Oria/MCP 0.2.1 were published, verified by digest/source labels
+and deployed only to `oria-live-test`. Owning migrations, real-provider continuity,
+accepted replacement/local replay, selective/full erasure and a capture-off rollback
+drill passed. Fresh disclosure acceptance is required. The participating user's
+private Telegram policy/deletion passed, but continuity failed. The companion
+Oria 0.2.2 correction is deployed; live synthetic reading/follow-up/date probes passed.
+Private Telegram retest remains. CH4–CH6 remain separate.
+Status: Recent baseline released; private Telegram continuity correction/retest pending. Keep this local
+execution record unstaged under the existing convention.
+
+## Earlier review remediation plan
 
 Created: 2026-07-20
-Plan status: Active
+Plan status: Historical; priority superseded by CL1–CL6 above
 Source of work: `CODE_REVIEW.md`
 
 ## Objective
@@ -21,7 +476,8 @@ Several planned steps touch files changed by that baseline commit. Inspect the l
 
 ## Operating rules
 
-Apply these rules to every step below.
+These were the rules for the historical remediation track. They do not govern
+CL1–CL6; in particular, PLAN.md is now a shared, committed document.
 
 1. Start only when all dependencies listed for the step are complete.
 2. Re-read the relevant finding in `CODE_REVIEW.md` and inspect the current code before editing; line numbers may have moved.
@@ -412,3 +868,34 @@ The remediation is complete only when:
 - public documentation matches actual behavior;
 - `git diff --cached --name-only` excludes `PLAN.md` and `CODE_REVIEW.md`;
 - the internal records remain local and contain the final hashes and status history.
+
+### CH4/CH5 implementation — 2026-11-11
+
+Observation-only Decisions HTTP integration, canonical bounded cache segments,
+scoped HMAC keys, typed fallbacks, numeric diagnostics and synthetic evaluator
+are implemented. Runtime generation remains recent; no public contract/schema
+change, model replacement or production enablement. See
+[durable evidence](docs/evidence/conversation-history-ch45.md). Live synthetic
+checks found cache reuse for long evidence and uncertainty in three scenarios;
+those are CH6 calibration inputs, not grounds to enable adaptive routing.
+
+
+## CH6 — implemented 2026-11-11
+
+`standalone-1` uses the conservative 0.05 dual-dependency cutoff; unknown and older
+references preserve recent. Adaptive capability has a separate default-off provider
+switch. Selection commits once before generation in existing selected-turn storage;
+retries/restarts reuse it, while source invalidation/deletion abort instead of falling
+back. No migration, older retrieval or cross-session derived state is introduced.
+See [implementation/evaluation evidence](docs/evidence/conversation-history-ch6.md).
+The 24-case paired synthetic check found no required-context losses; aggregate cost/
+latency was higher, so broad enablement remains unjustified. Oria stays on recent;
+provider publication and consumer adaptive configuration remain rollout work.
+
+### CH7/OCH5 repeat release — 2026-11-11
+
+Published/deployed provider 0.2.3 and Oria 0.2.4 with CH4–CH6 included, recent
+replay active and observation/adaptive disabled. Local/CI gates, verified images,
+live continuity/topic/erasure and capture rollback passed. See
+[repeat-release evidence](docs/evidence/conversation-history-ch7-repeat.md).
+Keep private Telegram review and workload-specific adaptive enablement open.

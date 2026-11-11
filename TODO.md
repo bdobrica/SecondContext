@@ -1,4 +1,4 @@
-# TODO.md — Work Breakdown Structure for Context-Augmented LLM MVP
+# SecondContext — Product implementation checklist
 
 Implemented behavior is documented in [architecture and ADRs](docs/architecture.md),
 [operations](docs/operations.md), [demo](docs/demo.md), [evaluation](docs/evaluation.md)
@@ -6,7 +6,146 @@ and the [knowledge-base guide](docs/knowledge-base.md). This checklist retains t
 development history and remaining work; completed tasks are not a promise that
 every broader hardening deliverable is finished.
 
-## Current priority — OpenAI-compatible conversation history
+## Current priority — Conversational learning and product usefulness
+
+Effective 2026-11-11: **useful first, shippable second**. This queue takes precedence
+over every older CH, review-remediation, release, integration, and stage checklist
+below. See [AGENTS.md](AGENTS.md) for governing guidance and
+[PLAN.md](PLAN.md#current-priority--conversational-learning-and-product-usefulness)
+for behavior, dependencies, and acceptance demonstrations. PLAN.md and TODO.md
+are versioned shared documents; the earlier local-only PLAN convention is superseded.
+
+All CL tasks below are planned, not implemented. Start with CL1. Build a minimal
+CL3 inspector alongside it, then complete CL2 and CL3 as the first usable milestone
+M1. No unrelated production-readiness or rollout checklist blocks that milestone.
+Fix concrete blockers and preserve working isolation, acceptance, and forgetting.
+
+| Order | Item | Completion evidence |
+| --- | --- | --- |
+| 1 | CL1 — Automatic conversational learning | Ordinary chat creates useful source-backed observations without manual ingestion. |
+| 2 | CL2 — Natural-language retrieval and strategy | A fresh conversation uses those observations without custom metadata. |
+| 3 | CL3 — Memory inspection and correction | The user sees, edits, and forgets memory; subsequent answers follow the changes. |
+| 4 | CL4 — Outcomes and belief updates | Natural reports and paraphrased corrections change later advice appropriately. |
+| 5 | CL5 — Meeting-note ingestion | Pasted/uploaded notes feed the same inspectable learning loop. |
+| 6 | CL6 — Shared bot/workspace knowledge | Distinct customers use shared documents while personal context stays private. |
+
+### CL1 — Automatic conversational learning
+
+- [ ] Define one-time learning enablement and separate capture/retrieval controls;
+  preserve current `disable_memory` semantics. Pause stops capture; temporary chat
+  stops capture and personal-memory retrieval. Keep reference-knowledge controls separate.
+- [ ] Extend extraction to zero or more useful observations with source/speaker,
+  date, time scope/expiry, and explicit-report versus inference labels.
+- [ ] Skip small talk, unsupported claims, hypothetical examples, and assistant
+  drafts as facts. Make simple observation storage independent of mandatory numeric
+  person/belief/scenario modeling.
+- [ ] Add background capture to ordinary Chat Completions and Responses and eligible
+  managed conversations, without requiring custom turn/session headers for ordinary
+  clients. Preserve explicit acceptance for consumers that use it.
+- [ ] Define eligibility for tool exchanges, incomplete streams, and failed requests;
+  never promote rejected/pending assistant drafts into learned facts.
+- [ ] Reconcile retries and resent transcripts without duplicate observations or
+  refreshed evidence dates, while preserving distinct events with identical text.
+- [ ] Expose recoverable pending/completed/failed capture status and behavior for
+  follow-ups before capture completes; keep capture off the answer-streaming path.
+- [ ] Start the CL3 inspector now: list what was learned with its source and date.
+- [ ] Verify natural capture, no-memory cases, multiple observations, repeated
+  history, acceptance, controls, and subject isolation with focused regression checks.
+
+### CL2 — Natural-language retrieval and strategy
+
+- [ ] Infer people, topics, and goal from the latest request and relevant bounded
+  dialogue; explicit metadata overrides inference and ordinary retrieval is a fallback.
+- [ ] Resolve supported aliases/references against known entities without merging
+  ambiguous people or assigning uncertain observations to them.
+- [ ] Replace concatenated-all-user-messages retrieval queries with current-task
+  queries that retain only the dialogue needed to interpret the request.
+- [ ] Recall subject-owned memories across fresh conversations without replaying
+  unrelated transcripts or requiring a custom session identifier.
+- [ ] Make advice, alternative strategies, and follow-up drafting reachable through
+  natural language on both chat endpoints without `memory_mode`; preserve supported
+  answer, tool, and streaming formats.
+- [ ] Prefer evidence-backed recommendations and tradeoffs over mandatory numeric
+  success estimates; expose selected evidence for inspection.
+- [ ] Demonstrate the Alex example in an unchanged client, including a new
+  conversation, natural follow-ups, an unrelated topic switch, and ambiguous names.
+
+### CL3 — Memory inspection and correction
+
+- [ ] Provide a minimal companion surface for memory list/search, provenance,
+  dates, explicit/inferred status, capture progress, and evidence used in answers.
+- [ ] Add edit, forget, pause-learning, and temporary-chat controls, reusing existing
+  endpoints where possible. Support natural inspection/correction/forgetting requests
+  with clarification for ambiguous targets.
+- [ ] Track source dependencies and propagate edits/deletion to retrieved copies
+  and derived person/belief summaries; ensure old claims stop driving answers.
+- [ ] Prevent forgotten observations from immediately returning through resent old
+  transcripts; distinguish genuinely new reports and explain client-held history scope.
+- [ ] Run M1 end to end: natural statement → capture → fresh-conversation recall →
+  correction → changed answer → forgetting → absence from future memory context.
+- [ ] Include pause/temporary chat, delayed capture, another user's isolation,
+  repeated transcript, and time-limited observations in the M1 checks.
+- [ ] Compare history alone, simple dated observations, and the full structured
+  model with matched inputs/model/knowledge and independent capture/fixtures.
+- [ ] Inspect real answer quality and record useful recall, inappropriate capture,
+  correction behavior, user effort, and latency that affects use. Start two weeks
+  of dogfooding once M1 works; retain findings without claiming unobserved benefits.
+- [ ] Update implemented behavior/configuration/docs and record the M1 demonstration;
+  do not mark the milestone complete based only on memory rows or passing unit tests.
+
+### CL4 — Natural outcomes and belief updates
+
+Depends on a usable CL1–CL3 loop.
+
+- [ ] Detect naturally reported outcomes and retain dated observations without
+  requiring `/interactions/outcome` in normal use.
+- [ ] Link outcomes to earlier interactions only with supporting evidence; retain
+  ambiguous reports unlinked and never infer a sent action from an assistant draft.
+- [ ] Retrieve semantically related beliefs, then classify agreement, contradiction,
+  correction, changed circumstances, or unrelated claims before updating them.
+- [ ] Preserve source history and current validity without treating semantic
+  similarity as proof of identity or a later event as proof a strategy succeeded.
+- [ ] Demonstrate changed advice after a natural outcome, paraphrased corrections,
+  changing availability, ambiguous earlier requests, and unrelated similar claims.
+
+### CL5 — Meeting-note ingestion
+
+Follows CL4; reuse the proven learning and inspection workflow.
+
+- [ ] Accept pasted/uploaded meeting notes through existing ingestion capabilities;
+  let users choose personal observations versus reference material.
+- [ ] Reuse source-backed extraction, time/speaker attribution, correction, and
+  forgetting; distinguish proposed actions from decisions and completed actions.
+- [ ] Demonstrate later useful recall from one real note without manually creating
+  memories. Keep calendar synchronization and new connector frameworks deferred.
+
+### CL6 — Shared bot/workspace knowledge
+
+Last in this queue, after CL5. Keep existing private reference retrieval working.
+
+- [ ] Add an explicit shared collection per bot/deployment alongside optional
+  private knowledge, reusing the existing knowledge service.
+- [ ] Connect upload-once reference material to ordinary answers across different
+  users and sessions, with inspectable source attribution.
+- [ ] Keep personal memory subject-owned and history conversation-specific;
+  never collapse customer identities or automatically publish conversation as shared knowledge.
+- [ ] Demonstrate two customers using the same document without private-context
+  leakage, and verify that document updates/removal affect subsequent retrieval.
+
+### Deferred work and historical checklist policy
+
+Adaptive-history expansion/rollout, cache optimization, numeric person-model
+refinement, probability calibration, graph expansion, broad release preparation,
+and unrelated hardening/integration are deferred until usefulness is demonstrated
+and priorities are reconsidered. A concrete blocker to CL1–CL6 may be fixed as part
+of that slice. Existing required CI checks remain; new production-readiness work
+must not displace this queue. This roadmap does not authorize deployment.
+
+Everything below retains original task completion and evidence for reference.
+Unchecked historical tasks are not next actions. Their old execution order,
+automatic-extraction deferrals, and local-only PLAN rules are superseded above.
+
+## Previous priority — OpenAI-compatible conversation history
 
 CH1–CH3 are complete: contracts, supplied-history Chat Completions and opt-in
 managed recent history/finalization. Consumer OCH2–OCH4 are complete. The CH7
@@ -22,7 +161,7 @@ The accepted [history contract](docs/contracts/conversation-history-v1.md) and
 [ADR 0007](docs/adr/0007-conversation-history.md) define the boundary.
 This coordinated track adds ordinary Chat Completions support
 and optional reliable transcript replay; current stable sessions/semantic memories
-do not provide it. Detailed local execution design is in
+do not provide it. Historical execution design is in
 [PLAN.md](PLAN.md); companion
 [Oria OCH1–OCH5 tasks](https://github.com/bdobrica/OriaEngine/blob/main/TODO.md#current-priority--conversation-history)
 cover consent, accepted replies and delivery. Sibling checkout: `../OriaEngine/`.
@@ -112,8 +251,9 @@ Implementation and paired evaluation: [CH6 evidence](docs/evidence/conversation-
 Conservative standalone omission, durable retry selections, independent capability/
 rollback controls and source/erasure coverage are implemented. No migration is required.
 Older-turn retrieval is deferred: evidence does not justify expanding replay.
-Cross-session replay, summaries, transcript embeddings and automatic memory extraction
-remain deferred under ADR 0007.
+Cross-session replay, summaries, and transcript embeddings remain deferred under
+the original ADR 0007 scope. Its automatic-memory-extraction deferral is superseded
+by CL1 above; the implemented contract will be extended with that feature.
 
 - [ ] Before production enablement, establish useful aggregate workload economics and
   quality; the 24-case synthetic comparison preserved context but increased overall
@@ -133,7 +273,7 @@ Observation and adaptive stay disabled; private Telegram review remains pending.
 - [x] Run focused tests, root `make verify`, relevant race tests and Oria contracts/
   replays; record exact checks and limitations in `docs/evidence/`.
 - [x] Update architecture, API support matrix, operations, config examples and public
-  contracts with each slice; preserve the local PLAN execution-record convention.
+  contracts with each slice; the former local PLAN convention is superseded above.
 - [x] Release recent history first; Decisions observation may accompany it, while
   adaptive production enablement retains its separate evaluation/rollout gates. Keep unsupported/deferred capabilities explicit.
 - [x] Publish versioned digest-pinned images and coordinate capability/disclosure
