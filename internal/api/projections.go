@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/bdobrica/SecondContext/internal/db"
+	"github.com/bdobrica/SecondContext/internal/qdrant"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -319,6 +320,33 @@ func (s *Server) invalidateProjection(ctx context.Context, tx pgx.Tx, user strin
 		return err
 	}
 	for _, item := range refs {
+		// Conversational observations derived from these sessions are indexed.
+		// Remove their points before the SQL cascade; failures leave a retryable
+		// operation rather than orphaning private source text in the vector store.
+		points, e := tx.Query(ctx, `SELECT m.id::text FROM memory_items m JOIN learning_captures c ON c.id=m.capture_id JOIN sessions s ON s.id=c.session_id
+		 WHERE c.user_id=$1 AND s.external_id IN (SELECT session_external_id FROM context_projection_sessions WHERE user_id=$1 AND kind=$2 AND record_id=$3)`, user, item.Kind, item.ID)
+		if e != nil {
+			return e
+		}
+		var ids []string
+		for points.Next() {
+			var id string
+			if e = points.Scan(&id); e != nil {
+				points.Close()
+				return e
+			}
+			ids = append(ids, id)
+		}
+		e = points.Err()
+		points.Close()
+		if e != nil {
+			return e
+		}
+		for _, id := range ids {
+			if e = qdrant.NewClient(s.cfg.Qdrant).DeletePoint(ctx, s.cfg.Qdrant.Collection, id); e != nil {
+				return e
+			}
+		}
 		// The entire linked session is removed, including user text, assistant drafts
 		// and retained context packets. No projection content enters legacy vectors.
 		_, err = tx.Exec(ctx, `WITH erased_links AS (

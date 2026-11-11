@@ -151,6 +151,7 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 				return true
 			}
 			setHistoryHeaders(w, h, turn.Snapshot)
+			w.Header().Set("X-SecondContext-Capture", s.enqueueLearning(r, request, current[len(current)-1:], h.Session, h.Turn))
 			writeHistoryBody(w, turn.Result)
 			return true
 		}
@@ -170,7 +171,8 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 		return true
 	}
 	// Retrieval remains independently controlled; it sees current text, not an
-	// assembled/replayed transcript. Managed turns never drive memory extraction.
+	// assembled/replayed transcript. Learning only sees the original user input,
+	// and the worker separately verifies canonical acceptance before extraction.
 	packet, err := s.buildResponseContext(r.Context(), request, resolved, current[len(current)-1:])
 	if err != nil {
 		s.logger.Warn("managed history retrieval degraded")
@@ -245,6 +247,9 @@ func (s *Server) handleHistoryGeneration(w http.ResponseWriter, r *http.Request)
 	}
 	upstream.Body["messages"], _ = json.Marshal(assembled)
 	generationStarted := time.Now()
+	// Persist the receipt while the reserved turn exists. Failed generations and
+	// explicit drafts stay ineligible until canonical acceptance; controls are pinned.
+	w.Header().Set("X-SecondContext-Capture", s.enqueueLearning(r, request, current[len(current)-1:], h.Session, h.Turn))
 	result, err := client.Chat(r.Context(), upstream, nil)
 	if observation != nil {
 		observation.GenerationAttempted = true
@@ -354,7 +359,7 @@ func parseManagedInput(endpoint string, body map[string]json.RawMessage) (create
 		request.KnowledgeRefs = refs
 		upstream = parsed.upstream
 	} else {
-		allowed := map[string]bool{"model": true, "input": true, "instructions": true, "user": true, "metadata": true, "stream": true, "disable_memory": true, "disable_knowledge": true, "knowledge_filters": true, "knowledge_refs": true}
+		allowed := map[string]bool{"model": true, "input": true, "instructions": true, "user": true, "metadata": true, "stream": true, "disable_memory": true, "disable_knowledge": true, "temporary_chat": true, "knowledge_filters": true, "knowledge_refs": true}
 		for key := range body {
 			if !allowed[key] {
 				return request, nil, upstream, false

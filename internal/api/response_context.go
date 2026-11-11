@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"github.com/bdobrica/SecondContext/internal/knowledge"
@@ -121,7 +122,15 @@ func buildMemoryContext(results []retrievalsvc.Result) ([]prompts.ContextMemory,
 			continue
 		}
 		usedChars = candidateChars
+		var provenance struct {
+			ObservedAt      string `json:"observed_at"`
+			Evidence        string `json:"evidence"`
+			SourceReference string `json:"source_reference"`
+			TimeScope       string `json:"time_scope"`
+		}
+		_ = json.Unmarshal(result.Memory.Metadata, &provenance)
 		memories = append(memories, prompts.ContextMemory{
+			ObservedAt: provenance.ObservedAt, Evidence: provenance.Evidence, SourceReference: provenance.SourceReference, TimeScope: provenance.TimeScope,
 			ID:         result.Memory.ID,
 			Rank:       result.Rank,
 			Type:       result.Memory.MemoryType,

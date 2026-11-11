@@ -93,6 +93,7 @@ func (a *requestAuthenticator) middleware(server *Server) func(http.Handler) htt
 				suffix := strings.TrimPrefix(subject, principal.ServicePrefix)
 				valid := strings.HasPrefix(subject, principal.ServicePrefix) && regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`).MatchString(suffix)
 				allowed := r.Method == http.MethodPost && (r.URL.Path == "/v1/responses" || r.URL.Path == "/v1/chat/completions" || r.URL.Path == "/v1/context/capabilities" || r.URL.Path == "/v1/context/turns/finalize" || r.URL.Path == "/memory/ingest" || r.URL.Path == "/v1/subjects/purge" || r.URL.Path == "/v1/knowledge/upsert" || r.URL.Path == "/v1/knowledge/query" || r.URL.Path == "/v1/knowledge/delete" || r.URL.Path == "/v1/knowledge/capabilities")
+				allowed = allowed || learningServiceRoute(r.Method, r.URL.Path)
 				if !valid || !allowed || len(r.Header.Values("X-SecondContext-Subject")) != 1 {
 					server.writeAPIError(w, r, http.StatusForbidden, "service scope not permitted", authorizationErrorType, "service_scope_denied", "")
 					return
@@ -105,6 +106,13 @@ func (a *requestAuthenticator) middleware(server *Server) func(http.Handler) htt
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), authContextKey{}, principal)))
 		})
 	}
+}
+
+func learningServiceRoute(method, path string) bool {
+	return (path == "/memory/learning" && (method == http.MethodGet || method == http.MethodPut)) ||
+		(path == "/memory/learning/retry" && method == http.MethodPost) ||
+		(path == "/memory" && method == http.MethodGet) ||
+		((method == http.MethodPatch || method == http.MethodDelete) && regexp.MustCompile(`^/memory/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`).MatchString(path))
 }
 
 func (a *requestAuthenticator) authenticate(token string) (authPrincipal, bool) {
@@ -138,7 +146,7 @@ func (a *requestAuthenticator) writeAuthenticationChallenge(w http.ResponseWrite
 }
 
 func shouldSkipAuthentication(path string) bool {
-	return path == "/healthz"
+	return path == "/healthz" || path == "/memory/inspector" || path == "/memory/inspector.js"
 }
 
 func bearerTokenFromRequest(r *http.Request) (string, string, string) {

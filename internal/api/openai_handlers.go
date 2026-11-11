@@ -89,6 +89,7 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 		s.writeAPIError(w, r, http.StatusBadRequest, err.Error(), "invalid_request_error", "invalid_input", "input")
 		return
 	}
+	captureMessages := append([]llm.Message(nil), messages...)
 
 	contextPacket, err := s.buildResponseContext(r.Context(), request, metadata, messages)
 	if err != nil {
@@ -196,6 +197,7 @@ func (s *Server) handleCreateResponse(w http.ResponseWriter, r *http.Request) {
 		response.Metadata["scenario_plan"] = scenarioPlan
 	}
 
+	w.Header().Set("X-SecondContext-Capture", s.enqueueLearning(r, request, captureMessages, metadata.SessionID, ""))
 	writeJSON(w, http.StatusOK, response)
 }
 
@@ -498,7 +500,7 @@ func boolFromMap(values map[string]any, key string) bool {
 }
 
 func requestDisablesMemory(request createResponseRequest) bool {
-	return request.DisableMemory || boolFromMap(request.Metadata, "disable_memory")
+	return request.DisableMemory || boolFromMap(request.Metadata, "disable_memory") || request.TemporaryChat || boolFromMap(request.Metadata, "temporary_chat")
 }
 
 func resolveUpstreamModel(defaultModel, requestedModel string) string {

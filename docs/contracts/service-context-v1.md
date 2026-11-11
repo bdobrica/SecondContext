@@ -94,3 +94,13 @@ migration 000005 and verified capability. Full subject purge also cascades manag
 turns, results, receipts and session fences. Finalize/abandon of existing turns and
 erasure remain available while new capture is disabled.
 No other route or transcript CRUD is granted.
+
+## Conversational-learning extension
+
+CL1 additionally authorizes `GET /memory`, `GET/PUT /memory/learning`,
+`POST /memory/learning/retry`, and `PATCH/DELETE /memory/{uuid}` for the delegated
+subject. Foreign memory IDs remain indistinguishable from missing IDs. These
+routes inspect/control personal memory; they do not grant transcript CRUD or
+change subject delegation. See [conversational learning](../conversational-learning.md).
+Full purge includes learning settings and capture receipts. Learning stays off
+until enabled for the subject; the history switch does not enable learning.

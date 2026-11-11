@@ -36,6 +36,7 @@ func main() {
 	defer db.Close(dbPool)
 
 	handler := api.NewServer(cfg, logger, dbPool)
+	go handler.RunLearning(ctx)
 	httpServer := &http.Server{
 		Addr:              cfg.HTTP.Addr,
 		Handler:           handler.Handler(),

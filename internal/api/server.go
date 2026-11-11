@@ -96,7 +96,13 @@ func (s *Server) Handler() http.Handler {
 	router.Post("/memory/search", s.handleMemorySearch)
 	router.Post("/interactions/outcome", s.handleCreateInteractionOutcome)
 	router.Get("/memory", s.handleListMemories)
+	router.Get("/memory/inspector", s.handleLearningInspector)
+	router.Get("/memory/inspector.js", s.handleLearningInspector)
+	router.Get("/memory/learning", s.handleLearning)
+	router.Put("/memory/learning", s.handleLearning)
+	router.Post("/memory/learning/retry", s.handleLearningRetry)
 	router.Delete("/memory/{memoryID}", s.handleDeleteMemory)
+	router.Patch("/memory/{memoryID}", s.handleCorrectObservation)
 	if s.debugEndpointsEnabled() {
 		router.Get("/debug/context", s.handleGetDebugContext)
 		router.Get("/debug/beliefs", s.handleListDebugBeliefs)

@@ -22,6 +22,13 @@ bounded recent replay, durable retries and accepted replies on Responses and Cha
 Completions. It requires migration 000005 and explicit enablement; ordinary OpenAI
 clients can continue supplying their own chat history.
 
+[Conversational learning (CL1)](docs/conversational-learning.md) adds opt-in
+background capture of source-backed observations from ordinary chat, with a
+browser inspector at `/memory/inspector`, pause, correction, forgetting, and
+recoverable capture status. Apply migration 000006 and enable learning once for
+the authenticated account. It remains off by default. The complete CL1–CL3
+usefulness milestone and live-model acceptance demonstration are still open.
+
 ## Why this exists
 
 Modern LLMs have broad general knowledge, but they lack the evolving context that humans accumulate from daily experience.
@@ -266,7 +273,7 @@ POST /v1/chat/completions     implemented (text, function tools, SSE)
 
 Chat Completions supports supplied multi-turn dialogue, function tools and SSE. See the
 [supported API matrix](docs/contracts/chat-completions-v1.md). Managed transcript replay
-and Responses streaming remain deferred.
+uses the opt-in history extension; Responses streaming remains deferred.
 
 Internal/debug endpoints:
 
@@ -275,6 +282,11 @@ POST /memory/ingest          implemented
 POST /memory/extract         implemented
 GET  /memory                 implemented
 DELETE /memory/{id}          implemented
+PATCH /memory/{id}           conversational summary correction
+GET  /memory/inspector       browser inspector (authenticated data APIs)
+GET  /memory/learning        capture status and account setting
+PUT  /memory/learning        enable/pause learning
+POST /memory/learning/retry  retry failed captures
 POST /memory/search          implemented
 POST /interactions/outcome   implemented
 POST /v1/subjects/purge      implemented (authenticated)

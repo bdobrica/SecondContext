@@ -10,6 +10,9 @@ Current migrations:
 - `000002_outcome_processing.down.sql`
 - `000003_subject_purges.up.sql`
 - `000003_subject_purges.down.sql`
+- `000004_linked_projections.up.sql` / `.down.sql`
+- `000005_conversation_history.up.sql` / `.down.sql`
+- `000006_conversational_learning.up.sql` / `.down.sql`
 
 Typical workflow:
 
@@ -38,3 +41,9 @@ Migration `000002` adds tenant-scoped idempotency constraints and durable proces
 Migration `000003_subject_purges` adds durable subject deletion fences. Its down
 migration removes the fences, so stop writers before rollback. It never restores
 deleted content. See [operations](../docs/operations.md).
+
+Migration `000006_conversational_learning` adds per-subject learning settings,
+durable capture/replay receipts, and observation derivation links. No account is
+enabled by migration. Stop learning workers before rolling it back: the down
+migration removes settings and receipts while retaining existing memory rows;
+re-enabling later loses replay/forgetting protection for those old occurrences.

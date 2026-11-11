@@ -270,8 +270,12 @@ func (s *Service) Delete(ctx context.Context, memoryID string) error {
 		return err
 	}
 
-	if record.QdrantPointID != "" {
-		if err := s.qdrant.DeletePoint(ctx, s.cfg.Qdrant.Collection, record.QdrantPointID); err != nil {
+	pointID := record.QdrantPointID
+	if record.Source == "conversation" {
+		pointID = record.ID
+	}
+	if pointID != "" {
+		if err := s.qdrant.DeletePoint(ctx, s.cfg.Qdrant.Collection, pointID); err != nil {
 			return &Error{StatusCode: http.StatusBadGateway, Message: "failed to delete memory from qdrant", Type: "server_error", Code: "qdrant_delete_failed"}
 		}
 	}

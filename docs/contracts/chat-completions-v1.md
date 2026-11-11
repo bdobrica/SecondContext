@@ -29,7 +29,12 @@ The gateway neither trims supplied history nor appends another chat's transcript
 CH2 does not archive supplied Chat Completions transcripts or generated results,
 including successful streams. This avoids copying a full client transcript into
 storage on every request. Retrieval may create the normal subject identity row;
-it does not extract new memories from chat. Responses persistence is unchanged.
+retrieval itself does not extract new memories. Responses persistence is unchanged.
+CL1 adds separately enabled [conversational learning](../conversational-learning.md):
+successful ordinary input can queue zero or more source-backed observations, with
+source text retained for those observations. It does not archive whole supplied
+transcripts or treat generated assistant text as evidence. Learning is off by
+default and requires migration 000006 plus account enablement.
 CH3 adds optional managed capture, accepted turns, replay and durable retries.
 Ordinary Chat Completions retries can execute the provider again.
 
@@ -80,10 +85,13 @@ parameters. Ordinary SDK clients need none of them.
 
 - `user`: must match the authenticated subject when supplied.
 - `disable_memory`, `disable_knowledge`: independent booleans, default false.
+- `temporary_chat`: disables conversational capture and personal-memory retrieval;
+  leaves reference knowledge and existing dialogue persistence controls unchanged.
+  `disable_memory` alone does not pause capture.
 - `knowledge_filters`: existing `source_ids`, `document_ids`, `formats` contract.
 - `metadata`: existing local keys `session_id`, `user_external_id`, `user_name`,
   `user_email`, `session_title`, `goal`, `people`, `topics`, `disable_memory`,
-  `disable_knowledge`, `memory_mode`. String/array/boolean types follow their existing
+  `disable_knowledge`, `temporary_chat`, `memory_mode`. String/array/boolean types follow their existing
   meanings. Only `memory_mode:"normal_answer"` is supported here; scenario orchestration
   remains on Responses. Other metadata keys are explicitly unsupported, including
   arbitrary provider dashboard metadata.

@@ -113,6 +113,7 @@ func (s *Server) handleHistoryFinalize(w http.ResponseWriter, r *http.Request) {
 			s.historyFailure(w, r, e)
 			return
 		}
+		w.Header().Set("X-SecondContext-Capture", s.enqueueLearning(r, createResponseRequest{}, []llm.Message{{Role: "user", Content: request.UserText}}, request.Session, request.Turn))
 		writeHistoryBody(w, receipt)
 		return
 	}
@@ -151,6 +152,9 @@ func (s *Server) handleHistoryFinalize(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if len(turn.FinalizeHash) > 0 && bytes.Equal(hash, turn.FinalizeHash) {
+			if request.Action == "accept_local" {
+				w.Header().Set("X-SecondContext-Capture", s.enqueueLearning(r, createResponseRequest{}, []llm.Message{{Role: "user", Content: request.UserText}}, request.Session, request.Turn))
+			}
 			writeHistoryBody(w, turn.Receipt)
 			return
 		}

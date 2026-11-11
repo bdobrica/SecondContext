@@ -2,7 +2,8 @@
 
 ## Current priority — Conversational learning and product usefulness
 
-Decision date: 2026-11-11. Status: **Active; implementation not started.**
+Decision date: 2026-11-11. Status: **Active; CL1 implementation and minimal inspector
+available, real-provider acceptance and CL2–CL3/M1 validation pending.**
 
 The next milestone is a useful product that learns from ordinary conversation.
 Production readiness follows that demonstrated usefulness. This is a replacement
@@ -77,6 +78,38 @@ CH rollout work. Build the minimal CL3 inspection path during this slice.
 Acceptance: natural statements produce the expected source-backed observations;
 non-memorable/hypothetical input produces none; repeated history creates no duplicate
 support; isolation and capture controls work. This slice alone is not M1 completion.
+
+#### CL1 implementation record — 2026-11-11
+
+Implemented migration 000006, account opt-in/pause, `temporary_chat`, durable
+background capture for ordinary Chat/Responses and accepted managed turns,
+zero-to-sixteen source-quoted observations, fixed first-observed dates/expiry,
+occurrence receipts, retry/status, and `/memory/inspector`. The inspector supports
+summary correction and forgetting for the simple conversational path; no numeric
+person/belief modeling is required. Source deletion fences/cascades include these
+observations and their vector points. Existing manual extraction stays compatible.
+
+Acceptance mechanics are exercised with deterministic provider fixtures: the Alex
+statement is captured, a fresh chat receives it, correction changes that prompt,
+and forgetting prevents old-prefix replay. Coverage includes no-memory/multiple
+result contracts, distinct occurrences, isolation, acceptance, controls, incomplete
+streams, restart, partial indexing, expiry, and deletion during capture. This is
+not a demonstration of useful real-model advice. No live provider credential was
+configured; real extraction quality, the complete M1 demonstration, comparisons,
+and dogfooding remain pending. CL2–CL3 are not marked complete.
+
+The ordinary-client identity limit is explicit: identical fresh transcripts without
+IDs cannot be distinguished from retries; changed/truncated prefixes can represent
+new occurrences. See [implemented behavior and recovery](docs/conversational-learning.md).
+No deployment or runtime enablement was performed.
+
+Validation recorded on 2026-11-11: `make verify` passed (formatting, vet, unit tests,
+and mandatory Postgres/Qdrant integration tests without skips); `make test-docker`
+passed with schema 6; focused CL1 tests passed under `go test -race`. Inspector
+JavaScript passed `node --check`; HTTP tests verify the public shell/private API
+boundary. Browser interaction/visual checks and live-provider behavior were not
+exercised. Test collections are removed after each fixture; isolated test stacks
+were used throughout.
 
 ### CL2 — Natural-language retrieval and strategy
 

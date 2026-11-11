@@ -14,10 +14,11 @@ import (
 )
 
 type MemoryRepository struct {
-	pool *pgxpool.Pool
+	pool HistoryQueries
 }
 
 type CreateMemoryItemParams struct {
+	CaptureID       string
 	UserID          string
 	SessionID       string
 	SourceMessageID string
@@ -41,6 +42,12 @@ func NewMemoryRepository(pool *pgxpool.Pool) *MemoryRepository {
 	return &MemoryRepository{pool: pool}
 }
 
+// NewMemoryRepositoryWithQueries keeps background publication on the connection
+// holding the subject fence, including after a worker loses its connection.
+func NewMemoryRepositoryWithQueries(q HistoryQueries) *MemoryRepository {
+	return &MemoryRepository{pool: q}
+}
+
 func (r *MemoryRepository) Create(ctx context.Context, params CreateMemoryItemParams) (models.MemoryItem, error) {
 	query := `
 		INSERT INTO memory_items (
@@ -60,7 +67,8 @@ func (r *MemoryRepository) Create(ctx context.Context, params CreateMemoryItemPa
 			confidence,
 			expires_at,
 			metadata,
-			idempotency_key
+			idempotency_key,
+			capture_id
 		)
 		VALUES (
 			$1::uuid,
@@ -79,7 +87,8 @@ func (r *MemoryRepository) Create(ctx context.Context, params CreateMemoryItemPa
 			$14,
 			$15,
 			$16::jsonb,
-			NULLIF($17, '')
+			NULLIF($17, ''),
+			NULLIF($18, '')::uuid
 		)
 		ON CONFLICT (user_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO UPDATE
 		SET idempotency_key = EXCLUDED.idempotency_key
@@ -106,6 +115,7 @@ func (r *MemoryRepository) Create(ctx context.Context, params CreateMemoryItemPa
 		params.ExpiresAt,
 		normalizeJSON(params.Metadata),
 		strings.TrimSpace(params.IdempotencyKey),
+		params.CaptureID,
 	).Scan(
 		&memory.ID,
 		&memory.UserID,
@@ -325,6 +335,10 @@ func (r *MemoryRepository) ListByIDs(ctx context.Context, ids []string) ([]model
 		SELECT id::text, user_id::text, COALESCE(session_id::text, ''), COALESCE(source_message_id::text, ''), COALESCE(qdrant_point_id, ''), memory_type, source, raw_text, summary, people, topics, importance, utility, belief_impact, confidence, expires_at, metadata, created_at, updated_at
 		FROM memory_items
 		WHERE id = ANY($1::uuid[])
+		AND (capture_id IS NULL OR (qdrant_status='completed' AND EXISTS (
+		 SELECT 1 FROM learning_captures c WHERE c.id=capture_id AND (c.status='completed' OR metadata ? 'corrected_at')
+		 AND NOT EXISTS (SELECT 1 FROM sessions s JOIN context_session_fences f ON f.user_id=s.user_id AND f.session_external_id=s.external_id WHERE s.id=c.session_id)
+		)))
 	`
 
 	rows, err := r.pool.Query(ctx, query, ids)

@@ -16,6 +16,7 @@ type createResponseRequest struct {
 	Input            json.RawMessage   `json:"input"`
 	Instructions     string            `json:"instructions,omitempty"`
 	DisableMemory    bool              `json:"disable_memory,omitempty"`
+	TemporaryChat    bool              `json:"temporary_chat,omitempty"`
 	DisableKnowledge bool              `json:"disable_knowledge,omitempty"`
 	KnowledgeFilters knowledge.Filters `json:"knowledge_filters,omitempty"`
 	Stream           bool              `json:"stream,omitempty"`

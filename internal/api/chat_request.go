@@ -178,12 +178,14 @@ func parseChatRequest(body map[string]json.RawMessage) (chatInput, *chatRequestE
 				}
 			}
 			continue
-		case "disable_memory", "disable_knowledge":
+		case "disable_memory", "disable_knowledge", "temporary_chat":
 			if !chatBool(raw) {
 				return out, invalidChat(key)
 			}
 			if key == "disable_memory" {
 				_ = json.Unmarshal(raw, &out.context.DisableMemory)
+			} else if key == "temporary_chat" {
+				_ = json.Unmarshal(raw, &out.context.TemporaryChat)
 			} else {
 				_ = json.Unmarshal(raw, &out.context.DisableKnowledge)
 			}
@@ -387,13 +389,13 @@ func validateChatFormat(raw json.RawMessage) *chatRequestError {
 	return nil
 }
 func validateChatMetadata(raw json.RawMessage, request *createResponseRequest) *chatRequestError {
-	values, e := chatObject(raw, "metadata", "session_id", "user_external_id", "user_name", "user_email", "session_title", "goal", "people", "topics", "disable_memory", "disable_knowledge", "memory_mode")
+	values, e := chatObject(raw, "metadata", "session_id", "user_external_id", "user_name", "user_email", "session_title", "goal", "people", "topics", "disable_memory", "disable_knowledge", "temporary_chat", "memory_mode")
 	if e != nil {
 		return e
 	}
 	for key, value := range values {
 		switch key {
-		case "disable_memory", "disable_knowledge":
+		case "disable_memory", "disable_knowledge", "temporary_chat":
 			if !chatBool(value) {
 				return invalidChat("metadata." + key)
 			}

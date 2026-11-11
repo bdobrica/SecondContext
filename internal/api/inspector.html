@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SecondContext · Memory</title>
+<style>
+body{font:16px/1.5 system-ui,sans-serif;max-width:880px;margin:40px auto;padding:0 20px;color:#202b34;background:#fafaf8}h1{margin-bottom:4px}h2{margin-top:32px}p{max-width:75ch}label{display:block;margin:10px 0}input,textarea{display:block;box-sizing:border-box;width:100%;font:inherit;padding:8px;border:1px solid #9ca8ae;border-radius:4px;background:white}button{font:inherit;padding:7px 12px;margin:4px 8px 4px 0;border:1px solid #768890;border-radius:4px;background:#edf3f3;color:#17292b;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.card{background:white;border:1px solid #d4dcdc;border-radius:8px;padding:18px;margin:16px 0}.detail{font-size:14px;color:#4a5c64;white-space:pre-wrap;overflow-wrap:anywhere}#notice{min-height:1.5em;color:#204e50}#error{color:#a01d24}pre{white-space:pre-wrap;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:8px;border-bottom:1px solid #d4dcdc;overflow-wrap:anywhere}td:first-child{max-width:170px}[hidden]{display:none!important}
+</style>
+<h1>Memory</h1>
+<p>Inspect what SecondContext learns from your conversations. Learning starts off. Your account identity keeps personal observations separate from other users.</p>
+<form id="connect" class="card">
+ <label>API credential <input id="token" type="password" required autocomplete="off" spellcheck="false"></label>
+ <label>Subject (service credentials only) <input id="subject" autocomplete="off" spellcheck="false" placeholder="Leave blank for a personal credential"></label>
+ <button type="submit">Connect</button>
+ <p class="detail">Credentials stay in this page’s memory and are sent only to this server. They are not saved in browser storage.</p>
+</form>
+<p id="error" role="alert"></p><p id="notice" role="status" aria-live="polite"></p>
+<main id="workspace" hidden>
+ <p><strong id="learning-state"></strong></p>
+ <button id="toggle">Enable learning</button><button id="refresh">Refresh</button><button id="retry">Retry failed captures</button><button id="disconnect">Disconnect</button>
+ <p class="detail">Pause cancels unfinished capture and stops learning new observations. Existing memories remain available. Temporary chat must be selected in the chat request; it disables learning and personal-memory retrieval, while leaving reference knowledge independent.</p>
+ <h2>Observations</h2>
+ <p class="detail">Most recent 100 observations. Corrections change the stored summary. Forget removes this observation from personal memory; a matching old transcript will not recreate it. Dialogue still supplied by your chat client can remain visible to the model.</p>
+ <div id="memories"></div>
+ <h2>Capture progress</h2>
+ <p class="detail">Most recent 100 source occurrences. Pending and failed captures are not ready for recall. A completed capture may contain no useful observations. Refresh after background work finishes.</p>
+ <table><thead><tr><th>Source</th><th>First observed</th><th>Status</th><th>Attempts</th></tr></thead><tbody id="captures"></tbody></table>
+</main>
+<script src="/memory/inspector.js" defer></script>
+</html>

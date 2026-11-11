@@ -39,7 +39,19 @@ Postgres owns users, sessions, messages, memory items/entities, people, topics,
 person/topic models, beliefs, graph edges, outcomes and subject-deletion fences.
 Manual ingestion accepts scores and people/topics; extraction uses validated LLM
 JSON with repair before persistence. Memory creation also drives person-model
-and belief observations with evidence memory IDs.
+and belief observations with evidence memory IDs on the legacy manual/extract path.
+
+[Conversational learning](conversational-learning.md) is a separate account opt-in
+path. Successful ordinary user input and accepted managed input create durable,
+subject-owned capture receipts. A background worker extracts zero or more dated,
+source-backed observations and indexes them without numeric person/belief modeling.
+Capture status, pause/retry, summary correction and forgetting are available in
+`/memory/inspector`. Publication rechecks acceptance, consent, subject deletion and
+linked-source fences. Completed occurrence receipts prevent exact-prefix replay
+from recreating deleted observations. Migration 000006 adds settings/captures and
+canonical memory derivation links; whole-subject and linked-session erasure cover
+these stores. `disable_memory` still only controls retrieval; `temporary_chat`
+additionally suppresses conversational capture.
 
 Memory search combines dense and hashed lexical vectors in Qdrant, hydrates
 canonical rows and applies Go salience ranking. The lexical baseline uses

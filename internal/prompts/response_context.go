@@ -34,14 +34,18 @@ type ContextPacket struct {
 }
 
 type ContextMemory struct {
-	ID         string        `json:"id"`
-	Rank       int           `json:"rank"`
-	Type       string        `json:"type"`
-	Summary    string        `json:"summary"`
-	People     []string      `json:"people,omitempty"`
-	Topics     []string      `json:"topics,omitempty"`
-	Confidence float64       `json:"confidence"`
-	Scores     ContextScores `json:"scores"`
+	ObservedAt      string        `json:"observed_at,omitempty"`
+	Evidence        string        `json:"evidence,omitempty"`
+	SourceReference string        `json:"source_reference,omitempty"`
+	TimeScope       string        `json:"time_scope,omitempty"`
+	ID              string        `json:"id"`
+	Rank            int           `json:"rank"`
+	Type            string        `json:"type"`
+	Summary         string        `json:"summary"`
+	People          []string      `json:"people,omitempty"`
+	Topics          []string      `json:"topics,omitempty"`
+	Confidence      float64       `json:"confidence"`
+	Scores          ContextScores `json:"scores"`
 }
 
 type ContextScores struct {
@@ -112,7 +116,11 @@ func buildMemorySection(packet *ContextPacket) string {
 
 	lines := make([]string, 0, len(packet.MemoryContext)+1)
 	for _, memory := range packet.MemoryContext {
-		lines = append(lines, fmt.Sprintf("- [%d] %s | type=%s | people=%s | topics=%s | confidence=%.2f | final=%.2f | retrieval=%.2f | recency=%.2f | goal=%.2f", memory.Rank, memory.Summary, memory.Type, joinOrNone(memory.People), joinOrNone(memory.Topics), memory.Confidence, memory.Scores.Final, memory.Scores.Retrieval, memory.Scores.Recency, memory.Scores.GoalRelevance))
+		line := fmt.Sprintf("- [%d] %s | type=%s | people=%s | topics=%s | confidence=%.2f | final=%.2f | retrieval=%.2f | recency=%.2f | goal=%.2f", memory.Rank, memory.Summary, memory.Type, joinOrNone(memory.People), joinOrNone(memory.Topics), memory.Confidence, memory.Scores.Final, memory.Scores.Retrieval, memory.Scores.Recency, memory.Scores.GoalRelevance)
+		if memory.ObservedAt != "" {
+			line += fmt.Sprintf(" | first_observed=%s | evidence=%s | source=%s | time_scope=%s", memory.ObservedAt, memory.Evidence, memory.SourceReference, memory.TimeScope)
+		}
+		lines = append(lines, line)
 	}
 	if packet.OmittedMemories > 0 {
 		lines = append(lines, fmt.Sprintf("- %d additional memories were omitted to fit the prompt budget.", packet.OmittedMemories))

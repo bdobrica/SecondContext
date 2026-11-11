@@ -101,6 +101,9 @@ func (s *Server) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 		_ = http.NewResponseController(w).SetWriteDeadline(deadline)
 	}
 	started := false
+	if request.upstream.Stream {
+		w.Header().Add("Trailer", "X-SecondContext-Capture")
+	}
 	emit := func(payload json.RawMessage) error {
 		if err := r.Context().Err(); err != nil {
 			return err
@@ -141,11 +144,14 @@ func (s *Server) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if _, err := w.Write([]byte("data: [DONE]\n\n")); err == nil {
-			_ = http.NewResponseController(w).Flush()
+			if http.NewResponseController(w).Flush() == nil {
+				w.Header().Set("X-SecondContext-Capture", s.enqueueLearning(r, request.context, chatCaptureMessages(request), session, ""))
+			}
 		}
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-SecondContext-Capture", s.enqueueLearning(r, request.context, chatCaptureMessages(request), session, ""))
 	_, _ = w.Write(result.Body)
 }
 

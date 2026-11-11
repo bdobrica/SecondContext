@@ -15,9 +15,10 @@ below. See [AGENTS.md](AGENTS.md) for governing guidance and
 for behavior, dependencies, and acceptance demonstrations. PLAN.md and TODO.md
 are versioned shared documents; the earlier local-only PLAN convention is superseded.
 
-All CL tasks below are planned, not implemented. Start with CL1. Build a minimal
-CL3 inspector alongside it, then complete CL2 and CL3 as the first usable milestone
-M1. No unrelated production-readiness or rollout checklist blocks that milestone.
+CL1 code and a minimal CL3 inspector are implemented, with focused mechanical
+regression coverage. Real-provider extraction and usefulness validation remain open.
+Complete CL2 and CL3 as the first usable milestone M1. No unrelated
+production-readiness or rollout checklist blocks that milestone.
 Fix concrete blockers and preserve working isolation, acceptance, and forgetting.
 
 | Order | Item | Completion evidence |
@@ -31,26 +32,35 @@ Fix concrete blockers and preserve working isolation, acceptance, and forgetting
 
 ### CL1 — Automatic conversational learning
 
-- [ ] Define one-time learning enablement and separate capture/retrieval controls;
+- [x] Define one-time learning enablement and separate capture/retrieval controls;
   preserve current `disable_memory` semantics. Pause stops capture; temporary chat
   stops capture and personal-memory retrieval. Keep reference-knowledge controls separate.
-- [ ] Extend extraction to zero or more useful observations with source/speaker,
+- [x] Extend extraction to zero or more useful observations with source/speaker,
   date, time scope/expiry, and explicit-report versus inference labels.
-- [ ] Skip small talk, unsupported claims, hypothetical examples, and assistant
-  drafts as facts. Make simple observation storage independent of mandatory numeric
-  person/belief/scenario modeling.
-- [ ] Add background capture to ordinary Chat Completions and Responses and eligible
+- [x] Add zero-result extraction rules for small talk, unsupported claims, and
+  hypothetical examples; exclude assistant drafts from extraction input. Make simple
+  observation storage independent of mandatory numeric person/belief/scenario modeling.
+- [x] Add background capture to ordinary Chat Completions and Responses and eligible
   managed conversations, without requiring custom turn/session headers for ordinary
   clients. Preserve explicit acceptance for consumers that use it.
-- [ ] Define eligibility for tool exchanges, incomplete streams, and failed requests;
+- [x] Define eligibility for tool exchanges, incomplete streams, and failed requests;
   never promote rejected/pending assistant drafts into learned facts.
-- [ ] Reconcile retries and resent transcripts without duplicate observations or
+- [x] Reconcile retries and resent transcripts without duplicate observations or
   refreshed evidence dates, while preserving distinct events with identical text.
-- [ ] Expose recoverable pending/completed/failed capture status and behavior for
+- [x] Expose recoverable pending/completed/failed capture status and behavior for
   follow-ups before capture completes; keep capture off the answer-streaming path.
-- [ ] Start the CL3 inspector now: list what was learned with its source and date.
-- [ ] Verify natural capture, no-memory cases, multiple observations, repeated
-  history, acceptance, controls, and subject isolation with focused regression checks.
+- [x] Start the CL3 inspector now: list what was learned with its source and date.
+- [x] Verify capture mechanics, no-memory/multiple-result contracts, repeated
+  history, acceptance, controls, and subject isolation with focused deterministic
+  regression checks.
+- [ ] Run real-provider extraction acceptance on natural statements, negative examples,
+  and multiple observations; inspect quality rather than counting stored rows. No live
+  provider credential was available for this implementation.
+
+Implemented behavior, controls, replay ambiguity, recovery, and inspector usage:
+[conversational learning](docs/conversational-learning.md). The automated fresh-chat
+check proves changed prompt context after correction/forgetting using a deterministic
+provider; it does not complete the real-model M1 usefulness demonstration.
 
 ### CL2 — Natural-language retrieval and strategy
 

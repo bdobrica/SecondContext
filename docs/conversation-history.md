@@ -7,7 +7,8 @@ behavior. Neither path promotes legacy messages/drafts to managed accepted histo
 
 ## Configuration and model limits
 
-Apply migration **000005** before running this version. `HISTORY_ENABLED=false`
+Apply migrations through **000006** before running this version (managed history
+itself was introduced in 000005). `HISTORY_ENABLED=false`
 (default) disables new managed generation/local capture and ready capability
 advertisement. Existing accepted receipts, generated finalization, abandonment and
 erasure remain operable. Re-enabling does not remove fences or revive expired turns.
@@ -106,12 +107,15 @@ retry the same existing linked deletion operation. Correction atomically updates
 the source and erases/fences affected sessions, or rolls back the complete correction.
 Cleanup cascades turns/results/receipts with legacy session messages/context packets.
 Session fences survive physical cleanup and reject delayed calls with `session_deleted`.
-Subject purge removes session fences under its permanent subject fence. No new
-transcript vectors, summaries, cross-session copies or memory extraction exist.
+Subject purge removes session fences under its permanent subject fence.
+[CL1 conversational learning](conversational-learning.md) can separately capture
+accepted user reports as simple source-backed observations. It never learns
+assistant drafts or vectors of the full transcript. Linked-source erasure also
+removes those observations and their vectors; unfinished cleanup fences recall.
 
 ## Rollout and rollback
 
-Back up canonical storage and stop existing gateway writers. Apply migration 000005,
+Back up canonical storage and stop existing gateway writers. Apply migrations through 000006,
 verify its clean version, and deploy only instances implementing the same fences.
 The migration backfills existing link revisions, never accepted dialogue. Confirm
 scoped capabilities with the intended model ceilings before consumer enablement.

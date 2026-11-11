@@ -165,6 +165,12 @@ func (s *Server) handleDeleteMemory(w http.ResponseWriter, r *http.Request) {
 			s.writeMemoryError(w, r, err)
 			return
 		}
+		if record.Source == "conversation" {
+			if err := s.suppressMemoryCapture(r.Context(), memoryID); err != nil {
+				s.writeMemoryError(w, r, err)
+				return
+			}
+		}
 	}
 
 	service := memsvc.NewService(s.cfg, s.dbPool, s.llm)
