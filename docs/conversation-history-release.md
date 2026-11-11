@@ -1,7 +1,8 @@
 # CH7 recent-history release
 
-The released gateway version is **0.2.2**, coordinated with Oria application
-**0.2.2** and astrology MCP **0.2.1**. Version metadata does not establish image publication or
+The next gateway version is **0.2.3**, coordinated with Oria application
+**0.2.4** and unchanged astrology MCP **0.2.1**.
+See [repeat-release evidence](evidence/conversation-history-ch7-repeat.md) for CH4–CH6 publication and rollout. Version metadata does not establish image publication or
 live deployment. [Release evidence](evidence/conversation-history-ch7.md) records
 executed gates and remaining operational work. The authoritative rollout sequence
 is Oria's [coordinated checklist](https://github.com/bdobrica/OriaEngine/blob/main/docs/conversation-history-release.md).

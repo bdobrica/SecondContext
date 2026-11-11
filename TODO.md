@@ -125,7 +125,10 @@ remain deferred under ADR 0007.
 
 See the [recent-history release checklist](docs/conversation-history-release.md)
 and [CH7 evidence](docs/evidence/conversation-history-ch7.md). Gateway
-0.2.2 is deployed with Oria 0.2.2 and MCP 0.2.1, using verified immutable digests.
+0.2.2 is deployed with Oria 0.2.3 and MCP 0.2.1, using verified immutable digests.
+The [CH4–CH6 repeat release](docs/evidence/conversation-history-ch7-repeat.md)
+prepares gateway 0.2.3 with Oria 0.2.4. Publication/live gates are pending;
+observation and adaptive stay disabled.
 
 - [x] Run focused tests, root `make verify`, relevant race tests and Oria contracts/
   replays; record exact checks and limitations in `docs/evidence/`.
