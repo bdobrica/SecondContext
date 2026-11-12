@@ -386,6 +386,21 @@ The real-note usefulness demonstration remains open, alongside M1/CL4 live accep
 The managed configuration recipe is `managed-recent-cl5-1`. No deployment or live
 learning enablement occurred.
 
+CL5 acceptance-fixture update: at the user's request, the active local sample was
+replaced by the approved synthetic Alice–Bob discussion. The original summary is
+retained separately as a comparison reference. The transcript passed Markdown
+parsing (3,907 normalized UTF-8 bytes), preserving speaker labels, date, decisions,
+open questions and the change from an early LLM-first proposal to foundations first.
+Ten fresh-conversation questions and expected semantic checks are prepared outside
+the repository alongside the fixtures. Only the discussion should be imported into
+an isolated test subject; the reference summary and checklist must be withheld from
+model input. Evaluate actual stored observations and later answers for omissions,
+unsupported assertions, attribution and event/decision status, respecting the current
+sixteen-observation bound. This pair tests retention against the summary that seeded
+its synthetic dialogue; it is not independent real-meeting validation. No model
+credential is configured, so extraction/recall comparison has not run. This update
+changes the acceptance sample and records only, with no runtime or deployment change.
+
 ### CL6 — Shared bot/workspace knowledge
 
 Priority: last. Depends on CL5 in the agreed product order. Existing private

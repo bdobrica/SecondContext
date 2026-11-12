@@ -172,6 +172,16 @@ Follows CL4; reuse the proven learning and inspection workflow.
 - [x] Parse the user-supplied real meeting note with the existing Markdown parser;
   retain date, participant labels, decisions, next steps and open questions within
   the personal-note size bound. Raw note stays outside the repository.
+- [x] At the user's request, replace the active local sample with the approved
+  synthetic Alice–Bob discussion, retain the original summary as a separate
+  comparison reference, and prepare ten fresh-conversation recall questions.
+  Transcript parsing passed (3,907 normalized UTF-8 bytes); raw fixtures stay
+  outside the repository.
+- [ ] Run extraction and fresh-conversation recall for this synthetic pair with a
+  configured model in an isolated test account. Import only the discussion; keep
+  the summary/checklist out of model input. Compare semantic coverage, attribution,
+  decision/proposal/completion distinctions and invented claims, allowing for the
+  existing sixteen-observation limit. This is separate from real-meeting acceptance.
 - [ ] Demonstrate later useful recall from that real note with a real provider,
   without manually creating memories. No live provider credential is configured;
   semantic extraction quality and actual advice usefulness remain unverified.

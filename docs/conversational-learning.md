@@ -582,3 +582,18 @@ No live provider credential is configured, so model extraction and later recall 
 that real note were not exercised. Browser interaction was not tested. The real-note
 usefulness demonstration and existing M1/CL4 live acceptance remain open. Nothing
 was deployed.
+
+
+The user subsequently selected an Alice–Bob synthetic discussion as the active local
+acceptance sample, retaining the original summary separately as the reference.
+The replacement passed Markdown parsing (3,907 normalized UTF-8 bytes). Ten prepared
+fresh-conversation questions cover runtime/hosting constraints, content/publishing,
+editing modes/themes, plugins and security uncertainty, authentication/UI, completed
+work, the LLM-first proposal that was superseded in discussion, roadmap order,
+next milestone and open decisions. Import only the discussion into an isolated test
+subject; withhold the reference summary and expected answers from the model. Compare
+actual observations and fresh answers semantically, including attribution and
+incorrect assertions, with the existing sixteen-observation cap in mind. The model
+run remains pending a configured provider credential. These synthetic fixtures check
+retention against their source summary and do not replace real-meeting usefulness
+acceptance. Raw samples and the comparison checklist remain outside the repository.
