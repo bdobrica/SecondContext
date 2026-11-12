@@ -121,3 +121,9 @@ CL4 preserves the same delegated subject boundary for natural outcome and belief
 updates. Relations cannot reference another subject's observations and follow
 source erasure and purge. [CL4 behavior](../conversational-learning.md#natural-outcomes-and-belief-updates-cl4)
 requires migration 000008; learning remains opt-in.
+
+CL5's `POST /memory/notes` retains this delegated subject boundary. Personal note
+imports require learning enabled; reference imports remain independent. The gateway
+selects the upstream parsing/reference credential from its configured subject map.
+No client-selected knowledge owner is accepted. Apply gateway migration 000009 and
+update the knowledge service. [Import contract and limits](../conversational-learning.md#meeting-note-ingestion-cl5).

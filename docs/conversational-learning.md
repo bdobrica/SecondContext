@@ -1,17 +1,19 @@
-# Conversational learning (CL1–CL4)
+# Conversational learning (CL1–CL5)
 
 CL1 implements opt-in background learning from ordinary conversations. It stores
 simple observations, independent of the existing numeric person/belief modeling
 pipeline. CL2 adds natural request interpretation and evidence selection for fresh
 conversations and follow-ups. CL3 adds searchable inspection and explicit natural
 memory controls. CL4 compares new reports with prior observations and updates the
-current working view while preserving evidence history. The real-model M1 usefulness demonstration remains open;
+current working view while preserving evidence history. CL5 imports meeting notes
+through the same inspectable learning loop. The real-model M1 usefulness demonstration remains open;
 deterministic checks establish wiring, not better real advice.
 
 ## Enable and inspect
 
-Apply migrations through **000008** with `make migrate-up`, then start the gateway normally.
-The API process starts a background queue consumer; no extra service is required.
+Apply migrations through **000009** with `make migrate-up`, then start the gateway normally.
+The API process starts a background queue consumer. Ordinary chat learning requires
+no extra service; CL5 note imports reuse the optional knowledge service’s parsers.
 Learning is **off by default** and is enabled separately for each authenticated
 subject. Deploying this code or applying the migration does not enable learning.
 
@@ -22,7 +24,7 @@ model configuration. Personal credentials require no per-turn memory metadata,
 session headers, or ingestion API. Service credentials still require their
 existing authenticated subject delegation; a shared key never identifies a chat.
 
-The inspector searches current conversational summaries and people/topic labels,
+The inspector searches current conversation and meeting-note summaries and people/topic labels,
 with 50 observations per page,
 with original source, speaker, first-observed date, evidence classification, time
 scope, expiry, and correction date. It also shows the last 100 capture receipts,
@@ -112,6 +114,95 @@ numeric derivatives; the invalidation covers older/explicitly attached models as
 well. Independent outcome reports and client/server saved dialogue are not erased
 by forgetting a memory. Source-free manually supplied model values cannot be
 attributed to a memory and are not removed by this dependency rule.
+
+## Meeting-note ingestion (CL5)
+
+Open **Meeting notes** in `/memory/inspector`, choose **Personal observations** or
+**Reference material**, enter a title, and paste notes or upload a file. Supply the
+meeting date (`YYYY-MM-DD`) if known; it is separate from ingestion time. Plain text
+is the default to preserve speaker-labelled lines that automatic format detection
+might interpret as YAML. Markdown, JSON and YAML can be selected explicitly; PDF
+and DOCX are detected from bytes and use the existing bounded binary parsers.
+
+The gateway must have knowledge enabled and a server-configured knowledge credential
+for this authenticated subject. Run the updated knowledge service as well as gateway
+migration **000009**. Existing subject delegation applies; the caller cannot supply
+an upstream owner or token. No calendar connector or workspace sharing is added.
+
+| Choice | Stored result | Later use |
+| --- | --- | --- |
+| Personal observations | One background capture, then zero to 16 source-backed observations; no knowledge-service reference copy | Ordinary fresh Chat Completions/Responses recall, inspection, correction and forgetting |
+| Reference material | Existing private knowledge source and ingestion job; no learning capture | Existing reference search and citations; manage/delete the source in the knowledge UI/API |
+
+Personal imports require learning enabled. Pause suppresses unfinished imports;
+existing completed memories remain recallable. Reference imports remain independent
+of that setting. Import failure does not create personal observations. Extraction,
+relation or indexing failure uses the existing failed-capture status and retry
+control. The entire capture must complete before ordinary recall can use it.
+
+Each learned observation has `source=meeting_note`, `evidence=meeting_note`, the
+exact parsed-text excerpt, `speaker`, `title`, `filename`, `format`, optional
+`meeting_date`, ingestion `observed_at`, `time_scope`, and a `note:<capture_id>` source
+reference. Named speakers must appear in both the supporting excerpt and attributed
+summary; otherwise extraction uses `unspecified`. The uploader is never assumed to
+be the speaker. Extraction preserves tentative proposals as `proposal`, explicit
+adopted decisions as `decision`, commitments as `commitment`, completed actions as
+`reported_action`, and reported results as `outcome`. The model still judges those
+semantics; exact quotes and schema checks do not independently prove its judgment.
+
+For example, a note saying “Alex: I propose reviewing only the API section Friday”
+can inform a later question about review scope, but must remain an attributed
+proposal, not an approved plan or completed review. Answer context includes note
+title, meeting date, speaker, type and evidence reference. The inspector and natural
+inspection expose provenance; summary corrections and forgetting use the existing
+CL3 controls. An explicit correction changes subsequent recalled context while the
+original quote remains inspectable.
+
+Dated notes participate in CL4 comparisons using the supplied meeting date, never
+upload order. Backfilled notes cannot supersede newer evidence or explicit edits.
+Unknown/future meeting dates do not initiate comparisons, and undated notes are not
+relation candidates; they still remain dated-at-ingestion reports for ordinary
+recall. Notes on the same meeting date do not supersede one another automatically.
+A later ordinary conversational correction can supersede a dated note. Proposals
+cannot acquire a relation that promotes them to a different observation type.
+Existing identity, evidence, candidate-count and deletion guards remain in force.
+
+`POST /memory/notes` accepts multipart form data:
+
+- Required `purpose`: `personal` or `reference`; required `name` (max 500 bytes).
+- Exactly one of `text` (max 64 KiB) or `file` (max 8 MiB); total request max 10 MiB.
+- Optional `format`: `text` (default), `markdown`, `json`, `yaml`, `auto`, `pdf`, `docx`.
+- Optional `meeting_date`: `YYYY-MM-DD`.
+
+It returns HTTP 202 with `{purpose, capture_id, status}` for personal imports or
+`{purpose, source_id, status}` for references. HTTP 202 is a durable handoff, not a
+claim that extraction/indexing finished. `learning_paused` is HTTP 409. An unavailable
+parser capability is HTTP 503; parser/upstream failures (including a missing subject
+credential mapping) are HTTP 502 with safe codes. Inputs rejected before parsing return HTTP 400.
+
+Personal parsed text is limited to 64 KiB, with at most 16 observations from one
+note; larger parsed notes are rejected, not silently truncated. This is a bounded
+first implementation, not exhaustive extraction from arbitrarily long meetings.
+Scans requiring OCR are unsupported, as in the existing ingestion service. Exact
+quotes refer to normalized parsed text, not necessarily the original PDF layout;
+page coordinates are not retained on the personal observations. Original file
+bytes are discarded after parsing. Queued text and descriptive capture metadata are erased on completion or
+suppression; selected excerpts and source metadata remain only on observations.
+
+Normalized text plus meeting date identifies a personal import within the subject.
+Reimporting identical content/date (even as a file or with a different title) returns
+the original receipt without relearning or refreshing evidence. This includes
+completed or suppressed captures after forgetting or pausing. Changed content/date
+is a new explicit import and may yield overlapping observations; there is no
+cross-version document synchronization. Reference ingestion uses its existing
+idempotency and deletion semantics. Deleting a separately imported reference does
+not delete personal observations, and vice versa. Source deletion invalidates CL4
+links under the existing rules, which can make retained prior evidence current.
+
+Schema 9 downgrade refuses while any meeting-note captures remain, including
+suppressed receipts, rather than misrepresenting them as conversational reports.
+Plan explicit data handling before a rollback. Nothing here enables learning or
+changes deployment settings automatically.
 
 ## Natural outcomes and belief updates (CL4)
 
@@ -470,3 +561,20 @@ provider credential was available and no browser-interaction test was performed.
 These checks prove context wiring and evidence lifecycle, not real-model semantic
 classification or more useful advice. Live CL4 acceptance, latency/effort measures,
 matched comparisons and M1 remain open. No deployment or live enablement occurred.
+
+
+CL5 verification completed on 2026-11-12: `make verify` passed with mandatory
+Postgres/Qdrant integration and all three existing OpenAI SDK scripts. New synthetic
+fixtures import pasted/uploaded notes, inspect attribution/types, expose them in
+fresh Chat Completions and Responses context, apply corrections, forget and replay,
+pause during extraction, retry failures, check historical ordering and enforce
+subject isolation. They also verify queued source/metadata erasure. The knowledge
+service passed Ruff checks and all 453 tests with real Postgres/Qdrant, including
+its real text/Markdown/PDF/DOCX parser paths, reference idempotency and ownership.
+Gateway Docker packaging passed on schema 9; JavaScript syntax, diff/format and
+local documentation links passed. Test infrastructure was cleaned up.
+
+These fixtures do not establish live extraction/classification accuracy or better
+advice. No real meeting note was supplied, no live-provider acceptance was run, and
+browser interaction was not tested. The real-note demonstration, real-provider
+usefulness and existing M1/CL4 live acceptance remain open. Nothing was deployed.

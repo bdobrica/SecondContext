@@ -289,12 +289,12 @@ Mutation commands in `explicit` acceptance mode return directions to the compani
 inspector or ordinary chat; finalizing a generated draft never performs a memory
 operation. `generated` mode may execute a direct user command and stores its local
 receipt under existing retry semantics. All command inputs are suppressed from
-learning. The configuration recipe is `managed-recent-cl4-1`; earlier reservations
+learning. The configuration recipe is `managed-recent-cl5-1`; earlier reservations
 remain subject to existing configuration-conflict behavior. See
 [natural controls](../conversational-learning.md#natural-memory-controls-cl3).
 
 CL4 compares accepted user observations with earlier conversational evidence in the
 background. It preserves acceptance and subject/source fences; assistant drafts
 never become reported actions. Relation publication and capture completion are
-atomic. Apply migration 000008 before running this version. See
+atomic. Apply migrations through 000009 before running this version. See
 [CL4 behavior and bounds](../conversational-learning.md#natural-outcomes-and-belief-updates-cl4).

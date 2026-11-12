@@ -85,7 +85,7 @@ func (r *MemoryRepository) AnnotateObservations(ctx context.Context, memories []
 		if meta == nil {
 			meta = map[string]any{}
 		}
-		if memories[i].Source != "conversation" {
+		if memories[i].Source != "conversation" && memories[i].Source != "meeting_note" {
 			continue
 		}
 		state := states[memories[i].ID]

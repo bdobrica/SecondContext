@@ -43,6 +43,9 @@ type ContextPacket struct {
 }
 
 type ContextMemory struct {
+	Speaker         string        `json:"speaker,omitempty"`
+	MeetingDate     string        `json:"meeting_date,omitempty"`
+	SourceTitle     string        `json:"source_title,omitempty"`
 	WorkingState    string        `json:"working_state,omitempty"`
 	Relations       []string      `json:"relations,omitempty"`
 	CorrectedAt     string        `json:"corrected_at,omitempty"`
@@ -152,6 +155,9 @@ func buildMemorySection(packet *ContextPacket) string {
 		if memory.ObservedAt != "" {
 			line += fmt.Sprintf(" | first_observed=%s | evidence=%s | source=%s | time_scope=%s", memory.ObservedAt, memory.Evidence, memory.SourceReference, memory.TimeScope)
 		}
+		if memory.Evidence == "meeting_note" {
+			line += fmt.Sprintf(" | note_title=%q | meeting_date=%s | speaker=%s", memory.SourceTitle, memory.MeetingDate, memory.Speaker)
+		}
 		if memory.CorrectedAt != "" {
 			line += " | user_corrected=" + memory.CorrectedAt
 		}
@@ -216,7 +222,15 @@ func buildGroundingRules(packet *ContextPacket) string {
 	if packet != nil {
 		for _, m := range packet.MemoryContext {
 			if len(m.Relations) > 0 || m.Type == "outcome" {
-				rules = append(rules, "- The working view preserves dated source reports. A correction supersedes the prior claim; changed_circumstances is a time-scoped update, not an inherent contradiction. Respect time scopes and do not generalize temporary availability into a permanent trait.", "- A disputed memory has unresolved contradictory evidence even if only one side fit this prompt. State the uncertainty; do not pick a winner. Agreement is a repeated report, not independent verification or increased confidence.", "- An outcome is only the user-reported result within its stated scope. An outcome_of link identifies an earlier user-reported action, never proof that an assistant strategy caused success. Without that link, keep the result unlinked. Ask which earlier request it concerns only if that distinction matters to the answer.")
+				rules = append(rules, "- The working view preserves dated source reports. A correction supersedes the prior claim; changed_circumstances is a time-scoped update, not an inherent contradiction. Respect time scopes and do not generalize temporary availability into a permanent trait.", "- A disputed memory has unresolved contradictory evidence even if only one side fit this prompt. State the uncertainty; do not pick a winner. Agreement is a repeated report, not independent verification or increased confidence.", "- An outcome is only the source-reported result within its stated scope. An outcome_of link identifies an earlier source-reported action, never proof that an assistant strategy caused success. Without that link, keep the result unlinked. Ask which earlier request it concerns only if that distinction matters to the answer.")
+				break
+			}
+		}
+	}
+	if packet != nil {
+		for _, m := range packet.MemoryContext {
+			if m.Evidence == "meeting_note" {
+				rules = append(rules, "- Meeting-note memories are attributed reports from the named source and speaker, not necessarily statements by the uploader. Cite the note title/date. Ingestion time is not meeting time. Preserve proposals, uncertainty and disputed statements; proposals are not decisions, commitments are not completed actions, and reported results do not prove strategy success. Do not present historical notes as current facts without current evidence.")
 				break
 			}
 		}

@@ -15,6 +15,7 @@ import (
 // Observation is the simple conversational path. It deliberately does not require
 // person scores, beliefs, graph expansion, or an assertion of strategy success.
 type Observation struct {
+	Speaker   string     `json:"speaker,omitempty"`
 	Summary   string     `json:"summary"`
 	Type      string     `json:"type"`
 	Quote     string     `json:"quote"`
@@ -47,6 +48,10 @@ func ExtractObservations(ctx context.Context, client llm.Client, model, source s
 }
 
 func ParseObservations(raw, source string) ([]Observation, error) {
+	return parseObservations(raw, source, false)
+}
+
+func parseObservations(raw, source string, note bool) ([]Observation, error) {
 	canonical, err := canonicaljson.Canonicalize([]byte(raw))
 	if err != nil {
 		return nil, err
@@ -58,9 +63,19 @@ func ParseObservations(raw, source string) ([]Observation, error) {
 		return nil, err
 	}
 	for _, item := range shape.Observations {
+		if _, ok := item["speaker"]; ok && !note {
+			return nil, fmt.Errorf("unexpected speaker field")
+		}
 		for _, key := range []string{"summary", "type", "quote", "evidence", "time_scope", "expires_at", "people", "topics"} {
 			if _, ok := item[key]; !ok {
 				return nil, fmt.Errorf("missing observation field %s", key)
+			}
+		}
+	}
+	if note {
+		for _, item := range shape.Observations {
+			if value, ok := item["speaker"]; !ok || string(value) == "null" {
+				return nil, fmt.Errorf("missing note speaker")
 			}
 		}
 	}
@@ -82,11 +97,22 @@ func ParseObservations(raw, source string) ([]Observation, error) {
 	for i := range envelope.Observations {
 		o := &envelope.Observations[i]
 		o.Summary = strings.TrimSpace(o.Summary)
-		if o.Summary == "" || len(o.Summary) > 2000 || len(o.Quote) > 4000 || len(o.TimeScope) > 300 || len(o.People) > 16 || len(o.Topics) > 16 || strings.TrimSpace(o.Quote) == "" || !strings.Contains(source, o.Quote) || o.Evidence != "explicit_report" {
+		if o.Summary == "" || len(o.Summary) > 2000 || len(o.Quote) > 4000 || len(o.TimeScope) > 300 || len(o.People) > 16 || len(o.Topics) > 16 || strings.TrimSpace(o.Quote) == "" || !strings.Contains(source, o.Quote) || (!note && o.Evidence != "explicit_report") || (note && o.Evidence != "meeting_note") {
 			return nil, fmt.Errorf("unsupported observation evidence")
+		}
+		if note {
+			if strings.TrimSpace(o.Speaker) == "" || len(o.Speaker) > 200 || (o.Speaker != "unspecified" && (!strings.Contains(o.Quote, o.Speaker) || !strings.Contains(o.Summary, o.Speaker))) {
+				return nil, fmt.Errorf("unsupported note speaker")
+			}
+		} else if o.Speaker != "" {
+			return nil, fmt.Errorf("unexpected speaker")
 		}
 		switch o.Type {
 		case "person_preference", "person_observation", "interaction_observation", "topic_fact", "project_fact", "reported_action", "outcome", "constraint", "decision", "commitment":
+		case "proposal":
+			if !note {
+				return nil, fmt.Errorf("invalid observation type")
+			}
 		default:
 			return nil, fmt.Errorf("invalid observation type")
 		}

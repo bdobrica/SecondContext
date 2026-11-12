@@ -2,7 +2,7 @@
 
 ## Current priority — Conversational learning and product usefulness
 
-Decision date: 2026-11-11. Status: **Active; CL1–CL4 implementation available;
+Decision date: 2026-11-11. Status: **Active; CL1–CL5 implementation available;
 real-provider acceptance, matched comparisons and M1 validation pending.**
 
 The next milestone is a useful product that learns from ordinary conversation.
@@ -326,6 +326,62 @@ Priority: fifth. Depends on CL4 and the demonstrated conversational learning loo
 
 Acceptance: ingest one real meeting note, inspect extracted observations, and use
 them in a later conversation without manually creating individual memory records.
+
+#### CL5 implementation record — 2026-11-12
+
+Implemented at the user's explicit request while real-provider M1/CL4 acceptance
+remains open. The memory inspector now accepts pasted notes and uploaded files with
+an explicit personal-observations/reference choice, title and optional meeting date.
+Gateway `/memory/notes` delegates parsing through server-mapped subject credentials
+to the knowledge service's `/v1/notes`. Text/Markdown/JSON/YAML and digital PDF/DOCX
+reuse existing parsers. Personal parsing retains no knowledge-service reference copy;
+reference mode retains the existing private source/job workflow without learning.
+
+Migration 000009 adds capture source kind and provenance metadata. Personal imports
+feed the existing background queue and publish zero to sixteen observations through
+its consent, readiness, retry and deletion fences. Note-specific extraction preserves
+speaker/source attribution, source excerpts and dates, with distinct proposals,
+decisions, commitments, performed actions and reported outcomes. Selected memory
+context and inspector views expose those distinctions. Existing summary correction,
+forgetting and natural inspection work for note observations too.
+
+Dated note comparisons use meeting time; old imports cannot replace newer reports or
+explicit edits. Undated/future notes do not initiate comparisons; undated notes stay
+out of relation candidates while remaining recallable as attributed reports. Later
+ordinary corrections can update dated note beliefs. Identical normalized note/date
+imports reuse their subject-owned receipt, including after forgetting or suppression.
+A title or file-upload spelling change does not recreate forgotten observations.
+
+Bounds: one note up to 64 KiB parsed text and sixteen observations, file upload up to
+8 MiB, existing parser resource limits and gateway timeouts. No OCR, page-coordinate
+provenance on personal observations, exhaustive extraction from large meetings,
+cross-version source synchronization, or new calendar/connector framework. Reference
+copies and personal observations have independent lifecycles. Schema 9 downgrade
+refuses while note capture receipts exist. Full behavior is documented in
+[CL5 workflow and limits](docs/conversational-learning.md#meeting-note-ingestion-cl5).
+
+Verification: `make verify` passed with mandatory Postgres/Qdrant integration and
+all three unchanged OpenAI SDK scripts. CL5 fixtures proved fresh Chat/Responses
+context from imported notes, manual and natural correction, preserved source history,
+forgetting/reimport suppression, pause during extraction, retry, historical-date
+ordering, validation and subject isolation. Queued note text/title/filename metadata
+is erased on completion or suppression; provenance remains on observations.
+Knowledge-service Ruff checks and all 453 tests passed with mandatory Postgres/Qdrant,
+including actual PDF/DOCX parsing and private reference ingestion. Gateway Docker
+packaging passed on schema 9, inspector JavaScript syntax passed, and diff/format and
+documentation-link checks passed. Disposable test containers/volumes were removed.
+
+The initial Go run caught the missing service-credential route authorization; it was
+added within the existing delegated subject boundary. A later failure was an invalid
+subject spelling in the new isolation fixture; corrected before the final passing
+suite. The knowledge-test wrapper's relative cleanup path was corrected by explicit
+cleanup after its passing suite. No browser interaction test was performed.
+Deterministic fixtures exercise later answer context, not real-model semantic
+accuracy or useful advice. No real meeting note was supplied and no live-provider
+acceptance was run.
+The real-note usefulness demonstration remains open, alongside M1/CL4 live acceptance.
+The managed configuration recipe is `managed-recent-cl5-1`. No deployment or live
+learning enablement occurred.
 
 ### CL6 — Shared bot/workspace knowledge
 

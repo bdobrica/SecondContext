@@ -187,7 +187,7 @@ func (s *Server) RunLearning(ctx context.Context) {
 
 func (s *Server) pendingLearning(ctx context.Context) ([]string, error) {
 	// Abandonment/expiry erases the queued copy as well as canonical history.
-	_, err := s.dbPool.Exec(ctx, `UPDATE learning_captures c SET status='suppressed',source_text='',observations=NULL,error_code=''
+	_, err := s.dbPool.Exec(ctx, `UPDATE learning_captures c SET status='suppressed',source_text='',source_metadata='{}',observations=NULL,error_code=''
 	 FROM conversation_turns t WHERE t.user_id=c.user_id AND t.session_id=c.session_id AND t.turn_id=c.turn_id
 	 AND c.status IN ('pending','failed') AND (t.state='abandoned' OR (t.state='pending' AND t.expires_at<=now()))`)
 	if err != nil {
@@ -214,6 +214,8 @@ func (s *Server) pendingLearning(ctx context.Context) ([]string, error) {
 
 type learningCapture struct {
 	ID, User, Subject, Session, Text string
+	Kind                             string
+	SourceMetadata                   []byte
 	Observed                         time.Time
 	Observations                     []byte
 }
@@ -221,12 +223,12 @@ type learningCapture struct {
 func loadLearningCapture(ctx context.Context, conn *pgx.Conn, id string) (learningCapture, error) {
 	var c learningCapture
 	c.ID = id
-	err := conn.QueryRow(ctx, `SELECT c.user_id::text,u.external_id,COALESCE(s.external_id,''),c.source_text,c.observed_at,c.observations
+	err := conn.QueryRow(ctx, `SELECT c.user_id::text,u.external_id,COALESCE(s.external_id,''),c.source_text,c.observed_at,c.observations,c.source_kind,c.source_metadata
  FROM learning_captures c JOIN users u ON u.id=c.user_id JOIN learning_settings l ON l.user_id=c.user_id
  LEFT JOIN sessions s ON s.id=c.session_id
  LEFT JOIN conversation_turns t ON t.user_id=c.user_id AND t.session_id=c.session_id AND t.turn_id=c.turn_id
  WHERE c.id=$1 AND l.enabled AND c.status IN ('pending','failed') AND c.attempts<3 AND c.retry_at<=now() AND (c.turn_id IS NULL OR t.state='accepted')
- AND NOT EXISTS(SELECT 1 FROM subject_purges WHERE external_id=u.external_id)`, id).Scan(&c.User, &c.Subject, &c.Session, &c.Text, &c.Observed, &c.Observations)
+ AND NOT EXISTS(SELECT 1 FROM subject_purges WHERE external_id=u.external_id)`, id).Scan(&c.User, &c.Subject, &c.Session, &c.Text, &c.Observed, &c.Observations, &c.Kind, &c.SourceMetadata)
 	return c, err
 }
 
@@ -272,6 +274,10 @@ func (s *Server) processLearningCapture(ctx context.Context, id string) (workErr
 	var observations []memsvc.Observation
 	if len(c.Observations) > 0 {
 		err = json.Unmarshal(c.Observations, &observations)
+	} else if c.Kind == "meeting_note" {
+		var meta map[string]string
+		_ = json.Unmarshal(c.SourceMetadata, &meta)
+		observations, err = memsvc.ExtractMeetingObservations(ctx, s.llm, s.cfg.OpenAI.ChatModel, c.Text, meta["title"], meta["meeting_date"], c.Observed)
 	} else {
 		observations, err = memsvc.ExtractObservations(ctx, s.llm, s.cfg.OpenAI.ChatModel, c.Text, c.Observed)
 	}
@@ -340,14 +346,24 @@ func (s *Server) processLearningCapture(ctx context.Context, id string) (workErr
 	repo := db.NewMemoryRepositoryWithQueries(conn)
 	recordIDs := make([]string, len(observations))
 	for i, o := range observations {
-		metadata, _ := json.Marshal(map[string]any{"capture_id": id, "observation_index": i, "source_reference": "capture:" + id, "speaker": "user", "observed_at": c.Observed.UTC().Format(time.RFC3339Nano), "evidence": o.Evidence, "source_quote": o.Quote, "time_scope": o.TimeScope})
+		metadataMap := map[string]any{"capture_id": id, "observation_index": i, "source_reference": "capture:" + id, "speaker": "user", "observed_at": c.Observed.UTC().Format(time.RFC3339Nano), "evidence": o.Evidence, "source_quote": o.Quote, "time_scope": o.TimeScope}
+		if c.Kind == "meeting_note" {
+			var meta map[string]string
+			_ = json.Unmarshal(c.SourceMetadata, &meta)
+			for k, v := range meta {
+				metadataMap[k] = v
+			}
+			metadataMap["speaker"] = o.Speaker
+			metadataMap["source_reference"] = "note:" + id
+		}
+		metadata, _ := json.Marshal(metadataMap)
 		var sessionID string
 		if c.Session != "" {
 			if err = conn.QueryRow(ctx, "SELECT id::text FROM sessions WHERE user_id=$1 AND external_id=$2", c.User, c.Session).Scan(&sessionID); err != nil {
 				return err
 			}
 		}
-		record, e := repo.Create(ctx, db.CreateMemoryItemParams{CaptureID: id, UserID: c.User, SessionID: sessionID, MemoryType: o.Type, Source: "conversation", RawText: o.Quote, Summary: o.Summary, People: o.People, Topics: o.Topics, Importance: 0.5, Utility: 0.5, Confidence: 1, ExpiresAt: o.ExpiresAt, Metadata: metadata, IdempotencyKey: fmt.Sprintf("capture:%s:%d", id, i)})
+		record, e := repo.Create(ctx, db.CreateMemoryItemParams{CaptureID: id, UserID: c.User, SessionID: sessionID, MemoryType: o.Type, Source: c.Kind, RawText: o.Quote, Summary: o.Summary, People: o.People, Topics: o.Topics, Importance: 0.5, Utility: 0.5, Confidence: 1, ExpiresAt: o.ExpiresAt, Metadata: metadata, IdempotencyKey: fmt.Sprintf("capture:%s:%d", id, i)})
 		if e != nil {
 			return e
 		}
@@ -380,7 +396,7 @@ func (s *Server) processLearningCapture(ctx context.Context, id string) (workErr
 			return err
 		}
 	}
-	if _, err = tx.Exec(ctx, `UPDATE learning_captures SET status='completed',source_text='',observations=NULL,error_code='' WHERE id=$1`, id); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE learning_captures SET status='completed',source_text='',source_metadata='{}',observations=NULL,error_code='' WHERE id=$1`, id); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -480,7 +496,7 @@ func (s *Server) setLearning(ctx context.Context, user string, enabled bool) err
 	defer tx.Rollback(ctx)
 	_, err = tx.Exec(ctx, `INSERT INTO learning_settings(user_id,enabled) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET enabled=EXCLUDED.enabled`, user, enabled)
 	if err == nil && !enabled {
-		_, err = tx.Exec(ctx, `UPDATE learning_captures SET status='suppressed',source_text='',observations=NULL,error_code='' WHERE user_id=$1 AND status IN ('pending','failed')`, user)
+		_, err = tx.Exec(ctx, `UPDATE learning_captures SET status='suppressed',source_text='',source_metadata='{}',observations=NULL,error_code='' WHERE user_id=$1 AND status IN ('pending','failed')`, user)
 	}
 	if err != nil {
 		return err

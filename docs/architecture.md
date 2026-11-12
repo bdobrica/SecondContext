@@ -207,3 +207,19 @@ remain disputed; outcome links require a reported action. Canonical retrieval
 follows forward relations before ranking and excludes superseded observations.
 Evidence edits/deletion invalidate relations, and supersession/dispute invalidates
 linked numeric aggregates. See [behavior and limits](conversational-learning.md#natural-outcomes-and-belief-updates-cl4).
+
+## Meeting notes (CL5)
+
+`POST /memory/notes` is an authenticated multipart import on the gateway, also
+exposed in its memory inspector. A required personal/reference choice routes through
+`KnowledgeProvider`'s optional `NoteIngester` HTTP capability to `/v1/notes` on the
+knowledge service, using only server-selected subject credentials. Personal mode
+uses existing deterministic text/PDF/DOCX parsing without retaining a reference
+source. Reference mode reuses the existing durable source/job ingestion pipeline.
+
+Migration 000009 adds capture source kind and provenance metadata. Personal parsed
+notes enter the same queue, consent fence, completion gate, semantic comparison,
+inspection and erasure flow as ordinary observations, with a note-specific extraction
+prompt and exact speaker/quote validation. Source kind remains `meeting_note` in
+canonical storage. Dated comparisons use meeting time rather than upload time;
+undated notes remain unlinked. See [CL5 behavior and limits](conversational-learning.md#meeting-note-ingestion-cl5).

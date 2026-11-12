@@ -39,6 +39,7 @@ from knowledge_bootstrap.models import (
     IngestionJob,
     Source,
 )
+from knowledge_bootstrap.notes import install_notes
 from knowledge_bootstrap.parsers import ParseError, normalize_input
 from knowledge_bootstrap.pipeline import reindex_source
 from knowledge_bootstrap.schemas import (
@@ -154,6 +155,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.search_metrics = SearchMetrics(settings.auth_tokens)
     app.add_middleware(BodyLimit, max_bytes=settings.max_request_bytes)
     install_ui(app, settings)
+    install_notes(app, settings, Owner, Database)
 
     @app.post("/v1/sources/{source_id}/extract", response_model=ExtractionResponse)
     def extract(source_id: UUID, payload: ExtractionRequest, owner: Owner, session: Database):

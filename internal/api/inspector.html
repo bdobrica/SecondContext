@@ -19,6 +19,18 @@ body{font:16px/1.5 system-ui,sans-serif;max-width:880px;margin:40px auto;padding
  <p><strong id="learning-state"></strong></p>
  <button id="toggle">Enable learning</button><button id="refresh">Refresh</button><button id="retry">Retry failed captures</button><button id="disconnect">Disconnect</button>
  <p class="detail">Pause cancels unfinished capture and stops learning new observations. Existing memories remain available. The temporary-question control below applies to that question; other clients must select temporary chat in each request. It disables learning and personal-memory retrieval, while leaving reference knowledge independent.</p>
+ <h2>Meeting notes</h2>
+ <p class="detail">Paste notes or upload a text, Markdown, PDF or DOCX file. Choose how to use them. Personal observations require learning to be enabled and appear below when capture completes. Reference material stays in your private knowledge collection and does not create personal observations.</p>
+ <form id="import-note" class="card">
+ <label>Use as <select id="note-purpose" required><option value="">Choose…</option><option value="personal">Personal observations</option><option value="reference">Reference material</option></select></label>
+ <label>Note title <input id="note-title" required maxlength="500"></label>
+ <label>Meeting date, if known <input id="note-date" type="date"></label>
+ <label>Paste notes <textarea id="note-text" rows="6"></textarea></label>
+ <label>Or upload a file <input id="note-file" type="file" accept=".txt,.md,.pdf,.docx,.json,.yaml,.yml"></label>
+ <label>Text format <select id="note-format"><option value="text">Plain text (preserves speaker labels)</option><option value="markdown">Markdown</option><option value="json">JSON</option><option value="yaml">YAML</option></select></label>
+ <p class="detail">PDF and DOCX are detected from file bytes. Personal imports support up to 64 KiB of parsed text and extract at most 16 observations. Check the extracted claims and correct or forget any that are wrong. Reimporting the same note/date will not recreate forgotten observations. Reference copies are managed separately in the knowledge service.</p>
+ <button id="note-submit" type="submit">Import notes</button><p id="note-result" role="status"></p>
+ </form>
  <h2>Try a fresh conversation</h2>
  <p class="detail">Each question starts fresh, so you can check recall after a correction or forgetting. You can also ask “What do you remember about Alex?”, “Correct memory &lt;ID or phrase&gt; to &lt;new observation&gt;”, or “Forget memory &lt;ID or phrase&gt;”. Several matches require a specific ID.</p>
  <form id="ask"><label>Your question <textarea id="question" rows="3" required maxlength="4096"></textarea></label>

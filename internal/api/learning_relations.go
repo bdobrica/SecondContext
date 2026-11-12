@@ -17,6 +17,17 @@ type plannedObservationRelations struct {
 
 func (s *Server) planObservationRelations(ctx context.Context, c learningCapture, observations []memsvc.Observation) ([]plannedObservationRelations, error) {
 	plans := make([]plannedObservationRelations, len(observations))
+	comparisonTime := c.Observed
+	if c.Kind == "meeting_note" {
+		var meta map[string]string
+		_ = json.Unmarshal(c.SourceMetadata, &meta)
+		at, err := time.Parse("2006-01-02", meta["meeting_date"])
+		// Unknown/future meeting dates cannot replace existing working claims.
+		if err != nil || at.After(c.Observed) {
+			return plans, nil
+		}
+		comparisonTime = at
+	}
 	for i, o := range observations {
 		results, err := retrieval.NewService(s.cfg, s.dbPool, s.llm).Search(ctx, retrieval.SearchParams{Query: o.Summary, ResolvedUserID: c.User, UserExternalID: c.Subject, IncludeExpired: true, IncludeHistorical: true, Limit: 24})
 		if err != nil {
@@ -24,17 +35,17 @@ func (s *Server) planObservationRelations(ctx context.Context, c learningCapture
 		}
 		for _, r := range results {
 			meta := retrieval.MetadataMap(r.Memory.Metadata)
-			if r.Memory.Source != "conversation" || meta["capture_id"] == c.ID || meta["working_state"] == "superseded" {
+			if (r.Memory.Source != "conversation" && r.Memory.Source != "meeting_note") || meta["capture_id"] == c.ID || meta["working_state"] == "superseded" {
 				continue
 			}
 			candidate := memsvc.CandidateFromMemory(r.Memory)
 			observed, err := time.Parse(time.RFC3339Nano, candidate.ObservedAt)
-			if err != nil || !observed.Before(c.Observed) {
+			if err != nil || !observed.Before(comparisonTime) {
 				continue
 			}
 			// A late retry of an old report must not undo a newer explicit edit.
 			if corrected, ok := meta["corrected_at"].(string); ok {
-				if at, e := time.Parse(time.RFC3339Nano, corrected); e != nil || !at.Before(c.Observed) {
+				if at, e := time.Parse(time.RFC3339Nano, corrected); e != nil || !at.Before(comparisonTime) {
 					continue
 				}
 			}
@@ -43,7 +54,7 @@ func (s *Server) planObservationRelations(ctx context.Context, c learningCapture
 				break
 			}
 		}
-		plans[i].Relations, err = memsvc.RelateObservation(ctx, s.llm, s.cfg.OpenAI.ChatModel, o, c.Observed, plans[i].Candidates)
+		plans[i].Relations, err = memsvc.RelateObservation(ctx, s.llm, s.cfg.OpenAI.ChatModel, o, comparisonTime, plans[i].Candidates)
 		if err != nil {
 			return nil, err
 		}

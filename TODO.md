@@ -15,7 +15,7 @@ below. See [AGENTS.md](AGENTS.md) for governing guidance and
 for behavior, dependencies, and acceptance demonstrations. PLAN.md and TODO.md
 are versioned shared documents; the earlier local-only PLAN convention is superseded.
 
-CL1–CL4 code is implemented, with focused mechanical regression coverage and an
+CL1–CL5 code is implemented, with focused mechanical regression coverage and an
 unchanged-client synthetic demonstration of inspection, correction and forgetting.
 Real-provider extraction, retrieval and usefulness validation remain open.
 Complete the real-model acceptance and comparisons for the first usable milestone M1. No unrelated
@@ -162,12 +162,30 @@ acceptance remains open. Learning stays off by default; no deployment authorized
 
 Follows CL4; reuse the proven learning and inspection workflow.
 
-- [ ] Accept pasted/uploaded meeting notes through existing ingestion capabilities;
+- [x] Accept pasted/uploaded meeting notes through existing ingestion capabilities;
   let users choose personal observations versus reference material.
-- [ ] Reuse source-backed extraction, time/speaker attribution, correction, and
+- [x] Reuse source-backed extraction, time/speaker attribution, correction, and
   forgetting; distinguish proposed actions from decisions and completed actions.
-- [ ] Demonstrate later useful recall from one real note without manually creating
-  memories. Keep calendar synchronization and new connector frameworks deferred.
+- [x] Verify synthetic note import → inspected observations → fresh Chat/Responses
+  context, corrections, forgetting/reimport suppression, pause, retry, historical
+  dates, natural corrections of dated notes, and subject isolation.
+- [ ] Demonstrate later useful recall from one real note with a real provider,
+  without manually creating memories. No real note was supplied for this run;
+  semantic extraction quality and actual advice usefulness remain unverified.
+- [x] Pass `make verify` (including three unchanged SDK checks), all 453 knowledge
+  tests with mandatory Postgres/Qdrant, Ruff checks, schema-9 Docker packaging,
+  inspector JavaScript syntax, diff/format and documentation-link checks.
+
+Implementation: the memory inspector and `POST /memory/notes` offer an explicit
+personal/reference choice. Personal imports reuse knowledge-service parsers without
+saving a reference copy, then feed the existing learning queue. Reference imports
+use existing private sources/jobs. Migration 000009 retains source kind and metadata;
+notes keep speaker, exact parsed-text excerpt, title and meeting/ingestion dates.
+Proposals remain separate from decisions and completed actions. See
+[CL5 workflow and limits](docs/conversational-learning.md#meeting-note-ingestion-cl5).
+Both services need updating; learning remains off by default. CL5 follows the user's
+explicit request while M1/CL4 live acceptance remains open. Calendar synchronization,
+new connectors and CL6 shared knowledge remain deferred. Nothing was deployed.
 
 ### CL6 — Shared bot/workspace knowledge
 

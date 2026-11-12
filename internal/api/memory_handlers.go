@@ -165,7 +165,7 @@ func (s *Server) handleDeleteMemory(w http.ResponseWriter, r *http.Request) {
 			s.writeMemoryError(w, r, err)
 			return
 		}
-		if record.Source == "conversation" {
+		if record.Source == "conversation" || record.Source == "meeting_note" {
 			if err := s.suppressMemoryCapture(r.Context(), memoryID); err != nil {
 				s.writeMemoryError(w, r, err)
 				return

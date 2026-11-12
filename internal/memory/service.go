@@ -271,7 +271,7 @@ func (s *Service) Delete(ctx context.Context, memoryID string) error {
 	}
 
 	pointID := record.QdrantPointID
-	if record.Source == "conversation" {
+	if record.Source == "conversation" || record.Source == "meeting_note" {
 		pointID = record.ID
 	}
 	if pointID != "" {

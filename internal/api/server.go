@@ -103,6 +103,7 @@ func (s *Server) Handler() http.Handler {
 	router.Get("/memory/learning", s.handleLearning)
 	router.Put("/memory/learning", s.handleLearning)
 	router.Post("/memory/learning/retry", s.handleLearningRetry)
+	router.Post("/memory/notes", s.handleMeetingNote)
 	router.Delete("/memory/{memoryID}", s.handleDeleteMemory)
 	router.Patch("/memory/{memoryID}", s.handleCorrectObservation)
 	if s.debugEndpointsEnabled() {

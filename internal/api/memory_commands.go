@@ -124,7 +124,7 @@ func (s *Server) executeMemoryCommand(ctx context.Context, request createRespons
 		if cmd.Action != "inspect" {
 			out.WriteString("Several observations match. Nothing changed. Choose a memory ID and repeat the correction or forget request.\n")
 		} else {
-			out.WriteString("Stored conversational observations (not independent verification):\n")
+			out.WriteString("Stored observations (not independent verification):\n")
 		}
 		for i, m := range memories {
 			if i == 10 {
@@ -134,6 +134,9 @@ func (s *Server) executeMemoryCommand(ctx context.Context, request createRespons
 			var meta map[string]any
 			_ = json.Unmarshal(m.Metadata, &meta)
 			fmt.Fprintf(&out, "\n%s — %s\nObserved: %s; source: %v; evidence: %v; time scope: %v", m.ID, truncateText(m.Summary, 360), firstNonEmpty(stringFromMap(meta, "observed_at"), m.CreatedAt.UTC().Format(time.RFC3339)), meta["source_reference"], meta["evidence"], meta["time_scope"])
+			if m.Source == "meeting_note" {
+				fmt.Fprintf(&out, "; note: %v; meeting date: %v; speaker: %v", meta["title"], meta["meeting_date"], meta["speaker"])
+			}
 			state, relations := observationWorkingContext(m.Metadata)
 			fmt.Fprintf(&out, "; working state: %s; relations: %s", state, strings.Join(relations, "; "))
 			if meta["corrected_at"] != nil {

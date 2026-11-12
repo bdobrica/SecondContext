@@ -1115,3 +1115,26 @@ claim and explicitly recomputed, and source deletion retracted its candidates be
 purge. Quotes and canonical UUIDs matched, memory-item IDs stayed unchanged, health/readiness
 passed, and all captured sources, search points and audit snapshots were removed. This is a
 small functional demonstration rather than an extraction accuracy benchmark.
+
+## Meeting-note handoff (CL5)
+
+The gateway memory inspector uses authenticated `POST /v1/notes` with multipart
+`purpose=personal|reference`, `name`, exactly one of `text` or `file`, optional
+`format` (default `text`) and optional `meeting_date` (`YYYY-MM-DD`). The gateway
+selects the credential from its existing subject mapping; no caller-supplied owner
+is accepted. The gateway and knowledge service must both include CL5 support.
+
+Personal mode runs the existing text/Markdown/JSON/YAML/PDF/DOCX parsers and returns
+`{purpose:"personal", text, format}`. It creates no source, document, candidate or
+job, calls no LLM and leaves no reference copy. Parsed text is capped at 64 KiB.
+The gateway owns personal learning consent, extraction, provenance, correction and
+forgetting. The existing parser isolation/resource limits and safe errors apply.
+PDF/DOCX are selected by signatures; text defaults to plain text so speaker-labelled
+notes are not accidentally auto-detected as YAML.
+
+Reference mode uses `create_source` and the existing background ingestion worker,
+returning `{purpose:"reference", source_id, status}`. It retains the supplied meeting
+date in source metadata, honors `Idempotency-Key` and the owner boundary, and supports
+normal reference refresh/deletion. Both modes return HTTP 200 from this internal
+handoff endpoint; the gateway reports HTTP 202 after durable import. The knowledge
+schema does not change. See the [gateway workflow and limits](../../docs/conversational-learning.md#meeting-note-ingestion-cl5).

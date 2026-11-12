@@ -19,7 +19,7 @@ import (
 // Retain the occurrence receipt but remove any queued source/output. This also
 // prevents a partially indexed batch from overwriting corrections on retry.
 func (s *Server) suppressMemoryCapture(ctx context.Context, id string) error {
-	_, err := s.dbPool.Exec(ctx, `UPDATE learning_captures SET status='suppressed',source_text='',observations=NULL,error_code=''
+	_, err := s.dbPool.Exec(ctx, `UPDATE learning_captures SET status='suppressed',source_text='',source_metadata='{}',observations=NULL,error_code=''
  WHERE id=(SELECT capture_id FROM memory_items WHERE id=$1) AND status IN ('pending','failed')`, id)
 	return err
 }

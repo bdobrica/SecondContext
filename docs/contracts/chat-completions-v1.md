@@ -214,3 +214,12 @@ no custom outcome submission or per-turn metadata is required. Current context
 memories expose `working_state` and bounded `relations`; inspection exposes the
 supporting quotes. Apply migration 000008. See
 [CL4 behavior and bounds](../conversational-learning.md#natural-outcomes-and-belief-updates-cl4).
+
+CL5 imports notes separately through the memory inspector or `POST /memory/notes`;
+ordinary Chat Completions requests require no new metadata. Selected note memories
+carry `evidence=meeting_note`, source reference, speaker, source title, meeting date
+and time scope. The answer prompt preserves proposals versus adopted decisions and
+attributes reports to the note, not automatically to its uploader. Exact evidence
+IDs use the same inspection endpoint. This does not add OpenAI file-upload or
+multimodal message support. [CL5 import contract](../conversational-learning.md#meeting-note-ingestion-cl5)
+requires gateway migration 000009 and the updated knowledge service.

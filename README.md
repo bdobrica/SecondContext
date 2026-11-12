@@ -22,13 +22,15 @@ bounded recent replay, durable retries and accepted replies on Responses and Cha
 Completions. It requires migration 000005 and explicit enablement; ordinary OpenAI
 clients can continue supplying their own chat history.
 
-[Conversational learning (CL1–CL4)](docs/conversational-learning.md) adds opt-in
+[Conversational learning (CL1–CL5)](docs/conversational-learning.md) adds opt-in
 background capture of source-backed observations from ordinary chat, with a
 browser inspector at `/memory/inspector`, pause, correction, forgetting, and
 recoverable capture status. Natural outcome reports and paraphrased corrections
-update the current working view while preserving the dated source history. Apply migrations through 000008 and
+update the current working view while preserving the dated source history. Apply migrations through 000009 and
 enable learning once for
-the authenticated account. Capture remains off by default. CL2 interprets natural
+the authenticated account. CL5 adds pasted/uploaded meeting notes in the inspector,
+with an explicit personal-observations/reference choice and source/speaker/date
+attribution. Note parsing requires the configured knowledge service. Capture remains off by default. CL2 interprets natural
 requests and bounded follow-ups, retrieves observations in fresh conversations,
 and exposes selected evidence without custom memory metadata. CL3 adds searchable
 inspection, explicit natural correction/forgetting commands, a temporary-question

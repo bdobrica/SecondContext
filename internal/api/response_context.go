@@ -169,6 +169,9 @@ func buildMemoryContext(results []retrievalsvc.Result) ([]prompts.ContextMemory,
 		var provenance struct {
 			CorrectedAt     string `json:"corrected_at"`
 			ObservedAt      string `json:"observed_at"`
+			Speaker         string `json:"speaker"`
+			MeetingDate     string `json:"meeting_date"`
+			SourceTitle     string `json:"title"`
 			Evidence        string `json:"evidence"`
 			SourceReference string `json:"source_reference"`
 			TimeScope       string `json:"time_scope"`
@@ -177,7 +180,7 @@ func buildMemoryContext(results []retrievalsvc.Result) ([]prompts.ContextMemory,
 		state, relations := observationWorkingContext(result.Memory.Metadata)
 		memories = append(memories, prompts.ContextMemory{
 			WorkingState: state, Relations: relations,
-			CorrectedAt: provenance.CorrectedAt, ObservedAt: provenance.ObservedAt, Evidence: provenance.Evidence, SourceReference: provenance.SourceReference, TimeScope: provenance.TimeScope,
+			Speaker: provenance.Speaker, MeetingDate: provenance.MeetingDate, SourceTitle: provenance.SourceTitle, CorrectedAt: provenance.CorrectedAt, ObservedAt: provenance.ObservedAt, Evidence: provenance.Evidence, SourceReference: provenance.SourceReference, TimeScope: provenance.TimeScope,
 			ID:         result.Memory.ID,
 			Rank:       result.Rank,
 			Type:       result.Memory.MemoryType,
