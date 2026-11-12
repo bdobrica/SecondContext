@@ -300,3 +300,42 @@ func TestMemoryCorrectionIndexFailureDoesNotClaimSuccess(t *testing.T) {
 		t.Fatal("failed correction claimed success", w.Body)
 	}
 }
+
+// Service consumers validate the scope echo on every response path, including
+// local command receipts and their managed-history retries.
+func TestMemoryCommandResponseSubjectEcho(t *testing.T) {
+	for _, mode := range []string{"legacy", "explicit", "generated"} {
+		for _, command := range []string{"Pause learning", "Can you show my memories?"} {
+			t.Run(mode+"/"+command, func(t *testing.T) {
+				h, _ := naturalHarness(t)
+				body := map[string]any{"model": "context-agent-1", "input": command, "metadata": map[string]any{"session_id": h.session}}
+				headers := map[string]string{}
+				if mode != "legacy" {
+					headers = map[string]string{"X-SecondContext-Session": h.session, "X-SecondContext-Turn": historyTurnID(1), "X-SecondContext-History": "recent", "X-SecondContext-Acceptance": mode}
+				}
+				var first string
+				for attempt := 0; attempt < 2; attempt++ {
+					w := h.call("/v1/responses", body, headers)
+					historyStatus(t, w, 200, "")
+					var response createResponseResult
+					if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+						t.Fatal(err)
+					}
+					packet, ok := response.Metadata["context_packet"].(map[string]any)
+					if !ok || packet["user_external_id"] != h.user || response.Metadata["session_id"] != h.session {
+						t.Fatal("command response lost authenticated subject/session echo")
+					}
+					if mode != "legacy" {
+						if response.Metadata["user_external_id"] != h.user {
+							t.Fatal("managed response subject echoes disagree")
+						}
+						if attempt > 0 && w.Body.String() != first {
+							t.Fatal("managed retry changed its response")
+						}
+					}
+					first = w.Body.String()
+				}
+			})
+		}
+	}
+}

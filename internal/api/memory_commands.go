@@ -77,8 +77,8 @@ func parseMemoryCommand(messages []llm.Message) memoryCommand {
 const memoryCommandHelp = `Use “What do you remember about Alex?”, “Correct memory <ID or matching phrase> to <new observation>”, “Forget memory <ID or matching phrase>”, “Pause learning”, or “Resume learning”. Choose a specific ID when several observations match. You can also search and edit at /memory/inspector.`
 const forgettingScope = "Matching old transcripts will not recreate this observation. Your chat client and saved conversation history may still contain and supply the original dialogue; forgetting personal memory does not erase that dialogue. A genuinely new report can be learned."
 
-func commandPacket() *prompts.ContextPacket {
-	return &prompts.ContextPacket{Mode: prompts.ResponseModeNormalAnswer, InterpretationStatus: "memory_command", EvidenceStatus: "disabled"}
+func commandPacket(subject string) *prompts.ContextPacket {
+	return &prompts.ContextPacket{UserExternalID: subject, Mode: prompts.ResponseModeNormalAnswer, InterpretationStatus: "memory_command", EvidenceStatus: "disabled"}
 }
 
 // Commands return a local receipt. No generator can fabricate mutation success.
