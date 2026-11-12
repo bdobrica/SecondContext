@@ -377,8 +377,11 @@ subject spelling in the new isolation fixture; corrected before the final passin
 suite. The knowledge-test wrapper's relative cleanup path was corrected by explicit
 cleanup after its passing suite. No browser interaction test was performed.
 Deterministic fixtures exercise later answer context, not real-model semantic
-accuracy or useful advice. No real meeting note was supplied and no live-provider
-acceptance was run.
+accuracy or useful advice. After the implementation commit, the user supplied a
+real meeting note. Its Markdown parsing check passed (3,536 normalized UTF-8 bytes),
+preserving the date, participant labels, decisions, next steps and open questions.
+The raw note was kept outside the repository. No live provider credential is
+configured, so extraction and subsequent recall from this real note were not run.
 The real-note usefulness demonstration remains open, alongside M1/CL4 live acceptance.
 The managed configuration recipe is `managed-recent-cl5-1`. No deployment or live
 learning enablement occurred.

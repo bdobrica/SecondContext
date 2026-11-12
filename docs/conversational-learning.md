@@ -575,6 +575,10 @@ Gateway Docker packaging passed on schema 9; JavaScript syntax, diff/format and
 local documentation links passed. Test infrastructure was cleaned up.
 
 These fixtures do not establish live extraction/classification accuracy or better
-advice. No real meeting note was supplied, no live-provider acceptance was run, and
-browser interaction was not tested. The real-note demonstration, real-provider
-usefulness and existing M1/CL4 live acceptance remain open. Nothing was deployed.
+advice. The user subsequently supplied a real meeting note, which passed the existing
+Markdown parsing path: 3,536 normalized UTF-8 bytes, with date, participant labels,
+decisions, next steps and open questions preserved. Its raw content is not committed.
+No live provider credential is configured, so model extraction and later recall from
+that real note were not exercised. Browser interaction was not tested. The real-note
+usefulness demonstration and existing M1/CL4 live acceptance remain open. Nothing
+was deployed.

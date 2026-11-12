@@ -169,8 +169,11 @@ Follows CL4; reuse the proven learning and inspection workflow.
 - [x] Verify synthetic note import → inspected observations → fresh Chat/Responses
   context, corrections, forgetting/reimport suppression, pause, retry, historical
   dates, natural corrections of dated notes, and subject isolation.
-- [ ] Demonstrate later useful recall from one real note with a real provider,
-  without manually creating memories. No real note was supplied for this run;
+- [x] Parse the user-supplied real meeting note with the existing Markdown parser;
+  retain date, participant labels, decisions, next steps and open questions within
+  the personal-note size bound. Raw note stays outside the repository.
+- [ ] Demonstrate later useful recall from that real note with a real provider,
+  without manually creating memories. No live provider credential is configured;
   semantic extraction quality and actual advice usefulness remain unverified.
 - [x] Pass `make verify` (including three unchanged SDK checks), all 453 knowledge
   tests with mandatory Postgres/Qdrant, Ruff checks, schema-9 Docker packaging,
