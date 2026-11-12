@@ -116,3 +116,8 @@ for paginated, canonical conversational-memory inspection. Existing subject
 ownership and namespace checks apply. Natural memory commands on generation
 endpoints follow the [CL3 command contract](../conversational-learning.md#natural-memory-controls-cl3),
 including disabled/temporary controls and explicit-acceptance mutation restrictions.
+
+CL4 preserves the same delegated subject boundary for natural outcome and belief
+updates. Relations cannot reference another subject's observations and follow
+source erasure and purge. [CL4 behavior](../conversational-learning.md#natural-outcomes-and-belief-updates-cl4)
+requires migration 000008; learning remains opt-in.

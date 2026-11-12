@@ -59,6 +59,10 @@ func (s *Server) handleContextEvidence(w http.ResponseWriter, r *http.Request) {
 		s.writeMemoryError(w, r, err)
 		return
 	}
+	if err = db.NewMemoryRepository(s.dbPool).AnnotateObservations(r.Context(), memories); err != nil {
+		s.writeMemoryError(w, r, err)
+		return
+	}
 	result := memoryListResponse{Data: make([]memoryResponse, 0, len(memories))}
 	for _, m := range memories {
 		if m.UserID != owner.ID || (m.ExpiresAt != nil && !m.ExpiresAt.After(time.Now())) {

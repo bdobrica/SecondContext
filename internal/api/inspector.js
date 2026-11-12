@@ -29,6 +29,14 @@
     node.onclick = async () => { node.disabled = true; await action(fn); node.disabled = false; };
     return node;
   }
+  function showRelations(card, meta) {
+    card.append(text("p", `Working view: ${meta.working_state || "unspecified"}`, "detail"));
+    for (const relation of meta.relations || []) {
+      const details = text("details", "");
+      details.append(text("summary", `${relation.kind}: ${relation.prior_id} → ${relation.newer_id}`), text("p", relation.reason), text("pre", `Earlier: ${relation.prior_quote}\nLater: ${relation.new_quote}`));
+      card.append(details);
+    }
+  }
   async function refresh() {
     const current = generation, serial = ++refreshSerial;
     const [settings, list] = await Promise.all([api("/memory/learning"), api(`/memory/observations?q=${encodeURIComponent(query)}&offset=${offset}`)]);
@@ -49,6 +57,7 @@
       const details = text("details", "");
       details.append(text("summary", "Original source"), text("pre", memory.raw_text));
       card.append(details);
+      showRelations(card, meta);
       if (meta.corrected_at) card.append(text("p", `Corrected by you: ${meta.corrected_at}`, "detail"));
       if (memory.source === "conversation") {
         const label = text("label", "Correct this observation");
@@ -80,6 +89,7 @@
     for (const memory of result.data) {
       const card = text("article", "", "card"), meta = memory.metadata || {};
       card.append(text("h3", memory.summary), text("p", `${memory.id}\nFirst observed: ${meta.observed_at || memory.created_at}\nSource: ${meta.source_reference || memory.source}\nEvidence: ${meta.evidence || "unspecified"}`, "detail"), text("pre", memory.raw_text));
+      showRelations(card, meta);
       $("evidence").append(card);
     }
   }

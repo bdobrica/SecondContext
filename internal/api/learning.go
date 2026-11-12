@@ -251,6 +251,9 @@ func (s *Server) processLearningCapture(ctx context.Context, id string) (workErr
 	if err != nil {
 		return err
 	}
+	if err = conn.QueryRow(ctx, "SELECT pg_try_advisory_lock(hashtextextended($1,0))", "secondcontext:learning-subject:"+c.Subject).Scan(&locked); err != nil || !locked {
+		return err
+	}
 	// Errors are safe codes only; provider output and source text never enter logs
 	// or error status. Conditional update cannot revive a paused/forgotten capture.
 	defer func() {
@@ -286,6 +289,15 @@ func (s *Server) processLearningCapture(ctx context.Context, id string) (workErr
 		if err = db.CheckHistorySession(ctx, conn, c.User, c.Session); err != nil {
 			return err
 		}
+	}
+	plans, err := s.planObservationRelations(ctx, c, observations)
+	if err != nil {
+		return err
+	}
+	if _, err = loadLearningCapture(ctx, conn, id); errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return err
 	}
 	vectors := make([][]float64, len(observations))
 	for i, o := range observations {
@@ -326,6 +338,7 @@ func (s *Server) processLearningCapture(ctx context.Context, id string) (workErr
 		return err
 	}
 	repo := db.NewMemoryRepositoryWithQueries(conn)
+	recordIDs := make([]string, len(observations))
 	for i, o := range observations {
 		metadata, _ := json.Marshal(map[string]any{"capture_id": id, "observation_index": i, "source_reference": "capture:" + id, "speaker": "user", "observed_at": c.Observed.UTC().Format(time.RFC3339Nano), "evidence": o.Evidence, "source_quote": o.Quote, "time_scope": o.TimeScope})
 		var sessionID string
@@ -338,6 +351,7 @@ func (s *Server) processLearningCapture(ctx context.Context, id string) (workErr
 		if e != nil {
 			return e
 		}
+		recordIDs[i] = record.ID
 		state, e := repo.GetProcessingState(ctx, record.ID)
 		if e != nil {
 			return e
@@ -356,8 +370,20 @@ func (s *Server) processLearningCapture(ctx context.Context, id string) (workErr
 		}
 		// These stages are deliberately skipped, rather than pretending modeling ran.
 	}
-	_, err = conn.Exec(ctx, `UPDATE learning_captures SET status='completed',source_text='',observations=NULL,error_code='' WHERE id=$1`, id)
-	return err
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	for i, recordID := range recordIDs {
+		if err = publishObservationRelations(ctx, tx, c.User, recordID, plans[i]); err != nil {
+			return err
+		}
+	}
+	if _, err = tx.Exec(ctx, `UPDATE learning_captures SET status='completed',source_text='',observations=NULL,error_code='' WHERE id=$1`, id); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Server) handleLearning(w http.ResponseWriter, r *http.Request) {

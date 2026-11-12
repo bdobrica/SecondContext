@@ -207,3 +207,10 @@ model output cannot authorize mutations. Disabled/temporary personal memory bloc
 these commands. JSON/schema output and forced tool calls are rejected before action
 with `memory_command_requires_text`; other requests keep existing behavior.
 Migration 000007 invalidates source-dependent aggregates on memory edits/deletion.
+
+CL4 adds background classification of natural reports against earlier observations,
+including corrections, time-scoped changes and outcomes. The protocol is unchanged;
+no custom outcome submission or per-turn metadata is required. Current context
+memories expose `working_state` and bounded `relations`; inspection exposes the
+supporting quotes. Apply migration 000008. See
+[CL4 behavior and bounds](../conversational-learning.md#natural-outcomes-and-belief-updates-cl4).

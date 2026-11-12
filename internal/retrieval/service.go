@@ -49,6 +49,7 @@ func (e *Error) Error() string {
 }
 
 type SearchParams struct {
+	ResolvedUserID      string // Internal worker identity; avoids creating a user outside the subject fence.
 	Query               string
 	Goal                string
 	UserExternalID      string
@@ -56,6 +57,7 @@ type SearchParams struct {
 	People              []string
 	Topics              []string
 	ConfidenceThreshold *float64
+	IncludeHistorical   bool // Internal candidate comparison; public recall uses the working view.
 	IncludeExpired      bool
 	Limit               int
 }
@@ -96,9 +98,13 @@ func (s *Service) Search(ctx context.Context, params SearchParams) ([]Result, er
 		return nil, &Error{StatusCode: http.StatusBadRequest, Message: "query is required", Type: "invalid_request_error", Code: "missing_query", Param: "query"}
 	}
 
-	user, err := s.resolveUser(ctx, params.UserExternalID)
-	if err != nil {
-		return nil, err
+	user := models.User{ID: params.ResolvedUserID}
+	var err error
+	if user.ID == "" {
+		user, err = s.resolveUser(ctx, params.UserExternalID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	dense, err := s.llm.Embed(ctx, llm.EmbedRequest{Model: s.cfg.OpenAI.EmbeddingModel, Input: strings.TrimSpace(params.Query)})
@@ -161,8 +167,24 @@ func (s *Service) Search(ctx context.Context, params SearchParams) ([]Result, er
 		idScores[result.ID] = breakdown
 	}
 
-	memories, err := db.NewMemoryRepository(s.pool).ListByIDs(ctx, ids)
+	repo := db.NewMemoryRepository(s.pool)
+	if !params.IncludeHistorical {
+		expanded, expandErr := repo.ExpandObservationIDs(ctx, user.ID, ids)
+		if expandErr != nil {
+			return nil, expandErr
+		}
+		for _, id := range expanded {
+			if _, ok := idScores[id]; !ok {
+				ids = append(ids, id)
+				idScores[id] = ScoreBreakdown{Hybrid: maxHybrid}
+			}
+		}
+	}
+	memories, err := repo.ListByIDs(ctx, ids)
 	if err != nil {
+		return nil, err
+	}
+	if err = repo.AnnotateObservations(ctx, memories); err != nil {
 		return nil, err
 	}
 	byID := make(map[string]models.MemoryItem, len(memories))
@@ -175,6 +197,19 @@ func (s *Service) Search(ctx context.Context, params SearchParams) ([]Result, er
 	for _, id := range ids {
 		memory, ok := byID[id]
 		if !ok || memory.UserID != user.ID {
+			continue
+		}
+		if !params.IncludeHistorical && MetadataMap(memory.Metadata)["working_state"] == "superseded" {
+			continue
+		}
+		// Expansion must respect explicit caller filters, just like index hits.
+		if params.MemoryType != "" && memory.MemoryType != params.MemoryType {
+			continue
+		}
+		if shouldRequirePeopleFilter(params) && !overlap(memory.People, params.People) {
+			continue
+		}
+		if len(params.Topics) > 0 && !overlap(memory.Topics, params.Topics) {
 			continue
 		}
 		if !params.IncludeExpired && memory.ExpiresAt != nil && memory.ExpiresAt.Before(now) {
@@ -412,4 +447,15 @@ func normalizeByMax(value, maxValue float64) float64 {
 	}
 
 	return value / maxValue
+}
+
+func overlap(a, b []string) bool {
+	for _, x := range a {
+		for _, y := range b {
+			if strings.EqualFold(x, y) {
+				return true
+			}
+		}
+	}
+	return false
 }

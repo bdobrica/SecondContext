@@ -195,3 +195,15 @@ Optional [CH4/CH5 observation and cache diagnostics](decisions-observation.md)
 are implemented, disabled by default. Observation keeps recent generation. [CH6 adaptive selection](adaptive-history.md)
 is an independent opt-in with durable selections and no schema migration. See its
 paired evaluation and cost/latency limitations before enablement.
+
+## Conversational working beliefs (CL4)
+
+Migration 000008 adds `observation_relations` and a readiness/fence-filtered view.
+The learning worker retrieves semantic candidates and classifies their relationship
+to each newly reported observation, retaining both sources. This is the simple
+conversational working view, separate from numeric beliefs and outcome scoring.
+Corrections and changed circumstances supersede earlier reports; contradictions
+remain disputed; outcome links require a reported action. Canonical retrieval
+follows forward relations before ranking and excludes superseded observations.
+Evidence edits/deletion invalidate relations, and supersession/dispute invalidates
+linked numeric aggregates. See [behavior and limits](conversational-learning.md#natural-outcomes-and-belief-updates-cl4).

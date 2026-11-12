@@ -43,6 +43,8 @@ type ContextPacket struct {
 }
 
 type ContextMemory struct {
+	WorkingState    string        `json:"working_state,omitempty"`
+	Relations       []string      `json:"relations,omitempty"`
 	CorrectedAt     string        `json:"corrected_at,omitempty"`
 	ObservedAt      string        `json:"observed_at,omitempty"`
 	Evidence        string        `json:"evidence,omitempty"`
@@ -153,6 +155,12 @@ func buildMemorySection(packet *ContextPacket) string {
 		if memory.CorrectedAt != "" {
 			line += " | user_corrected=" + memory.CorrectedAt
 		}
+		if memory.WorkingState != "" {
+			line += " | working_state=" + memory.WorkingState
+		}
+		if len(memory.Relations) > 0 {
+			line += " | relations=" + strings.Join(memory.Relations, "; ")
+		}
 		lines = append(lines, line)
 	}
 	if packet.OmittedMemories > 0 {
@@ -204,6 +212,14 @@ func buildGroundingRules(packet *ContextPacket) string {
 		"- Prefer concise, practical answers over long summaries.",
 		"- Do not invent percentages, dates, durations, counts, latency figures, or schedule impacts unless they are explicitly present in the user input or context packet.",
 		"- If the task asks for quantified risk, tradeoffs, or a decision summary and exact metrics are missing, explain what is known, state the uncertainty clearly, and say what should be quantified next.",
+	}
+	if packet != nil {
+		for _, m := range packet.MemoryContext {
+			if len(m.Relations) > 0 || m.Type == "outcome" {
+				rules = append(rules, "- The working view preserves dated source reports. A correction supersedes the prior claim; changed_circumstances is a time-scoped update, not an inherent contradiction. Respect time scopes and do not generalize temporary availability into a permanent trait.", "- A disputed memory has unresolved contradictory evidence even if only one side fit this prompt. State the uncertainty; do not pick a winner. Agreement is a repeated report, not independent verification or increased confidence.", "- An outcome is only the user-reported result within its stated scope. An outcome_of link identifies an earlier user-reported action, never proof that an assistant strategy caused success. Without that link, keep the result unlinked. Ask which earlier request it concerns only if that distinction matters to the answer.")
+				break
+			}
+		}
 	}
 	if isRiskSensitivePacket(packet) {
 		rules = append(rules,

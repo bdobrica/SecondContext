@@ -174,7 +174,9 @@ func buildMemoryContext(results []retrievalsvc.Result) ([]prompts.ContextMemory,
 			TimeScope       string `json:"time_scope"`
 		}
 		_ = json.Unmarshal(result.Memory.Metadata, &provenance)
+		state, relations := observationWorkingContext(result.Memory.Metadata)
 		memories = append(memories, prompts.ContextMemory{
+			WorkingState: state, Relations: relations,
 			CorrectedAt: provenance.CorrectedAt, ObservedAt: provenance.ObservedAt, Evidence: provenance.Evidence, SourceReference: provenance.SourceReference, TimeScope: provenance.TimeScope,
 			ID:         result.Memory.ID,
 			Rank:       result.Rank,

@@ -15,7 +15,7 @@ below. See [AGENTS.md](AGENTS.md) for governing guidance and
 for behavior, dependencies, and acceptance demonstrations. PLAN.md and TODO.md
 are versioned shared documents; the earlier local-only PLAN convention is superseded.
 
-CL1–CL3 code is implemented, with focused mechanical regression coverage and an
+CL1–CL4 code is implemented, with focused mechanical regression coverage and an
 unchanged-client synthetic demonstration of inspection, correction and forgetting.
 Real-provider extraction, retrieval and usefulness validation remain open.
 Complete the real-model acceptance and comparisons for the first usable milestone M1. No unrelated
@@ -120,8 +120,9 @@ The full M1 usefulness milestone remains open.
   demonstration and limits. CL1–CL3/M1 remains open pending real-provider evidence.
 
 Natural controls use a bounded English grammar and current literal phrase/ID
-matching; the model cannot authorize mutations. General paraphrased belief updates
-remain CL4. Summary edits preserve source text, people/topic labels and expiry.
+matching; the model cannot authorize explicit command mutations. CL4 now learns
+paraphrased belief updates asynchronously as separate observations and relations.
+Summary edits preserve source text, people/topic labels and expiry.
 Managed explicit-acceptance clients inspect but use the companion/ordinary chat
 for mutations. No live account was enabled and nothing was deployed.
 
@@ -129,16 +130,33 @@ for mutations. No live account was enabled and nothing was deployed.
 
 Depends on a usable CL1–CL3 loop.
 
-- [ ] Detect naturally reported outcomes and retain dated observations without
+- [x] Detect naturally reported outcomes and retain dated observations without
   requiring `/interactions/outcome` in normal use.
-- [ ] Link outcomes to earlier interactions only with supporting evidence; retain
+- [x] Link outcomes to earlier interactions only with supporting evidence; retain
   ambiguous reports unlinked and never infer a sent action from an assistant draft.
-- [ ] Retrieve semantically related beliefs, then classify agreement, contradiction,
+- [x] Retrieve semantically related beliefs, then classify agreement, contradiction,
   correction, changed circumstances, or unrelated claims before updating them.
-- [ ] Preserve source history and current validity without treating semantic
+- [x] Preserve source history and current validity without treating semantic
   similarity as proof of identity or a later event as proof a strategy succeeded.
-- [ ] Demonstrate changed advice after a natural outcome, paraphrased corrections,
-  changing availability, ambiguous earlier requests, and unrelated similar claims.
+- [x] Demonstrate changed fresh-chat answer context with deterministic providers
+  after a natural outcome, paraphrased corrections and changing availability;
+  cover ambiguous earlier requests, unrelated similar claims, repeated reports,
+  conflicts, retries, source correction/deletion and subject isolation.
+- [x] Pass required `make verify`, including unchanged SDK checks, Docker packaging
+  on schema 8, inspector syntax, diff/format and documentation-link checks.
+- [ ] Repeat the CL4 acceptance with a real provider and inspect actual advice
+  quality, extraction/classification accuracy and effort/latency. Synthetic prompt
+  changes are not proof of more useful advice.
+
+Implementation: simple working beliefs derive from source-backed observations and
+classified relations, without mandatory numeric `/beliefs` or outcome scoring.
+Migration 000008 preserves evidence history, excludes superseded claims from
+ordinary recall, surfaces disputes, and invalidates affected legacy derivatives.
+The inspector exposes states, IDs, quotes and reasons. Comparison is bounded to
+older conversational evidence; no automatic alias merge or historical backfill.
+See [behavior and bounds](docs/conversational-learning.md#natural-outcomes-and-belief-updates-cl4).
+CL4 implementation follows the user's explicit request; M1's outstanding real-model
+acceptance remains open. Learning stays off by default; no deployment authorized.
 
 ### CL5 — Meeting-note ingestion
 

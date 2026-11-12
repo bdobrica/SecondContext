@@ -1,15 +1,16 @@
-# Conversational learning (CL1–CL3)
+# Conversational learning (CL1–CL4)
 
 CL1 implements opt-in background learning from ordinary conversations. It stores
 simple observations, independent of the existing numeric person/belief modeling
 pipeline. CL2 adds natural request interpretation and evidence selection for fresh
 conversations and follow-ups. CL3 adds searchable inspection and explicit natural
-memory controls. The real-model M1 usefulness demonstration remains open;
+memory controls. CL4 compares new reports with prior observations and updates the
+current working view while preserving evidence history. The real-model M1 usefulness demonstration remains open;
 deterministic checks establish wiring, not better real advice.
 
 ## Enable and inspect
 
-Apply migrations through **000007** with `make migrate-up`, then start the gateway normally.
+Apply migrations through **000008** with `make migrate-up`, then start the gateway normally.
 The API process starts a background queue consumer; no extra service is required.
 Learning is **off by default** and is enabled separately for each authenticated
 subject. Deploying this code or applying the migration does not enable learning.
@@ -78,7 +79,9 @@ execute a command. A tool continuation does not repeat a preceding command.
 Pronouns such as “it”/“that” require a specific target. Other paraphrases may fall
 through to the assistant, which is instructed to direct the user to the inspector
 or supported commands and never claim it performed a mutation. Broader natural
-corrections and changing beliefs belong to CL4. Models do not choose mutation IDs.
+corrections and changing beliefs are learned asynchronously by CL4 as separate
+source-backed observations and inferred relations. Models do not choose explicit
+command targets or perform deletion, settings changes, or direct summary edits.
 
 Recognized commands receive a local receipt on both endpoints, including Chat SSE
 and its optional usage chunk. No interpretation/generation call is needed; summary
@@ -109,6 +112,92 @@ numeric derivatives; the invalidation covers older/explicitly attached models as
 well. Independent outcome reports and client/server saved dialogue are not erased
 by forgetting a memory. Source-free manually supplied model values cannot be
 attributed to a memory and are not removed by this dependency rule.
+
+## Natural outcomes and belief updates (CL4)
+
+With learning enabled, report results or corrections in ordinary Chat Completions
+or Responses. No `/interactions/outcome` call, person score, or custom metadata
+is required. For example:
+
+1. “I sent Alex a request to review the API section of the launch proposal.”
+2. “Alex agreed, but only to review the API section of the launch proposal.”
+3. In a fresh conversation, ask “How should I follow up with Alex?” after capture
+   completes. The generator receives the dated, limited outcome and its evidence link.
+
+“I had that backwards: Alex prefers a detailed review brief, not a terse request”
+can supersede a remembered short-review preference. “Alex is now available after
+finishing the incident” can update an earlier unavailable report without marking
+it as a contradiction. These are learned reports, not immediate command receipts:
+background processing must finish before later conversations use the change.
+
+Each observation remains a separate source-backed record. The working belief is
+the set of current observations plus classified relations, independent of the
+legacy numeric `/beliefs` pipeline. Relation kinds have these effects:
+
+| Kind | Working view |
+| --- | --- |
+| `agreement` | Retain both reports and dates; do not increase confidence or claim independent verification. |
+| `contradiction` | Retain both as `disputed`; later prompts warn about uncertainty even if only one side fits the context budget. |
+| `correction` | Retain the earlier source as `superseded`; use the later corrected claim. |
+| `changed_circumstances` | Retain the earlier source as `superseded`; use the later time-scoped claim, not a permanent personality trait. |
+| `outcome_of` | Link a reported result to one evidenced `reported_action`, without a success score or causal inference. |
+| `unrelated` | Keep independent observations; store no relationship. |
+
+A reported action requires a user statement that it actually occurred. Drafts,
+assistant suggestions, hypothetical successes, and commitments are not sent
+actions. An ambiguous result stays unlinked. The answer instructions ask for
+clarification only when knowing which request it concerns matters to the answer.
+Natural outcomes do not create legacy `interaction_outcomes` scores or attribute
+success to a suggested strategy.
+
+The inspector and exact evidence endpoint expose `metadata.working_state`
+(`current`, `disputed`, `superseded`) and `metadata.relations`, including both IDs,
+the classification, supporting quotes and explanation. `recall_status` separately
+reports indexing/expiry readiness; a ready but superseded observation is historical
+and excluded from ordinary recall. Natural inspection includes states and links.
+Both endpoints' context packets include `working_state` and bounded relation IDs.
+Search follows forward evidence links, so finding obsolete wording can retrieve
+its replacement even when that paraphrase was not in the initial vector hits.
+Original observations remain searchable in the inspector; ordinary recall selects
+the current view rather than answering arbitrary historical-state queries.
+
+Migration **000008** stores subject-scoped relations with cascading evidence
+references. Correcting either endpoint invalidates its inferred relations;
+forgetting either endpoint removes those links. This can make a retained older
+observation current again: inspect or forget that record too if it is no longer
+wanted. Source deletion and whole-subject purge remove dependent relations.
+Expired replacements do not automatically restore an explicitly superseded claim.
+Supersession or dispute invalidates source-dependent legacy person models, beliefs
+and graph aggregates, so explicit structured-model requests cannot reuse them.
+
+Comparison is bounded: hybrid retrieval ranks up to 24 candidates; at most eight
+older, eligible conversational records are compared per new observation. Each
+candidate receives a strict decision with an allowed ID and exact supporting
+quotes. Different person-label sets cannot be linked; aliases and pronouns are not
+automatically merged. With no people, a shared topic is required. These gates
+prevent unsupported IDs and identity merges but cannot verify a model's semantic
+judgment. The classifier must distinguish scope, explicit retraction, ambiguous
+actions, and temporal change; future changes are retained independently until
+reported as current, not scheduled for automatic activation.
+
+The observation extractor bounds summaries to 2,000 bytes, evidence quotes to
+4,000 bytes, time scopes to 300 bytes and each of at most 16 people/topic labels
+to 200 bytes. Oversized output fails validation rather than growing comparison
+prompts without a bound.
+
+Comparisons, like extraction, run asynchronously. Malformed or unavailable model
+comparisons leave the capture failed/retryable and do not publish a partial working
+update. Relations and capture completion publish atomically after indexing and
+consent/source checks. Background workers serialize comparisons per subject on a
+separate lock, while ordinary chat and inspector edits remain available. Edited
+or deleted candidate snapshots are discarded at publication. Retries do not
+refresh evidence dates or duplicate relationships. Late reports use first-observed
+time for ordering; an old failed capture cannot supersede newer evidence or an
+explicit correction. There is no retrospective sweep to link older captures that
+finished after newer ones, no same-message relation pass, and no comparison with
+manual/legacy memory sources. Large relation expansions stop at 200 records and
+fail recall rather than returning obsolete claims. These are bounded retrieval
+and model-classification behaviors, not exhaustive identity or truth resolution.
 
 ## Capture and retrieval controls
 
@@ -280,7 +369,7 @@ Deleting/correcting an observation from a partially failed batch cancels the
 remaining capture receipt so retries cannot recreate or overwrite it. Unfinished
 batch rows may remain inspectable but are excluded from recall; a successfully
 corrected row is ready independently. Completed batches keep their replay receipt.
-Automatic observations do not create person/belief derivatives. Migration 000007
+Automatic observations do not create numeric person/belief derivatives. Migration 000007
 invalidates any aggregates explicitly linked to corrected/deleted evidence. Linked-source
 deletion removes associated capture records, canonical observations, and vector
 points. Durable source fences suppress recall even while cleanup is incomplete.
@@ -294,7 +383,8 @@ assume an immediate fresh conversation can recall input while capture is pending
 or failed. The current client-supplied dialogue can still inform the answer.
 
 The worker polls every second, runs at most one extraction per process at a time,
-and uses cross-process capture locks. It extracts/embeds outside the subject lock,
+and uses cross-process capture and learning-subject locks. It extracts, compares
+and embeds outside the interactive subject lock,
 then rechecks consent, acceptance, source fences, and deletion before publishing.
 The short indexing/publication stage shares the existing subject lock and can
 briefly delay another operation for that subject. A batch becomes retrievable only
@@ -364,3 +454,19 @@ final source/documentation checks passed; isolated stacks were cleaned up.
 No real-provider or browser-interaction test was performed. No deployment or live
 learning enablement occurred. Live M1 acceptance and matched usefulness comparisons
 remain open.
+
+CL4 verification completed on 2026-11-12: `make verify` passed, including mandatory
+Postgres/Qdrant integration and all three unchanged OpenAI SDK scripts. The new
+`scripts/test-conversational-updates-sdk.py` is invoked by `TestCL4OpenAISDK` with
+the same prepared `SECOND_CONTEXT_CHAT_SDK_PYTHON` interpreter. It uses only normal
+Chat/Responses and text inspection to demonstrate background correction, action/
+outcome capture, changed fresh-chat context and retained historical evidence.
+Other CL4 tests cover time-scoped availability, ambiguous actions, unrelated
+similar claims, agreement without reinforcement, disputes, retry, concurrent
+correction/forgetting/pause/purge, subject isolation and legacy belief invalidation.
+`make test-docker` passed with migration 000008. Inspector JavaScript syntax and
+source/documentation checks passed; disposable stacks were cleaned up. No live
+provider credential was available and no browser-interaction test was performed.
+These checks prove context wiring and evidence lifecycle, not real-model semantic
+classification or more useful advice. Live CL4 acceptance, latency/effort measures,
+matched comparisons and M1 remain open. No deployment or live enablement occurred.

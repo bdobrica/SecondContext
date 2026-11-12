@@ -2,7 +2,7 @@
 
 ## Current priority — Conversational learning and product usefulness
 
-Decision date: 2026-11-11. Status: **Active; CL1–CL3 implementation available;
+Decision date: 2026-11-11. Status: **Active; CL1–CL4 implementation available;
 real-provider acceptance, matched comparisons and M1 validation pending.**
 
 The next milestone is a useful product that learns from ordinary conversation.
@@ -261,6 +261,57 @@ Priority: fourth. Depends on the usable CL1–CL3 loop.
 Acceptance: a natural outcome improves later advice; paraphrased corrections update
 the relevant belief; changed availability over time is not treated as an inherent
 contradiction. Include ambiguous prior interactions and unrelated similar claims.
+
+#### CL4 implementation record — 2026-11-12
+
+Implemented at the user's explicit request while M1's real-provider acceptance
+remains open. Ordinary reports now distinguish a user-reported completed action
+from an outcome, draft or commitment. Each new observation retrieves older
+semantic candidates and classifies agreement, contradiction, correction, changed
+circumstances, outcome linkage or unrelated claims. Identity gates, exact evidence
+quotes and candidate allowlists constrain decisions; similarity alone never merges
+records. At most one evidenced action can be linked to an outcome, with ambiguous
+reports retained independently and no inferred causal success score.
+
+Migration 000008 stores subject-scoped relations while retaining original dated
+sources. The working view excludes superseded claims, flags unresolved disputes,
+and follows forward links from old search hits to paraphrased replacements.
+The inspector and natural inspection expose states and evidence links; the exact
+evidence endpoint supplies supporting quotes/reasons. A time-scoped availability
+update is distinct from a contradiction. The ordinary conversational path does not
+require the numeric belief/model pipeline. Supersession/dispute invalidates linked
+legacy aggregates used by explicit structured requests.
+
+Comparison runs outside the interactive subject lock, with a separate worker lock
+per subject. Candidate snapshots are rechecked before atomic relation/capture
+publication. Pause, acceptance, edit/delete, source fences and subject purge remain
+authoritative. Failures are retryable, repeated sources do not refresh evidence,
+and editing or forgetting either source invalidates the corresponding inferred
+links. Retained earlier evidence can become current after a link is removed.
+
+The bounded pass compares at most eight of 24 semantic candidates per observation;
+only older conversational records participate. There is no same-message pass,
+legacy-memory comparison, automatic alias merge, future-change scheduler or
+retrospective backfill for out-of-order capture completion. Classification quality
+still depends on the provider. See [CL4 behavior and limits](docs/conversational-learning.md#natural-outcomes-and-belief-updates-cl4).
+
+Verification: `make verify` passed with mandatory Postgres/Qdrant integration
+checks and all three unchanged OpenAI SDK scripts. The synthetic CL4 sequence
+proved changed fresh-answer context on Chat Completions and Responses, preserved
+history, cautious outcome links, ambiguity, agreement/conflict separation, retry,
+correction/forgetting, pause/purge during comparison, subject isolation and legacy
+belief invalidation. `make test-docker` passed on schema 8; inspector JavaScript
+syntax, diff/format and documentation-link checks passed. Disposable test stacks
+were cleaned up. The managed recipe is now `managed-recent-cl4-1`.
+
+The first verification run caught an unconditional prompt-budget increase; CL4
+answer rules now appear only with relevant relations/outcomes. A subsequent run
+caught a missing required column in the new belief-test fixture; it was corrected
+before the final passing suite. No live provider credential was available and no
+browser-interaction test was performed. Model extraction/classification quality,
+actual usefulness, latency and matched comparisons remain unverified. M1 and
+CL4's live usefulness acceptance remain open. Nothing was deployed or enabled for
+a live account.
 
 ### CL5 — Meeting-note ingestion
 

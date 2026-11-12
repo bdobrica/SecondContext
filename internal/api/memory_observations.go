@@ -47,6 +47,9 @@ func (s *Server) observations(ctx context.Context, user, query string, limit, of
 		}
 		result = append(result, m)
 	}
+	if err := db.NewMemoryRepository(s.dbPool).AnnotateObservations(ctx, result); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 

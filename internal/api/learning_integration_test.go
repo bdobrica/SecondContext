@@ -213,6 +213,18 @@ func TestLearningTemporaryBeforeFirstEnable(t *testing.T) {
 }
 
 func (c *learningTestClient) Generate(ctx context.Context, r llm.GenerateRequest) (llm.GenerateResponse, error) {
+	if len(r.Messages) > 0 && r.Messages[0].Content == memsvc.ObservationRelationPrompt {
+		var input struct {
+			Candidates []memsvc.ObservationCandidate `json:"candidates"`
+		}
+		_ = json.Unmarshal([]byte(r.Messages[1].Content), &input)
+		relations := []memsvc.ObservationRelation{}
+		for _, c := range input.Candidates {
+			relations = append(relations, memsvc.ObservationRelation{ID: c.ID, Kind: "unrelated", Reason: "Independent fixture report"})
+		}
+		raw, _ := json.Marshal(map[string]any{"relations": relations})
+		return llm.GenerateResponse{OutputText: string(raw)}, nil
+	}
 	if len(r.Messages) > 0 && r.Messages[0].Content == memsvc.ObservationPrompt {
 		c.mu.Lock()
 		c.extractions++

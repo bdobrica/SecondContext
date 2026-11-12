@@ -134,6 +134,8 @@ func (s *Server) executeMemoryCommand(ctx context.Context, request createRespons
 			var meta map[string]any
 			_ = json.Unmarshal(m.Metadata, &meta)
 			fmt.Fprintf(&out, "\n%s — %s\nObserved: %s; source: %v; evidence: %v; time scope: %v", m.ID, truncateText(m.Summary, 360), firstNonEmpty(stringFromMap(meta, "observed_at"), m.CreatedAt.UTC().Format(time.RFC3339)), meta["source_reference"], meta["evidence"], meta["time_scope"])
+			state, relations := observationWorkingContext(m.Metadata)
+			fmt.Fprintf(&out, "; working state: %s; relations: %s", state, strings.Join(relations, "; "))
 			if meta["corrected_at"] != nil {
 				fmt.Fprintf(&out, "; corrected: %v", meta["corrected_at"])
 			}
