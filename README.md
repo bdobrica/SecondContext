@@ -22,7 +22,7 @@ bounded recent replay, durable retries and accepted replies on Responses and Cha
 Completions. It requires migration 000005 and explicit enablement; ordinary OpenAI
 clients can continue supplying their own chat history.
 
-[Conversational learning (CL1–CL5)](docs/conversational-learning.md) adds opt-in
+[Conversational learning (CL1–CL6)](docs/conversational-learning.md) adds opt-in
 background capture of source-backed observations from ordinary chat, with a
 browser inspector at `/memory/inspector`, pause, correction, forgetting, and
 recoverable capture status. Natural outcome reports and paraphrased corrections
@@ -30,7 +30,9 @@ update the current working view while preserving the dated source history. Apply
 enable learning once for
 the authenticated account. CL5 adds pasted/uploaded meeting notes in the inspector,
 with an explicit personal-observations/reference choice and source/speaker/date
-attribution. Note parsing requires the configured knowledge service. Capture remains off by default. CL2 interprets natural
+attribution. Note parsing requires the configured knowledge service. CL6 adds one
+explicitly configured shared reference collection per deployment alongside private
+memory and references. Capture remains off by default. CL2 interprets natural
 requests and bounded follow-ups, retrieves observations in fresh conversations,
 and exposes selected evidence without custom memory metadata. CL3 adds searchable
 inspection, explicit natural correction/forgetting commands, a temporary-question
@@ -682,8 +684,9 @@ See [`LICENSE`](LICENSE).
 
 ## Reference knowledge adapter (K9)
 
-SecondContext uses `internal/knowledge.KnowledgeProvider` and calls only the independent
-service's `POST /v1/search`. It never reads the knowledge database or collection.
+SecondContext uses `internal/knowledge.KnowledgeProvider` for the independent
+service's `POST /v1/search`; explicit note imports use `/v1/notes`. It never reads
+the knowledge database or collection.
 The adapter is disabled by default; neither startup nor `/healthz` needs Python or a
 reachable knowledge service. With it enabled, memory and knowledge retrieval run concurrently
 and either can supply context when the other fails. Retrieval never creates memory items,
@@ -697,23 +700,47 @@ KNOWLEDGE_URL=http://localhost:8090
 KNOWLEDGE_TIMEOUT=5s
 KNOWLEDGE_LIMIT=4
 KNOWLEDGE_SUBJECT_TOKENS=dev-user=replace-with-your-knowledge-owner-token
+# Optional, independent shared reference owner (CL6):
+KNOWLEDGE_SHARED_TOKEN=
 ```
 
 `KNOWLEDGE_SUBJECT_TOKENS` is a comma-separated list of exact SecondContext subject/token
 mappings. Use the token already assigned to the intended owner in the knowledge service's
 `KNOWLEDGE_AUTH_TOKENS`. Subjects and credentials must be unique. An unmapped subject gets
-no knowledge, including service-token subjects such as `oria:<uuid>`; there are no namespace
-wildcards or default shared credentials. With authentication enabled, the resolved authenticated
+only the explicitly configured shared collection, if any, including service-token subjects
+such as `oria:<uuid>`; there are no namespace wildcards. With authentication enabled, the resolved authenticated
 subject chooses the mapping. Development mode uses the resolved request/dev subject and should
 remain limited to a trusted environment. A client cannot override the upstream owner or token.
+
+`KNOWLEDGE_SHARED_TOKEN` opts this deployment into one shared reference collection,
+represented by a dedicated owner in the existing knowledge service. It must differ
+from every private token. Either shared or private credentials are sufficient to
+enable retrieval. All authenticated users of this gateway can read shared material;
+use a separate gateway deployment for a different bot/workspace audience.
+
+An administrator uploads once through the knowledge service's `/knowledge` UI or
+source APIs using that dedicated owner's credential. Wait for the source to become
+`ready`. Ordinary Chat Completions and Responses requests then retrieve it without
+per-turn setup. Refresh URL sources to pick up changes; to replace pasted/uploaded
+content, delete the old source and upload its replacement (there may be a retrieval
+gap while it indexes). Delete a source there to remove it from later retrieval for
+everyone. Existing conversations/receipts retain their historical evidence snapshots.
+Neither chat nor `/memory/notes` writes using the shared credential. Note imports
+still require a private subject mapping, even in shared-only deployments. See the
+[CL6 guide](docs/conversational-learning.md#shared-reference-knowledge-cl6).
 
 Compose supplies `http://knowledge:8090` as the API container's endpoint; override with
 `KNOWLEDGE_DOCKER_URL` for an external deployment. This adds no `depends_on` relationship:
 starting the ordinary Go stack still works without the `knowledge` profile. Start that
 profile separately when using the local service, and recreate only `api` after configuring it.
 Timeout must be positive and at most 20 seconds; result limit is 1–20 (default 4).
-There is one bounded request per response, with no retries or redirects, no environment proxy,
-a 2 MiB response cap and validation before evidence enters the prompt. Search is hybrid;
+There is at most one request per configured collection (two concurrently when both
+apply), with no retries or redirects, no environment proxy, a 2 MiB response cap per
+collection and validation before evidence enters the prompt. Results interleave
+shared then private ranks up to the combined limit; scores from independent searches
+are not globally comparable. With limit 1, a shared hit takes the single slot.
+Each request has the configured timeout, and the existing combined prompt budget
+still applies. Search is hybrid;
 the query is bounded to 1,024 UTF-8 bytes without splitting a code point.
 
 ```json
@@ -730,8 +757,9 @@ the query is bounded to 1,024 UTF-8 bytes without splitting a code point.
 ```
 
 `knowledge_filters` optionally accepts `source_ids`, `document_ids` and `formats`
-(`text`, `markdown`, `json`, `yaml`, `pdf`, `docx`, `html`). Omit it to search the owner's
-corpus. Invalid filters return `400 invalid_knowledge_filters`.
+(`text`, `markdown`, `json`, `yaml`, `pdf`, `docx`, `html`). Omit it to search the configured
+shared and private corpora. Filters apply independently to both; they never grant access
+to another owner. Invalid filters return `400 invalid_knowledge_filters`.
 `disable_knowledge: true` is accepted at the top level or in metadata, independently of
 `disable_memory`. To compare ordinary answers with reference-backed answers, repeat a request
 with only `disable_knowledge` changed. `disable_memory` continues to disable memory/person/
@@ -739,7 +767,7 @@ topic/belief assembly and scenario mode; it leaves reference retrieval available
 
 `metadata.context_packet.knowledge_context` contains the actual prompt evidence: chunk,
 source and document IDs, score, text, title, heading ancestry, URI/source URI, format and
-page/range. The separately labelled reference section tells the model to treat this as source
+page/range, and gateway-assigned `scope` (`shared` or `private`). The separately labelled reference section tells the model to treat this as source
 material, never instructions, and to cite provenance. Text trimmed for the budget has
 `truncated: true`; citation fields stay intact. Entire items with oversized provenance are
 omitted and counted in `omitted_knowledge`. The same packet is persisted with the assistant
@@ -758,8 +786,10 @@ prompt rules are governed separately, and are not an automatic model context-win
 A configured search sets `knowledge_status: ready`, including an empty result set. A request
 that disables retrieval sets `disabled`; an unconfigured adapter adds no status.
 Stable degraded statuses are `not_configured`, `timeout`, `canceled`, `unauthorized`,
-`rate_limited`, `invalid_request`, `invalid_response`, and `unavailable`. Failures produce
-no reference evidence and response generation continues normally. Logs contain only the
+`rate_limited`, `invalid_request`, `invalid_response`, and `unavailable`. When one collection
+fails and the other succeeds, `partial` preserves the successful evidence and labels
+the retrieval gap in the prompt. If all configured collections fail, no reference
+evidence is supplied; response generation continues normally. Logs contain only the
 stable code, not upstream bodies, query text, tokens or endpoint details.
 
 Validation includes HTTP contract/credential isolation, independent controls, bounded malformed

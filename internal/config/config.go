@@ -27,13 +27,15 @@ type Config struct {
 }
 
 // Credentials map exact SecondContext subjects to independently scoped knowledge tokens.
-// There is no default credential or client-controlled owner override.
+// SharedToken explicitly selects one deployment-wide reference owner for reads.
+// Neither credential can be overridden by a client.
 type KnowledgeConfig struct {
-	Enabled bool
-	URL     string
-	Tokens  []AuthTokenConfig
-	Timeout time.Duration
-	Limit   int
+	Enabled     bool
+	URL         string
+	Tokens      []AuthTokenConfig
+	SharedToken string
+	Timeout     time.Duration
+	Limit       int
 }
 
 type AppConfig struct {

@@ -1116,6 +1116,16 @@ purge. Quotes and canonical UUIDs matched, memory-item IDs stayed unchanged, hea
 passed, and all captured sources, search points and audit snapshots were removed. This is a
 small functional demonstration rather than an extraction accuracy benchmark.
 
+## Shared reference owner (CL6)
+
+For deployment-wide shared references (CL6), provision a separate owner/token in
+`KNOWLEDGE_AUTH_TOKENS` and configure that token as the Go gateway's
+`KNOWLEDGE_SHARED_TOKEN`. Upload/manage sources as that owner through `/knowledge`
+or the source APIs. The service's existing owner-scoped storage and search remain
+unchanged; the gateway uses this credential for shared reads alongside optional
+private owner reads. Keep it distinct from private mappings and out of ordinary
+chat clients. See [shared setup](../../docs/conversational-learning.md#shared-reference-knowledge-cl6).
+
 ## Meeting-note handoff (CL5)
 
 The gateway memory inspector uses authenticated `POST /v1/notes` with multipart

@@ -324,7 +324,7 @@ func setHistoryHeaders(w http.ResponseWriter, h historySelectors, snapshot int64
 func (s *Server) historyConfigHash(model string) []byte {
 	// Credentials are intentionally absent: key rotation does not change request
 	// interpretation. Pin provider/model, retrieval configuration, budgets/recipe.
-	b, _ := json.Marshal(map[string]any{"recipe": "managed-recent-cl5-1", "base_url": s.cfg.OpenAI.BaseURL, "model": model, "embedding_model": s.cfg.OpenAI.EmbeddingModel, "recent": s.cfg.History.RecentExchanges, "input": s.cfg.History.PromptInputTokens, "output": s.cfg.History.ReservedOutputTokens, "scoring": s.cfg.Scoring, "knowledge_enabled": s.cfg.Knowledge.Enabled, "knowledge_url": s.cfg.Knowledge.URL, "knowledge_limit": s.cfg.Knowledge.Limit, "qdrant_collection": s.cfg.Qdrant.Collection})
+	b, _ := json.Marshal(map[string]any{"recipe": "managed-recent-cl6-1", "base_url": s.cfg.OpenAI.BaseURL, "model": model, "embedding_model": s.cfg.OpenAI.EmbeddingModel, "recent": s.cfg.History.RecentExchanges, "input": s.cfg.History.PromptInputTokens, "output": s.cfg.History.ReservedOutputTokens, "scoring": s.cfg.Scoring, "knowledge_enabled": s.cfg.Knowledge.Enabled, "knowledge_url": s.cfg.Knowledge.URL, "knowledge_limit": s.cfg.Knowledge.Limit, "knowledge_shared": s.cfg.Knowledge.SharedToken != "", "qdrant_collection": s.cfg.Qdrant.Collection})
 	h, _ := historyHash(b)
 	return h
 }

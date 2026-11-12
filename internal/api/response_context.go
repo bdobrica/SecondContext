@@ -438,6 +438,9 @@ func (s *Server) populateKnowledgeContext(ctx context.Context, packet *prompts.C
 	if err != nil {
 		packet.KnowledgeStatus = knowledge.ErrorCode(err)
 		s.logger.Warn("knowledge retrieval degraded", "code", packet.KnowledgeStatus)
+		if packet.KnowledgeStatus == "partial" {
+			packet.KnowledgeContext = evidence
+		}
 		return
 	}
 	packet.KnowledgeStatus = "ready"

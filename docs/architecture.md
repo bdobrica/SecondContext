@@ -109,6 +109,16 @@ Memory and reference retrieval run concurrently and degrade independently.
 a response without retrieved context. Retrieval itself does not promote knowledge
 into memory, person models or beliefs.
 
+CL6 adds an optional deployment-wide `KNOWLEDGE_SHARED_TOKEN` for a dedicated
+reference owner alongside exact private subject mappings. The gateway searches
+each configured owner independently and concurrently, interleaves shared/private
+ranks within the existing total limit, and assigns evidence scope itself. One
+failed collection yields `partial` evidence from the surviving collection.
+Administration reuses the knowledge service's source UI/APIs; shared credentials
+are never used for gateway note imports or conversational capture. Every new
+generation searches current sources; historical receipts remain immutable.
+Personal memory ownership and conversation identity are unchanged.
+
 Rendered retrieved sections reserve a conservative UTF-8 byte-based token bound
 of 6,000: knowledge 3,000, memory 1,800, people/topics/beliefs 400 each. Labels and
 citations count toward each reservation; unused reservations remain unused.

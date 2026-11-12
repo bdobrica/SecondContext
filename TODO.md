@@ -15,7 +15,7 @@ below. See [AGENTS.md](AGENTS.md) for governing guidance and
 for behavior, dependencies, and acceptance demonstrations. PLAN.md and TODO.md
 are versioned shared documents; the earlier local-only PLAN convention is superseded.
 
-CL1–CL5 code is implemented, with focused mechanical regression coverage and an
+CL1–CL6 code is implemented, with focused mechanical regression coverage and an
 unchanged-client synthetic demonstration of inspection, correction and forgetting.
 Real-provider extraction, retrieval and usefulness validation remain open.
 Complete the real-model acceptance and comparisons for the first usable milestone M1. No unrelated
@@ -198,20 +198,41 @@ Proposals remain separate from decisions and completed actions. See
 [CL5 workflow and limits](docs/conversational-learning.md#meeting-note-ingestion-cl5).
 Both services need updating; learning remains off by default. CL5 follows the user's
 explicit request while M1/CL4 live acceptance remains open. Calendar synchronization,
-new connectors and CL6 shared knowledge remain deferred. Nothing was deployed.
+new connectors remain deferred. CL6 was subsequently implemented at the user's
+explicit request below. Nothing was deployed.
 
 ### CL6 — Shared bot/workspace knowledge
 
-Last in this queue, after CL5. Keep existing private reference retrieval working.
+Implemented after CL5 at the user's explicit request. Private reference retrieval
+remains available; shared reads do not require enabling conversational learning.
 
-- [ ] Add an explicit shared collection per bot/deployment alongside optional
+- [x] Add one explicit shared reference owner per bot/deployment alongside optional
   private knowledge, reusing the existing knowledge service.
-- [ ] Connect upload-once reference material to ordinary answers across different
-  users and sessions, with inspectable source attribution.
-- [ ] Keep personal memory subject-owned and history conversation-specific;
-  never collapse customer identities or automatically publish conversation as shared knowledge.
-- [ ] Demonstrate two customers using the same document without private-context
-  leakage, and verify that document updates/removal affect subsequent retrieval.
+- [x] Connect administrator upload-once reference material to ordinary Chat/Responses
+  retrieval across different users and sessions, with inspectable scope and citations.
+- [x] Keep personal memory subject-owned and history conversation-specific; never
+  collapse customer identities or automatically publish conversation as shared knowledge.
+- [x] Verify two users' shared retrieval and private memory/reference isolation,
+  updates/removal, source provenance, shared-only operation, independent disable
+  controls, partial failure handling and no shared note-upload fallback.
+- [x] Pass `make verify` (mandatory Postgres/Qdrant, no skips, three unchanged SDK
+  checks), schema-9 Docker packaging, 46 existing knowledge-service lifecycle/
+  search/management/note checks against Postgres/Qdrant, Ruff lint/format, and
+  diff/format/documentation-link checks.
+- [ ] Repeat the two-customer acceptance with a real provider and inspect actual
+  answers, citations and changed answers after source update/removal. Deterministic
+  prompt checks establish wiring and isolation, not live answer usefulness.
+
+Implementation: `KNOWLEDGE_SHARED_TOKEN` opts one dedicated knowledge owner into
+shared reads. It must differ from private subject tokens. Searches run concurrently,
+interleave shared/private ranks under the existing total bounds, and return scope
+provenance. A surviving collection remains usable with `knowledge_status: partial`.
+The existing source UI/API handles upload, refresh and deletion; file/text replacement
+is delete then upload, with a possible indexing gap. Historical conversation receipts
+keep their original evidence. Personal/reference note imports still require private
+credentials and never fall back to shared writes. No new migration or general
+workspace permissions interface. See [CL6 setup and limits](docs/conversational-learning.md#shared-reference-knowledge-cl6).
+Nothing was deployed or enabled live; M1/CL4/CL5 real-provider acceptance stays open.
 
 ### Deferred work and historical checklist policy
 

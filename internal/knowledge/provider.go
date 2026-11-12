@@ -10,6 +10,7 @@ import (
 	"math"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -18,6 +19,7 @@ import (
 
 // KnowledgeProvider is the consumer contract. Subject selects a server-configured
 // credential, never an upstream owner ID or a caller-supplied token.
+// A partial error may accompany validated evidence from one successful collection.
 type KnowledgeProvider interface {
 	Search(ctx context.Context, subject, query string, filters Filters, limit int) ([]KnowledgeEvidence, error)
 }
@@ -61,6 +63,7 @@ func (f Filters) Valid() bool {
 }
 
 type KnowledgeEvidence struct {
+	Scope      string   `json:"scope,omitempty"`
 	ChunkID    string   `json:"chunk_id"`
 	DocumentID string   `json:"document_id"`
 	SourceID   string   `json:"source_id"`
@@ -88,9 +91,10 @@ func ErrorCode(err error) string {
 }
 
 type HTTPProvider struct {
-	endpoint string
-	tokens   map[string]string
-	client   *http.Client
+	endpoint    string
+	tokens      map[string]string
+	sharedToken string
+	client      *http.Client
 }
 
 func NewHTTPProvider(c config.KnowledgeConfig) *HTTPProvider {
@@ -102,9 +106,10 @@ func NewHTTPProvider(c config.KnowledgeConfig) *HTTPProvider {
 	transport.Proxy = nil
 	transport.DisableCompression = true
 	return &HTTPProvider{
-		endpoint: strings.TrimRight(c.URL, "/") + "/v1/search",
-		tokens:   tokenMap(c.Tokens),
-		client:   &http.Client{Timeout: timeout, Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
+		endpoint:    strings.TrimRight(c.URL, "/") + "/v1/search",
+		tokens:      tokenMap(c.Tokens),
+		sharedToken: c.SharedToken,
+		client:      &http.Client{Timeout: timeout, Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 	}
 }
 func tokenMap(entries []config.AuthTokenConfig) map[string]string {
@@ -118,13 +123,69 @@ func tokenMap(entries []config.AuthTokenConfig) map[string]string {
 const MaxResponseBytes = 2 << 20
 
 func (p *HTTPProvider) Search(ctx context.Context, subject, query string, filters Filters, limit int) ([]KnowledgeEvidence, error) {
-	token := p.tokens[subject]
-	if token == "" {
+	if subject == "" || (p.tokens[subject] == "" && p.sharedToken == "") {
 		return nil, &Error{Code: "not_configured"}
 	}
 	if limit < 1 || limit > 20 || !filters.Valid() || strings.TrimSpace(query) == "" || strings.ContainsRune(query, 0) {
 		return nil, &Error{Code: "invalid_request"}
 	}
+	// Each owner remains independently scoped upstream. Rank scores from separate
+	// corpora are not comparable: interleave shared then private ranks, bounded by
+	// the existing total limit. No cross-user cache or write fallback is involved.
+	type result struct {
+		evidence []KnowledgeEvidence
+		err      error
+	}
+	var results [2]result
+	var wg sync.WaitGroup
+	configured := 0
+	for i, token := range []string{p.sharedToken, p.tokens[subject]} {
+		if token == "" {
+			continue
+		}
+		configured++
+		wg.Add(1)
+		go func(i int, token string) {
+			defer wg.Done()
+			results[i].evidence, results[i].err = p.searchOwner(ctx, token, query, filters, limit)
+			for j := range results[i].evidence {
+				results[i].evidence[j].Scope = []string{"shared", "private"}[i]
+			}
+		}(i, token)
+	}
+	wg.Wait()
+	failures := 0
+	var failure error
+	for _, result := range results {
+		if result.err != nil {
+			failures++
+			failure = result.err
+		}
+	}
+	if failures == configured {
+		return nil, failure
+	}
+	evidence := make([]KnowledgeEvidence, 0, limit)
+	seen := map[string]bool{}
+	for rank := 0; rank < limit && len(evidence) < limit; rank++ {
+		for _, result := range results {
+			if rank >= len(result.evidence) || len(evidence) == limit {
+				continue
+			}
+			e := result.evidence[rank]
+			if !seen[e.ChunkID] {
+				evidence = append(evidence, e)
+				seen[e.ChunkID] = true
+			}
+		}
+	}
+	if failures > 0 {
+		return evidence, &Error{Code: "partial"}
+	}
+	return evidence, nil
+}
+
+func (p *HTTPProvider) searchOwner(ctx context.Context, token, query string, filters Filters, limit int) ([]KnowledgeEvidence, error) {
 	// Bound arbitrary conversation histories independently of the service's tokenizer.
 	query = ClipUTF8(strings.TrimSpace(query), 1024)
 	body, _ := json.Marshal(struct {

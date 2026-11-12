@@ -1,4 +1,4 @@
-# Conversational learning (CL1–CL5)
+# Conversational learning (CL1–CL6)
 
 CL1 implements opt-in background learning from ordinary conversations. It stores
 simple observations, independent of the existing numeric person/belief modeling
@@ -6,7 +6,8 @@ pipeline. CL2 adds natural request interpretation and evidence selection for fre
 conversations and follow-ups. CL3 adds searchable inspection and explicit natural
 memory controls. CL4 compares new reports with prior observations and updates the
 current working view while preserving evidence history. CL5 imports meeting notes
-through the same inspectable learning loop. The real-model M1 usefulness demonstration remains open;
+through the same inspectable learning loop. CL6 adds explicitly configured shared
+reference documents alongside private personal memory. The real-model M1 usefulness demonstration remains open;
 deterministic checks establish wiring, not better real advice.
 
 ## Enable and inspect
@@ -114,6 +115,83 @@ numeric derivatives; the invalidation covers older/explicitly attached models as
 well. Independent outcome reports and client/server saved dialogue are not erased
 by forgetting a memory. Source-free manually supplied model values cannot be
 attributed to a memory and are not removed by this dependency rule.
+
+## Shared reference knowledge (CL6)
+
+A bot/deployment can offer one shared reference corpus to all its authenticated
+users while continuing to retrieve each user's private knowledge and personal
+observations. This does not require enabling conversational learning. A shared
+collection means a dedicated owner in the existing knowledge service, not a
+shared SecondContext user identity or a new physical Qdrant collection.
+
+1. Provision a dedicated shared owner and credential in the knowledge service's
+   `KNOWLEDGE_AUTH_TOKENS`, separate from all private owners.
+2. As administrator, connect to that service's `/knowledge` UI using this
+   credential, upload/paste a reference or add a URL, and wait for `ready`.
+3. Configure the gateway with `KNOWLEDGE_ENABLED=true`, `KNOWLEDGE_URL`, and
+   `KNOWLEDGE_SHARED_TOKEN` set to that credential. Optional
+   `KNOWLEDGE_SUBJECT_TOKENS` continue to map exact subjects to private owners.
+   Restart the gateway after changing its configuration.
+4. Ask ordinary questions from different authenticated customers in fresh chats.
+   Both can retrieve the shared source. No custom per-turn metadata is needed.
+   The same collection applies to every user of this gateway; different bot or
+   workspace audiences need separate deployments in this first implementation.
+
+The shared token must differ from every private token. Users without a private
+mapping still receive shared references. They retain their own personal memory
+under their authenticated SecondContext identity. They cannot choose an upstream
+owner/token or share a conversation by using the same service credential.
+
+Both owner searches run concurrently with the existing timeout/response limits.
+The gateway interleaves shared then private ranks, deduplicates chunk IDs, and
+applies the existing combined `KNOWLEDGE_LIMIT` and prompt budget. A limit of one
+selects the first shared hit when available. Independent scores are ranking
+heuristics, not comparable confidence values. Filters apply to both corpora;
+`disable_knowledge` disables both, independently of `disable_memory`. If one
+collection fails, `knowledge_status: partial` retains the other's evidence and
+warns the model when evidence is present. Source content remains untrusted evidence.
+
+Response/debug packets and the actual prompt retain canonical citation fields
+and gateway-assigned `scope: shared` or `scope: private`. Shared provenance does
+not make a source authoritative over conflicting private evidence. The model is
+instructed to cite the source and acknowledge conflicts. The evidence in the
+packet is inspectable; deterministic tests do not guarantee a live model follows
+these instructions correctly.
+
+Manage shared material using the knowledge service's source UI/APIs. Refresh URL
+sources to fetch revisions. For pasted/uploaded replacements, delete the old
+source and upload the new version; this is not atomic and can temporarily leave
+no available evidence. Deletion removes the source from subsequent retrieval.
+The gateway does a fresh search for each new generation and has no shared search
+cache. Previously stored answers, prompts and managed retry receipts retain their
+historical evidence; source deletion is not retroactive conversation erasure.
+
+Ordinary conversation never publishes shared documents. `/memory/notes` remains
+private for both `personal` and `reference` purposes and still requires a private
+subject mapping for its parser/ingestion request. It never uses the shared token
+as a fallback. Administrators must explicitly publish shared references through
+the knowledge service. No general membership, sharing permissions, per-request
+workspace selector or automatic promotion is included. Shared reads need no new
+migration beyond the existing gateway/service schemas.
+
+CL6 verification (2026-11-12): `make verify` passed, including mandatory
+Postgres/Qdrant integration with no skipped tests and all three existing unchanged
+OpenAI SDK checks. The new gateway fixture exercises two authenticated customers
+in one personal-memory store through fresh Chat/Responses requests: both receive
+the shared document, each retains only their own private references/observations,
+and changing/removing shared evidence changes subsequent model prompts. Provider
+checks cover shared-only reads, exact private credential selection, bounded merge,
+concurrent searches, failure isolation, scope attribution, and rejection of shared
+note-upload fallback. Authentication and independent disable controls remain tested.
+
+The existing knowledge service's 46 targeted lifecycle/search/management/note
+checks passed against real Postgres/Qdrant, including source refresh, removal and
+canonical owner checks; Ruff lint/format also passed. Its production code did not
+change. These service checks and gateway HTTP fixtures establish the constituent
+mechanics; they are not a single live-model end-to-end evaluation. Actual answer
+quality/citation compliance with a real provider remains unverified. Nothing was
+deployed and no shared credential or live learning was enabled. Docker packaging
+checks passed on schema 9; diff, format and local documentation links were checked.
 
 ## Meeting-note ingestion (CL5)
 

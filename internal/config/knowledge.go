@@ -37,10 +37,20 @@ func loadKnowledgeConfig() (KnowledgeConfig, error) {
 		return c, fmt.Errorf("KNOWLEDGE_LIMIT must be between 1 and 20")
 	}
 	c.Tokens, err = parseAuthTokens(getEnv("KNOWLEDGE_SUBJECT_TOKENS", ""))
-	if err != nil || len(c.Tokens) == 0 {
+	if err != nil {
 		return c, fmt.Errorf("KNOWLEDGE_SUBJECT_TOKENS requires unique subject=token entries")
 	}
+	c.SharedToken = getEnv("KNOWLEDGE_SHARED_TOKEN", "")
+	if strings.ContainsAny(c.SharedToken, "\r\n\t ") {
+		return c, fmt.Errorf("KNOWLEDGE_SHARED_TOKEN contains an invalid bearer credential")
+	}
+	if len(c.Tokens) == 0 && c.SharedToken == "" {
+		return c, fmt.Errorf("knowledge requires KNOWLEDGE_SUBJECT_TOKENS or KNOWLEDGE_SHARED_TOKEN")
+	}
 	for _, entry := range c.Tokens {
+		if entry.Token == c.SharedToken {
+			return c, fmt.Errorf("shared and private knowledge credentials must be distinct")
+		}
 		if strings.ContainsAny(entry.Token, "\r\n\t ") {
 			return c, fmt.Errorf("KNOWLEDGE_SUBJECT_TOKENS contains an invalid bearer credential")
 		}

@@ -187,9 +187,15 @@ works when SecondContext is absent.
 
 ## SecondContext integration
 
-The disabled-by-default Go `KnowledgeProvider` calls only `/v1/search`. Configure
-exact subject-to-owner-token mappings; the authenticated resolved subject selects
-the credential. Memory and reference retrieval remain independent, with separate
+The disabled-by-default Go `KnowledgeProvider` searches through `/v1/search`;
+explicit meeting-note imports use its optional `/v1/notes` capability. Configure
+exact subject-to-owner-token mappings for private references; the authenticated
+resolved subject selects the credential. CL6 optionally adds one dedicated shared
+reference owner through the gateway's `KNOWLEDGE_SHARED_TOKEN`. Administrators
+manage its documents with this service's existing UI/APIs. That credential is
+used only for gateway search; private imports never fall back to it. The physical
+Qdrant collection stays unchanged: its existing owner boundary defines the logical
+shared corpus. Memory and reference retrieval remain independent, with separate
 disable controls and labeled prompt sections. Response/debug packets retain the
 actual bounded evidence and provenance. Gateway retrieval does not extract
 candidates or write cognitive state. See [adapter setup](../README.md#reference-knowledge-adapter-k9)
@@ -241,6 +247,6 @@ hybrid improvement. The separate [lifecycle report](../services/knowledge-bootst
 uses deterministic embeddings to measure recovery/provenance, not semantic quality.
 
 OCR, browser rendering, scheduled refresh, additional formats, source-priority
-controls, sharing/permissions, external blob storage, incremental document diffs,
+controls, general sharing/permissions, external blob storage, incremental document diffs,
 custom rerankers and richer extraction/contradiction analysis remain deferred in
 [TODO.md](../TODO.md#knowledge-base-follow-ups).

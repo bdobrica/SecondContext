@@ -2,7 +2,7 @@
 
 ## Current priority — Conversational learning and product usefulness
 
-Decision date: 2026-11-11. Status: **Active; CL1–CL5 implementation available;
+Decision date: 2026-11-11. Status: **Active; CL1–CL6 implementation available;
 real-provider acceptance, matched comparisons and M1 validation pending.**
 
 The next milestone is a useful product that learns from ordinary conversation.
@@ -418,6 +418,37 @@ reference retrieval remains usable; do not expand this track ahead of CL1–CL5.
 Acceptance: two distinct customers in fresh sessions receive answers from the
 same document; neither receives the other's private context; a document update
 changes later answers. General sharing/permissions interfaces are later work.
+
+CL6 implementation (2026-11-12, at the user's explicit request): optional
+`KNOWLEDGE_SHARED_TOKEN` selects a dedicated owner in the existing knowledge
+service for deployment-wide reference reads. Private subject mappings remain
+optional and distinct. Both owner searches run concurrently, with shared/private
+rank interleaving under the existing total result/prompt limits. Evidence carries
+gateway-assigned scope and source attribution. Partial failures preserve validated
+evidence from the surviving collection. The ordinary Chat/Responses paths need
+no client memory or workspace metadata. Personal memory ownership, dialogue
+identity, learning consent and acceptance are unchanged.
+
+Administrators upload/manage shared sources through the existing knowledge UI/API.
+New generations search current sources; URL refresh or source replacement/removal
+therefore affects later retrieval. File/text replacement uses delete then upload,
+with a possible indexing gap. Historical answers and managed replay receipts retain
+their original evidence. Neither conversational capture nor `/memory/notes` writes
+to the shared owner; note imports still require a private mapping. No new storage
+migration, per-request workspace selector or general permissions interface is added.
+The managed configuration recipe is `managed-recent-cl6-1`.
+
+Validation: `make verify` passed (mandatory Postgres/Qdrant, no skips, all three
+unchanged SDK checks), including the two-customer shared/private context fixture
+through both APIs. Schema-9 Docker packaging passed. The existing knowledge
+service passed 46 targeted lifecycle/search/management/note checks against real
+Postgres/Qdrant, plus Ruff lint/format; its production code is unchanged. Diff,
+format and documentation-link checks passed. Gateway tests use HTTP evidence and
+deterministic inference fixtures; service tests separately verify canonical
+refresh/deletion. This is mechanical evidence, not a live-model end-to-end result.
+See TODO.md and the CL6 section of the learning guide for details.
+Real-provider answer quality and the earlier M1/CL4/CL5 acceptance remain open.
+No deployment, shared credential configuration or live learning enablement occurred.
 
 ### Validation and work deliberately deferred
 
